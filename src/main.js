@@ -271,8 +271,10 @@ class Game {
     this.aiBots[2].resetAt(4, 0);  // 體素柴犬
   }
 
-  // 3 秒快速空投復活
+  // 3 秒快速空投復活 (隱藏彈窗 + 清理障礙 + 3.5 秒黃金無敵護盾)
   fastRespawn() {
+    this.uiManager.hideOverlays();
+
     const activeRows = this.mapGenerator.getActiveRows();
     let safeZ = Math.max(0, this.player.gridZ - 1);
     
@@ -299,8 +301,15 @@ class Game {
       }
     }
 
+    // 清理周圍樹木，確保著陸點安全
+    this.physics.destroyTreesInArea({ x: safeX, z: safeZ }, 1, activeRows);
+
     this.idleTimer = 0;
     this.player.respawn(safeX, safeZ);
+
+    // 給予 3.5 秒護盾無敵防護 (防止 0.2 秒後瞬間二次死亡)
+    this.itemSystem.useItem(ITEM_TYPES.SHIELD);
+
     this.cameraAutoScrollZ = (safeZ - 3.15) * CONFIG.GRID_SIZE;
     this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
     this.isGameOver = false;
