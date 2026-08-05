@@ -11,8 +11,8 @@ export class Player {
     this.maxReachedZ = 0;
     this.score = 0;
 
-    // 最小可後退到的 Z 軸邊界 (緊貼身後，最多後退 2 格)
-    this.minAllowedZ = 0;
+    // 最小可後退到的 Z 軸網格邊界
+    this.minAllowedZ = -4;
 
     // 動畫與狀態控制
     this.isJumping = false;
@@ -107,7 +107,7 @@ export class Player {
       return false;
     }
 
-    // 緊貼身後邊界限制：不允許向後超出 minAllowedZ (最多後退 2 格)
+    // 緊貼身後邊界限制：不允許向後超出 minAllowedZ
     if (this.minAllowedZ !== undefined && newGridZ < this.minAllowedZ) {
       return false;
     }
@@ -128,7 +128,6 @@ export class Player {
     if (this.targetGridZ > this.maxReachedZ) {
       this.maxReachedZ = this.targetGridZ;
       this.score = this.maxReachedZ;
-      this.minAllowedZ = Math.max(0, this.maxReachedZ - 2);
     }
 
     return true;
@@ -213,7 +212,6 @@ export class Player {
     this.gridZ = safeZ;
     this.targetGridX = safeX;
     this.targetGridZ = safeZ;
-    this.minAllowedZ = Math.max(0, safeZ - 2);
 
     const targetX = safeX * CONFIG.GRID_SIZE;
     const targetZ = safeZ * CONFIG.GRID_SIZE;
@@ -250,7 +248,7 @@ export class Player {
     this.targetGridZ = 0;
     this.maxReachedZ = 0;
     this.score = 0;
-    this.minAllowedZ = 0;
+    this.minAllowedZ = -4;
     this.isJumping = false;
     this.isDead = false;
     this.isShielded = false;

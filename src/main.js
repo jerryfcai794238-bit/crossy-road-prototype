@@ -22,9 +22,11 @@ class Game {
     this.isGameStarted = false;
     this.isGameOver = false;
 
-    // 靜止發呆發動老鷹攻擊計時器
-    this.idleTimer = 0;
-    this.lastPlayerZ = 0;
+    // 身後底邊界 (0.45格/秒平滑推進，發呆7秒追上小雞)
+    // 7秒 * 0.45格/秒 = 3.15格
+    this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
+
+    // 老鷹與攻擊狀態
     this.eagleMesh = null;
     this.isEagleAttacking = false;
 
@@ -148,6 +150,11 @@ class Game {
 
     const moved = this.player.move(direction);
     if (moved) {
+      // 玩家向前跳躍時，底邊界自動同步向前補進對齊 (-3.15格)
+      const catchupZ = (this.player.maxReachedZ - 3.15) * CONFIG.GRID_SIZE;
+      this.cameraAutoScrollZ = Math.max(this.cameraAutoScrollZ, catchupZ);
+      this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+
       this.mapGenerator.update(this.player.gridZ);
       this.uiManager.updateScore(this.player.score);
     }
@@ -156,8 +163,8 @@ class Game {
   startGame() {
     this.isGameStarted = true;
     this.isGameOver = false;
-    this.idleTimer = 0;
-    this.lastPlayerZ = 0;
+    this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
+    this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
     this.isEagleAttacking = false;
     if (this.eagleMesh) {
       this.scene.remove(this.eagleMesh);
@@ -172,8 +179,8 @@ class Game {
     this.mapGenerator.initMap();
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
-    this.idleTimer = 0;
-    this.lastPlayerZ = 0;
+    this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
+    this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
     this.isEagleAttacking = false;
     if (this.eagleMesh) {
       this.scene.remove(this.eagleMesh);
@@ -187,6 +194,7 @@ class Game {
 
   resetAllRunners() {
     this.player.reset();
+    this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
     this.aiBots.forEach(bot => {
       bot.isDead = false;
       this.scene.add(bot.mesh);
@@ -224,8 +232,9 @@ class Game {
       }
     }
 
-    this.idleTimer = 0;
     this.player.respawn(safeX, safeZ);
+    this.cameraAutoScrollZ = (safeZ - 3.15) * CONFIG.GRID_SIZE;
+    this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
     this.isGameOver = false;
     this.isGameStarted = true;
     this.clock.start();
@@ -291,16 +300,14 @@ class Game {
     // 1. 更新主角狀態與跳躍
     this.player.update(deltaTime);
 
-    // 2. 正版發呆 5 秒老鷹俯衝檢測
-    if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning && !this.isEagleAttacking) {
-      if (this.player.gridZ > this.lastPlayerZ) {
-        this.lastPlayerZ = this.player.gridZ;
-        this.idleTimer = 0; // 向前推進重置發呆計時器
-      } else {
-        this.idleTimer += deltaTime;
-        if (this.idleTimer >= 5.0) {
-          this.triggerEagleAttack();
-        }
+    // 2. 底邊界以 0.45 格/秒 穩定向前平滑推進
+    if (this.isGameStarted && !this.isGameOver) {
+      this.cameraAutoScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
+      this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+
+      // 若發呆 7 秒不前進，底邊界追上小雞，立即召喚老鷹俯衝
+      if (this.player.position.z <= this.cameraAutoScrollZ + 0.05 * CONFIG.GRID_SIZE && !this.player.isRespawning && !this.isEagleAttacking) {
+        this.triggerEagleAttack();
       }
     }
 
@@ -339,8 +346,11 @@ class Game {
     // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 9. 正版相機視口精準推進 (直接追蹤最高目標 Z 軸，消除雙重延遲)
-    const targetCameraZ = this.player.maxReachedZ * CONFIG.GRID_SIZE;
+    // 9. 精準視口相機跟隨 (底邊剛好卡在 cameraAutoScrollZ，開局後方不留多餘草地)
+    const targetCameraZ = Math.max(
+      this.cameraAutoScrollZ + 2.0 * CONFIG.GRID_SIZE,
+      this.player.position.z + 0.8 * CONFIG.GRID_SIZE
+    );
     this.sceneSetup.updateCamera({ x: this.player.position.x, z: targetCameraZ });
 
     // 10. 主角碰撞與落水判定
