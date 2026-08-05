@@ -87,11 +87,14 @@ export class Player {
       return true; // 死亡
     }
 
-    // 100% 彈回身後安全草地 (無無敵時間)
+    // 100% 彈回身後安全草地，並重置最高點與分數對齊 safeZ (防止相機死鎖在遠方)
     this.gridZ = safeZ;
     this.targetGridZ = safeZ;
     this.gridX = safeX;
     this.targetGridX = safeX;
+
+    this.maxReachedZ = safeZ;
+    this.score = safeZ;
 
     this.position.set(safeX * CONFIG.GRID_SIZE, 0, safeZ * CONFIG.GRID_SIZE);
     this.startPosition.copy(this.position);
@@ -293,6 +296,8 @@ export class Player {
     this.gridZ = safeZ;
     this.targetGridX = safeX;
     this.targetGridZ = safeZ;
+    this.maxReachedZ = safeZ;
+    this.score = safeZ;
 
     const targetX = safeX * CONFIG.GRID_SIZE;
     const targetZ = safeZ * CONFIG.GRID_SIZE;

@@ -501,6 +501,10 @@ class Game {
           const { safeX, safeZ } = this.physics.findNearestSafeZ(this.player, activeRows);
           const isDead = this.player.takeDamage(hitObstacle.damage, safeZ, safeX);
 
+          // 受傷彈回身後草地時，同步重置底邊界與相機鎖定 baseline
+          this.cameraAutoScrollZ = (safeZ - 3.15) * CONFIG.GRID_SIZE;
+          this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+
           if (isDead) {
             this.player.triggerFlattenAnimation();
             this.gameOver(hitObstacle.type === 'train' ? '慘遭高速火車輾過，HP 歸零！' : '被車輛撞擊，HP 歸零！');
@@ -518,6 +522,10 @@ class Game {
             if (Math.abs(this.player.position.x) > drownBoundaryX) {
               const { safeX, safeZ } = this.physics.findNearestSafeZ(this.player, activeRows);
               const isDead = this.player.takeDamage(20, safeZ, safeX);
+
+              this.cameraAutoScrollZ = (safeZ - 3.15) * CONFIG.GRID_SIZE;
+              this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+
               if (isDead) {
                 this.player.triggerDrownAnimation();
                 this.gameOver('漂流過遠，掉出邊界外，HP 歸零！');
@@ -527,6 +535,10 @@ class Game {
             // 落水扣 20 HP 並彈回身後安全草地
             const { safeX, safeZ } = this.physics.findNearestSafeZ(this.player, activeRows);
             const isDead = this.player.takeDamage(20, safeZ, safeX);
+
+            this.cameraAutoScrollZ = (safeZ - 3.15) * CONFIG.GRID_SIZE;
+            this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+
             if (isDead) {
               this.player.triggerDrownAnimation();
               this.gameOver('噗通！落水淹死，HP 歸零！');
