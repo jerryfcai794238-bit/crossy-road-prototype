@@ -69,6 +69,7 @@ export class SceneSetup {
     this.dirLight.shadow.camera.far = 100;
 
     this.scene.add(this.dirLight);
+    this.scene.add(this.dirLight.target);
   }
 
   resetCamera() {
@@ -87,7 +88,12 @@ export class SceneSetup {
   }
 
   updateCamera(targetPosition) {
-    if (!targetPosition) return;
+    if (!targetPosition || !Number.isFinite(targetPosition.x) || !Number.isFinite(targetPosition.z)) return;
+
+    // 防止 cameraTarget 被 NaN 污染
+    if (!Number.isFinite(this.cameraTarget.x) || !Number.isFinite(this.cameraTarget.z)) {
+      this.cameraTarget.set(0, 0, 1.6 * CONFIG.GRID_SIZE);
+    }
 
     const desiredTarget = new THREE.Vector3(
       targetPosition.x * 0.4,
@@ -100,13 +106,15 @@ export class SceneSetup {
 
     // 更新相機與平行光位置
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
-    this.dirLight.position.set(
-      this.cameraTarget.x - 20,
-      35,
-      this.cameraTarget.z - 15
-    );
-    this.dirLight.target.position.copy(this.cameraTarget);
-    this.dirLight.target.updateMatrixWorld();
+    if (this.dirLight) {
+      this.dirLight.position.set(
+        this.cameraTarget.x - 20,
+        35,
+        this.cameraTarget.z - 15
+      );
+      this.dirLight.target.position.copy(this.cameraTarget);
+      this.dirLight.target.updateMatrixWorld();
+    }
 
     this.camera.lookAt(this.cameraTarget);
   }

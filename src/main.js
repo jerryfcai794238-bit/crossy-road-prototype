@@ -163,8 +163,12 @@ class Game {
     const moved = this.player.move(direction, distance);
     if (moved) {
       // 玩家向前跳躍時，底邊界自動同步向前補進對齊 (-3.15格)
-      const catchupZ = (this.player.maxReachedZ - 3.15) * CONFIG.GRID_SIZE;
-      this.cameraAutoScrollZ = Math.max(this.cameraAutoScrollZ, catchupZ);
+      const maxZ = Number.isFinite(this.player.maxReachedZ) ? this.player.maxReachedZ : 0;
+      const catchupZ = (maxZ - 3.15) * CONFIG.GRID_SIZE;
+      this.cameraAutoScrollZ = Math.max(
+        Number.isFinite(this.cameraAutoScrollZ) ? this.cameraAutoScrollZ : -3.15 * CONFIG.GRID_SIZE,
+        catchupZ
+      );
       this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
 
       // 音速 4 級判定與 Combo 計數 (PERFECT >1.2格 / GREAT / GOOD <=0.45格)
@@ -477,12 +481,17 @@ class Game {
       // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
       this.mapGenerator.animateObstacles(deltaTime, elapsedTime, slowdownMultiplier);
 
-      // 9. 精準視口相機跟隨
+      // 9. 精準視口相機跟隨 (使用 Number.isFinite 安全防護，徹底消除相機鎖死)
+      const pZ = Number.isFinite(this.player.position.z) ? this.player.position.z : 0;
+      const pX = Number.isFinite(this.player.position.x) ? this.player.position.x : 0;
+      const autoZ = Number.isFinite(this.cameraAutoScrollZ) ? this.cameraAutoScrollZ : -3.15 * CONFIG.GRID_SIZE;
+
       const targetCameraZ = Math.max(
-        this.player.position.z + 1.6 * CONFIG.GRID_SIZE,
-        this.cameraAutoScrollZ + 4.75 * CONFIG.GRID_SIZE
+        pZ + 1.6 * CONFIG.GRID_SIZE,
+        autoZ + 4.75 * CONFIG.GRID_SIZE
       );
-      this.sceneSetup.updateCamera({ x: this.player.position.x, z: targetCameraZ });
+
+      this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ });
 
       // 10. 主角碰撞與 100 HP 扣血判定
       if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning && !this.isEagleAttacking) {
