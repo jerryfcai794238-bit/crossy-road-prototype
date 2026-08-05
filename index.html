@@ -38,16 +38,16 @@
     <!-- 道具快捷選單與點擊按鈕 -->
     <div id="item-hud">
       <div class="item-selector">
-        <button class="item-select-btn active" data-item="shield">🛡️ 護盾</button>
-        <button class="item-select-btn" data-item="rocket">🚀 火箭</button>
-        <button class="item-select-btn" data-item="time_slow">⏳ 超感</button>
+        <button class="item-select-btn active" data-item="shield">[1] 🛡️ 護盾</button>
+        <button class="item-select-btn" data-item="rocket">[2] 🚀 火箭</button>
+        <button class="item-select-btn" data-item="time_slow">[3] ⏳ 超感</button>
       </div>
       <button id="btn-use-item" class="item-trigger-btn">
         <span id="item-icon">🛡️</span>
         <span id="item-cooldown-text">READY</span>
         <div id="cooldown-overlay"></div>
       </button>
-      <div class="item-key-hint">(按 [空白鍵] 或 [E] 使用)</div>
+      <div class="item-key-hint">按鍵 [1] [2] [3] 直接切換並使用</div>
     </div>
 
     <!-- 開始與控制提示 -->
@@ -57,12 +57,12 @@
         <p class="game-subtitle">3D 體素過馬路原型 (道具版)</p>
         <div class="instructions">
           <div class="key-hint">
-            <span class="key">W</span> / <span class="key">▲</span> 前進，<span class="key">A</span> <span class="key">S</span> <span class="key">D</span> 轉向
+            <span class="key">W</span> 前進，<span class="key">A</span> 往左，<span class="key">D</span> 往右
           </div>
           <div class="key-hint">
-            <span class="key">Space</span> / <span class="key">E</span> 使用局內道具 (護盾/火箭/超感)
+            <span class="key">1</span> 護盾 / <span class="key">2</span> 火箭 / <span class="key">3</span> 超感
           </div>
-          <div class="touch-hint">手機可直接點擊 / 滑動螢幕與道具鈕控制</div>
+          <div class="touch-hint">手機可點擊螢幕 / 虛擬 D-Pad 與道具鈕控制</div>
         </div>
         <button id="btn-start" class="btn-primary">開始遊戲</button>
       </div>
@@ -84,7 +84,7 @@
           </div>
         </div>
         <div class="gameover-actions">
-          <button id="btn-respawn" class="btn-secondary">⚡ 1秒快速重生</button>
+          <button id="btn-respawn" class="btn-secondary">⚡ 3秒原地復活</button>
           <button id="btn-restart" class="btn-primary">重新開局</button>
         </div>
       </div>

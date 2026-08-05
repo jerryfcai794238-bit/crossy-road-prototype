@@ -45,17 +45,24 @@ export class UIManager {
     this.itemSelectBtns.forEach((btn) => {
       btn.addEventListener('click', (e) => {
         const itemType = e.target.getAttribute('data-item');
-        this.itemSelectBtns.forEach((b) => b.classList.remove('active'));
-        e.target.classList.add('active');
-
-        // 更新按鈕圖示
-        if (itemType === 'shield') this.itemIcon.textContent = '🛡️';
-        else if (itemType === 'rocket') this.itemIcon.textContent = '🚀';
-        else if (itemType === 'time_slow') this.itemIcon.textContent = '⏳';
-
+        this.setActiveItemUI(itemType);
         onSelectItem(itemType);
       });
     });
+  }
+
+  setActiveItemUI(itemType) {
+    this.itemSelectBtns.forEach((b) => {
+      if (b.getAttribute('data-item') === itemType) {
+        b.classList.add('active');
+      } else {
+        b.classList.remove('active');
+      }
+    });
+
+    if (itemType === 'shield') this.itemIcon.textContent = '🛡️';
+    else if (itemType === 'rocket') this.itemIcon.textContent = '🚀';
+    else if (itemType === 'time_slow') this.itemIcon.textContent = '⏳';
   }
 
   updateItemCooldown(ratio, remainingSeconds) {

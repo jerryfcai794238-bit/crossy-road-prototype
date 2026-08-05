@@ -5,7 +5,7 @@ import { createChicken } from './graphics/VoxelModels.js';
 import { Player } from './mechanics/Player.js';
 import { MapGenerator } from './mechanics/MapGenerator.js';
 import { Physics } from './mechanics/Physics.js';
-import { ItemSystem } from './mechanics/ItemSystem.js';
+import { ItemSystem, ITEM_TYPES } from './mechanics/ItemSystem.js';
 import { UIManager } from './ui/UIManager.js';
 
 class Game {
@@ -53,7 +53,7 @@ class Game {
   }
 
   setupInputListeners() {
-    // 鍵盤控制 (含道具快捷鍵)
+    // 鍵盤控制：W/A/D 移動，1/2/3 道具快捷鍵
     window.addEventListener('keydown', (e) => {
       if (!this.isGameStarted || this.isGameOver) return;
 
@@ -78,6 +78,15 @@ class Game {
         case 'D':
           this.handlePlayerMove('RIGHT');
           break;
+        case '1':
+          this.triggerSpecificItem(ITEM_TYPES.SHIELD, 'shield');
+          break;
+        case '2':
+          this.triggerSpecificItem(ITEM_TYPES.ROCKET, 'rocket');
+          break;
+        case '3':
+          this.triggerSpecificItem(ITEM_TYPES.TIME_SLOW, 'time_slow');
+          break;
         case ' ':
         case 'e':
         case 'E':
@@ -86,7 +95,7 @@ class Game {
       }
     });
 
-    // 虛擬 D-Pad (行動裝置)
+    // 虛擬 D-Pad
     document.getElementById('btn-up')?.addEventListener('click', () => this.handlePlayerMove('UP'));
     document.getElementById('btn-down')?.addEventListener('click', () => this.handlePlayerMove('DOWN'));
     document.getElementById('btn-left')?.addEventListener('click', () => this.handlePlayerMove('LEFT'));
@@ -98,6 +107,12 @@ class Game {
       if (!this.isGameStarted || this.isGameOver) return;
       this.handlePlayerMove('UP');
     });
+  }
+
+  triggerSpecificItem(itemType, uiItemType) {
+    this.itemSystem.selectItem(itemType);
+    this.uiManager.setActiveItemUI(uiItemType);
+    this.useItem();
   }
 
   useItem() {
@@ -140,7 +155,7 @@ class Game {
     this.clock.start();
   }
 
-  // 1 秒快速空投重生
+  // 3 秒快速空投復活
   fastRespawn() {
     const safeZ = Math.max(0, this.player.gridZ - 2);
     this.player.respawn(safeZ);
@@ -181,14 +196,14 @@ class Game {
     if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning) {
       const activeRows = this.mapGenerator.getActiveRows();
       
-      // 1. 車輛 / 火車撞擊判定 (已整合護盾無敵穿透)
+      // 1. 車輛 / 火車撞擊判定
       const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
       if (hitObstacle && !this.player.isShielded) {
         this.player.triggerFlattenAnimation();
         this.gameOver(hitObstacle.type === 'train' ? '慘遭高速火車輾過！' : '被車輛撞飛了！');
       }
 
-      // 2. 河流與木塊落水判定 (已整合護盾防護)
+      // 2. 河流與木塊落水判定
       const riverStatus = this.physics.checkRiverStatus(this.player, activeRows);
       if (riverStatus.inRiver && !this.player.isShielded) {
         if (riverStatus.onLog) {

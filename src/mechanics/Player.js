@@ -23,7 +23,6 @@ export class Player {
     this.maxReachedZ = 0;
     this.facingAngle = 0;
 
-    // 狀態標籤
     this.isShielded = false;
     this.isReflexHyper = false;
     this.isRespawning = false;
@@ -124,7 +123,6 @@ export class Player {
     this.isJumping = true;
     this.jumpProgress = 0;
 
-    // 超感時間狀態下跳躍速度減半（動作快 2 倍）
     this.jumpDuration = this.isReflexHyper ? CONFIG.JUMP_DURATION * 0.5 : CONFIG.JUMP_DURATION;
     this.jumpHeight = customDistance > 1 ? CONFIG.JUMP_HEIGHT * 2.2 : CONFIG.JUMP_HEIGHT;
 
@@ -136,19 +134,18 @@ export class Player {
     return true;
   }
 
-  // 火箭爆衝 3 格跳躍
   rocketJump() {
     return this.move('UP', 3);
   }
 
-  // 1 秒快速空投重生
+  // 3 秒空投復活
   respawn(safeGridZ = Math.max(0, this.gridZ - 2)) {
     this.isRespawning = true;
     this.isJumping = false;
     this.gridX = 0;
     this.gridZ = safeGridZ;
 
-    this.startPosition.set(0, 8, safeGridZ * CONFIG.GRID_SIZE); // 空中 8 單位高空降落
+    this.startPosition.set(0, 10, safeGridZ * CONFIG.GRID_SIZE); // 10 單位高空降落
     this.targetPosition.set(0, 0, safeGridZ * CONFIG.GRID_SIZE);
     this.position.copy(this.startPosition);
 
@@ -160,7 +157,7 @@ export class Player {
 
     this.isJumping = true;
     this.jumpProgress = 0;
-    this.jumpDuration = 0.8; // 0.8 秒空投降落
+    this.jumpDuration = 3.0; // 3 秒降落過程
     this.jumpHeight = 0;
   }
 
@@ -182,10 +179,8 @@ export class Player {
         this.position.z = THREE.MathUtils.lerp(this.startPosition.z, this.targetPosition.z, this.jumpProgress);
 
         if (this.isRespawning) {
-          // 下降降落傘動畫
           this.position.y = THREE.MathUtils.lerp(this.startPosition.y, 0, this.jumpProgress);
         } else {
-          // 抛物線跳躍
           const jumpY = Math.sin(this.jumpProgress * Math.PI) * this.jumpHeight;
           this.position.y = jumpY;
         }
