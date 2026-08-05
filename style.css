@@ -1,0 +1,286 @@
+:root {
+  --primary-color: #ffcc00;
+  --primary-hover: #ffe066;
+  --danger-color: #ff4757;
+  --bg-dark: rgba(15, 23, 42, 0.75);
+  --text-light: #ffffff;
+  --font-family: 'Fredoka', 'Outfit', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #1a1a2e;
+  font-family: var(--font-family);
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#canvas-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+/* HUD 分數 */
+#hud {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 10;
+  display: flex;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.score-card, .high-score-card {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 10px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.score-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #a0aec0;
+  letter-spacing: 1.5px;
+}
+
+#current-score, #high-score {
+  font-size: 32px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+#high-score {
+  color: var(--primary-color);
+}
+
+/* Modal Overlay 彈窗通用 */
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--bg-dark);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.modal-card {
+  background: linear-gradient(145deg, #1e293b, #0f172a);
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  padding: 40px;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  transform: translateY(0);
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.8) translateY(20px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.game-title {
+  font-size: 42px;
+  font-weight: 900;
+  color: var(--primary-color);
+  letter-spacing: 2px;
+  text-shadow: 0 4px 12px rgba(255, 204, 0, 0.4);
+  margin-bottom: 4px;
+}
+
+.game-subtitle {
+  color: #94a3b8;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+
+.instructions {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 28px;
+  text-align: left;
+}
+
+.key-hint {
+  color: #e2e8f0;
+  font-size: 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.key {
+  background: #334155;
+  border: 1px solid #475569;
+  border-bottom: 3px solid #1e293b;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 700;
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.touch-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 900;
+  color: #0f172a;
+  background: linear-gradient(135deg, var(--primary-color), #f59e0b);
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(245, 158, 11, 0.6);
+  background: linear-gradient(135deg, var(--primary-hover), #fbbf24);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+/* Game Over 專屬樣式 */
+.gameover-title {
+  font-size: 38px;
+  font-weight: 900;
+  color: var(--danger-color);
+  text-shadow: 0 4px 12px rgba(255, 71, 87, 0.4);
+  margin-bottom: 8px;
+}
+
+.death-reason {
+  color: #cbd5e1;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+
+.final-score-box {
+  display: flex;
+  justify-content: space-around;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.score-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.score-item span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.score-item strong {
+  font-size: 28px;
+  color: #ffffff;
+}
+
+/* 行動裝置懸浮虛擬鍵盤 */
+#mobile-controls {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.85;
+}
+
+@media (min-width: 768px) {
+  #mobile-controls {
+    display: none; /* 電腦版隱藏 */
+  }
+}
+
+.dpad-middle {
+  display: flex;
+  gap: 8px;
+}
+
+.dpad-btn {
+  width: 56px;
+  height: 56px;
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  color: #ffffff;
+  font-size: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dpad-btn:active {
+  background: var(--primary-color);
+  color: #000;
+}
