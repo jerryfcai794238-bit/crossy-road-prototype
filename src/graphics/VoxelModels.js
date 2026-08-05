@@ -52,28 +52,26 @@ export function createChicken() {
 export function createCar(colorHex = 0xff4757) {
   const group = new THREE.Group();
 
-  // 車身底盤 (Chassis)
+  // 車身底盤
   const body = createCube(1.4, 0.45, 0.95, colorHex);
   body.position.y = 0.35;
   group.add(body);
 
-  // 車頂駕駛艙 (Cabin)
+  // 車頂駕駛艙
   const cabin = createCube(0.85, 0.4, 0.85, 0xffffff);
   cabin.position.set(-0.1, 0.75, 0);
   group.add(cabin);
 
-  // 車窗 (Windows)
+  // 車窗
   const windowGlass = createCube(0.8, 0.32, 0.87, 0x2f3542);
   windowGlass.position.set(-0.1, 0.75, 0);
   group.add(windowGlass);
 
-  // 四個輪胎 (Wheels)
+  // 四個輪胎
   const wheelColor = 0x222222;
   const wheelPositions = [
-    [0.45, 0.15, 0.48],
-    [0.45, 0.15, -0.48],
-    [-0.45, 0.15, 0.48],
-    [-0.45, 0.15, -0.48]
+    [0.45, 0.15, 0.48], [0.45, 0.15, -0.48],
+    [-0.45, 0.15, 0.48], [-0.45, 0.15, -0.48]
   ];
 
   wheelPositions.forEach(([x, y, z]) => {
@@ -82,7 +80,7 @@ export function createCar(colorHex = 0xff4757) {
     group.add(wheel);
   });
 
-  // 車燈 (Headlights)
+  // 車燈
   const lightL = createCube(0.08, 0.12, 0.18, 0xfffa65);
   lightL.position.set(0.71, 0.38, 0.3);
   const lightR = createCube(0.08, 0.12, 0.18, 0xfffa65);
@@ -93,16 +91,16 @@ export function createCar(colorHex = 0xff4757) {
 }
 
 // 3. 卡車/貨車模型 (Truck Voxel Model)
-export function createTruck() {
+export function createTruck(colorHex = 0x57606f) {
   const group = new THREE.Group();
 
-  // 車頭 (Cabin Front)
+  // 車頭
   const cabin = createCube(0.7, 0.75, 0.95, 0xff6b6b);
   cabin.position.set(0.65, 0.5, 0);
   group.add(cabin);
 
-  // 後方貨斗 (Cargo Box)
-  const cargo = createCube(1.4, 0.9, 1.0, 0xf1f2f6);
+  // 後方貨斗
+  const cargo = createCube(1.4, 0.9, 1.0, colorHex || 0xf1f2f6);
   cargo.position.set(-0.4, 0.6, 0);
   group.add(cargo);
 
@@ -123,16 +121,16 @@ export function createTruck() {
 }
 
 // 4. 樹木模型 (Tree Voxel Model)
-export function createTree() {
+export function createTree(type = 0) {
   const group = new THREE.Group();
 
-  // 樹幹 (Trunk)
+  // 樹幹
   const trunk = createCube(0.35, 0.6, 0.35, CONFIG.COLORS.TREE_TRUNK);
   trunk.position.y = 0.3;
   group.add(trunk);
 
-  // 階梯狀樹葉 (Tiered Leaves)
-  const leafColor = CONFIG.COLORS.TREE_LEAVES[Math.floor(Math.random() * CONFIG.COLORS.TREE_LEAVES.length)];
+  // 階梯狀樹葉
+  const leafColor = CONFIG.COLORS.TREE_LEAVES[type % CONFIG.COLORS.TREE_LEAVES.length];
 
   const tier1 = createCube(1.0, 0.45, 1.0, leafColor);
   tier1.position.y = 0.8;
@@ -178,7 +176,7 @@ export function createTrain() {
   windowFront.position.set(1.2, 0.8, 0);
   group.add(windowFront);
 
-  // 警示燈 (Red Light)
+  // 警示燈
   const warningLight = createCube(0.2, 0.2, 0.2, 0xff4d4d);
   warningLight.position.set(1.5, 1.25, 0);
   group.add(warningLight);
@@ -186,21 +184,42 @@ export function createTrain() {
   return group;
 }
 
-// === 新增：道具特效 mesh 生成器 (Item VFX Creators) ===
+// 7. 鐵路號誌燈 (Signal Pole)
+export function createSignal() {
+  const group = new THREE.Group();
 
-// 7. 金剛護盾 Mesh (Shield Aura)
+  // 燈柱
+  const pole = createCube(0.12, 1.2, 0.12, 0x57606f);
+  pole.position.y = 0.6;
+  group.add(pole);
+
+  // 號誌箱
+  const box = createCube(0.3, 0.45, 0.25, 0x2f3542);
+  box.position.set(0, 1.0, 0);
+  group.add(box);
+
+  // 警示紅燈
+  const bulbMat = new THREE.MeshBasicMaterial({ color: 0x550000 });
+  const bulbGeo = new THREE.BoxGeometry(0.15, 0.15, 0.1);
+  const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+  bulb.position.set(0, 1.0, 0.13);
+  group.add(bulb);
+
+  group.userData = { bulbMat };
+  return group;
+}
+
+// 8. 道具 VFX 特效模型
 export function createShieldMesh() {
   const geometry = new THREE.SphereGeometry(0.85, 16, 16);
   const material = new THREE.MeshBasicMaterial({
     color: 0xf5cd79,
     transparent: true,
-    opacity: 0.45,
-    wireframe: false
+    opacity: 0.45
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.y = 0.55;
 
-  // 內層微光
   const innerGeo = new THREE.SphereGeometry(0.72, 12, 12);
   const innerMat = new THREE.MeshBasicMaterial({
     color: 0xfffa65,
@@ -213,7 +232,6 @@ export function createShieldMesh() {
   return mesh;
 }
 
-// 8. 火箭跳尾焰粒子群 (Rocket Exhaust Voxel Group)
 export function createRocketExhaust() {
   const group = new THREE.Group();
   for (let i = 0; i < 8; i++) {
@@ -228,7 +246,6 @@ export function createRocketExhaust() {
   return group;
 }
 
-// 9. 超感時間時鐘波紋 (Clock Wave Ring)
 export function createTimeWave() {
   const geometry = new THREE.RingGeometry(0.2, 2.5, 32);
   const material = new THREE.MeshBasicMaterial({
@@ -242,3 +259,11 @@ export function createTimeWave() {
   mesh.position.y = 0.05;
   return mesh;
 }
+
+// === 導出 MapGenerator 相容之別名函數 ===
+export const createTreeMesh = createTree;
+export const createCarMesh = createCar;
+export const createTruckMesh = createTruck;
+export const createLogMesh = createLog;
+export const createTrainMesh = createTrain;
+export const createSignalMesh = createSignal;

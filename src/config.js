@@ -2,10 +2,13 @@ import * as THREE from 'three';
 
 export const CONFIG = {
   GRID_SIZE: 1.2,
-  MAP_BOUNDS_X: 8, // 可移動的 X 軸邊界範圍 (-8 ~ +8，共 17 格)
-  INITIAL_SAFE_ROWS: 6, // 遊戲開始時的初始安全草地列數
-  GENERATION_AHEAD: 25, // 玩家前方維持動態生成的列數
-  DESPAWN_BEHIND: 12, // 玩家後方回收刪除的列數
+  MAP_BOUNDS_X: 8, // 可移動的 X 軸邊界範圍 (-8 ~ +8)
+  INITIAL_SAFE_ROWS: 6, // 開始時安全草地區
+  GENERATION_AHEAD: 25, // 玩家前方動態生成列數
+  DESPAWN_BEHIND: 12, // 玩家後方回收列數
+
+  JUMP_DURATION: 0.18,
+  JUMP_HEIGHT: 0.65,
 
   // 路段類型定義
   ROW_TYPES: {
@@ -15,7 +18,7 @@ export const CONFIG = {
     RAILROAD: 'RAILROAD'
   },
 
-  // 主題色彩設定 (體素風格)
+  // 主題色彩設定
   COLORS: {
     GRASS_PRIMARY: 0x7ec850,
     GRASS_SECONDARY: 0x73bd45,
@@ -37,11 +40,11 @@ export const CONFIG = {
     SIGNAL_RED: 0xff1744
   },
 
-  // 玩家跳躍與物理參數
+  // 玩家參數
   PLAYER: {
-    JUMP_DURATION: 0.18, // 單次網格跳躍動畫時間 (秒)
-    JUMP_HEIGHT: 0.65, // 跳躍弧形最高高度
-    COLLISION_RADIUS: 0.35 // 玩家碰撞檢測半徑
+    JUMP_DURATION: 0.18,
+    JUMP_HEIGHT: 0.65,
+    COLLISION_RADIUS: 0.35
   },
 
   // 障礙物與載面速度設定
@@ -65,8 +68,8 @@ export const CONFIG = {
       MAX_LENGTH: 4
     },
     TRAIN: {
-      SPEED: 32.0, // 高速通過速度
-      WARNING_TIME: 1.5, // 火車抵達前號誌燈閃爍預警時間 (秒)
+      SPEED: 32.0,
+      WARNING_TIME: 1.5,
       INTERVAL_MIN: 5.0,
       INTERVAL_MAX: 10.0,
       LENGTH: 22.0
