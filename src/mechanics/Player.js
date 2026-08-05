@@ -39,7 +39,7 @@ export class Player {
   }
 
   move(direction, distance = 1) {
-    if (this.isJumping || this.isRespawning) return false;
+    if (this.isJumping || this.isRespawning || this.isDead) return false;
 
     let newGridX = this.targetGridX;
     let newGridZ = this.targetGridZ;
@@ -143,10 +143,11 @@ export class Player {
         );
         this.position.y = Math.sin(this.jumpProgress * Math.PI) * this.jumpHeight;
       }
+    }
 
-      if (this.mesh) {
-        this.mesh.position.copy(this.position);
-      }
+    // 確保 3D Mesh 與物理座標實時保持 100% 同步
+    if (this.mesh && !this.isRespawning && !this.isDead) {
+      this.mesh.position.copy(this.position);
     }
   }
 
