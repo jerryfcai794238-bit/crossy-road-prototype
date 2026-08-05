@@ -70,6 +70,17 @@ export class SceneSetup {
     this.scene.add(this.dirLight);
   }
 
+  resetCamera() {
+    this.cameraTarget.set(0, 0, 0);
+    this.camera.position.copy(this.cameraOffset);
+    this.camera.lookAt(this.cameraTarget);
+    if (this.dirLight) {
+      this.dirLight.position.set(-20, 35, -15);
+      this.dirLight.target.position.copy(this.cameraTarget);
+      this.dirLight.target.updateMatrixWorld();
+    }
+  }
+
   updateCamera(targetPosition) {
     if (!targetPosition) return;
 

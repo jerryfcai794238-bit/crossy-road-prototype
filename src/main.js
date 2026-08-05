@@ -22,11 +22,16 @@ class Game {
     this.isGameStarted = false;
     this.isGameOver = false;
 
+    // 單向前進相機歷史最高值 Z 座標
+    this.maxCameraZ = 0;
+
     // 身後底邊界 (0.45格/秒平滑推進，發呆7秒追上小雞)
     // 7秒 * 0.45格/秒 = 3.15格
     this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
 
     // 老鷹與攻擊狀態
+    this.idleTimer = 0;
+    this.lastPlayerZ = 0;
     this.eagleMesh = null;
     this.isEagleAttacking = false;
 
@@ -163,15 +168,26 @@ class Game {
   startGame() {
     this.isGameStarted = true;
     this.isGameOver = false;
-    this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
-    this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+    this.maxCameraZ = 0;
+    this.idleTimer = 0;
+    this.lastPlayerZ = 0;
     this.isEagleAttacking = false;
+
     if (this.eagleMesh) {
       this.scene.remove(this.eagleMesh);
       this.eagleMesh = null;
     }
-    this.itemSystem.reset();
+
+    // 先重置玩家與 AI 選手狀態
     this.resetAllRunners();
+
+    // 歸零並精準設定底邊界為 -3.15 格 (7 秒空間)
+    this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
+    this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+
+    // 0 延遲重置相機
+    this.sceneSetup.resetCamera();
+    this.itemSystem.reset();
     this.clock.start();
   }
 
@@ -179,22 +195,33 @@ class Game {
     this.mapGenerator.initMap();
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
-    this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
-    this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+    this.isGameOver = false;
+    this.isGameStarted = true;
+    this.maxCameraZ = 0;
+    this.idleTimer = 0;
+    this.lastPlayerZ = 0;
     this.isEagleAttacking = false;
+
     if (this.eagleMesh) {
       this.scene.remove(this.eagleMesh);
       this.eagleMesh = null;
     }
-    this.isGameOver = false;
-    this.isGameStarted = true;
+
+    // 1. 先重置選手網格與物理座標
     this.resetAllRunners();
+
+    // 2. 徹底歸零底邊界 (-3.15 格)
+    this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
+    this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+
+    // 3. 相機焦點 0 延遲完全閃回起點 (0, 0, 0)
+    this.sceneSetup.resetCamera();
+
     this.clock.start();
   }
 
   resetAllRunners() {
     this.player.reset();
-    this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
     this.aiBots.forEach(bot => {
       bot.isDead = false;
       this.scene.add(bot.mesh);
@@ -232,6 +259,7 @@ class Game {
       }
     }
 
+    this.idleTimer = 0;
     this.player.respawn(safeX, safeZ);
     this.cameraAutoScrollZ = (safeZ - 3.15) * CONFIG.GRID_SIZE;
     this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
