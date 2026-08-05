@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Crossy Road Prototype - 天天過馬路 3D</title>
+  <title>Crossy Road Prototype - 天天過馬路 3D</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet">
@@ -17,13 +17,22 @@
     }
   }
   </script>
-  <script type="module" crossorigin src="/assets/index-5I1s8lmZ.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-uabMxSXH.css">
+  <script type="module" crossorigin src="/assets/index-CeMe2MFB.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-jV-RadLf.css">
 </head>
 <body>
   <div id="app">
     <!-- 3D Canvas 容器 -->
     <div id="canvas-container"></div>
+
+    <!-- 頂部能量與計時 UI -->
+    <div id="energy-bar">
+      <div class="energy-pill">
+        <span class="energy-icon">⚡</span>
+        <span id="energy-count">5/5</span>
+        <span id="energy-timer" class="energy-timer-text">已滿</span>
+      </div>
+    </div>
 
     <!-- 遊戲 HUD UI -->
     <div id="hud">
@@ -72,11 +81,33 @@
       </button>
     </div>
 
-    <!-- 開始與控制提示 -->
+    <!-- 🏛️ 遊戲大廳 / 模式選擇 (Game Lobby) -->
     <div id="start-overlay" class="overlay active">
-      <div class="modal-card">
+      <div class="modal-card lobby-card">
         <h1 class="game-title">CROSSY ROAD</h1>
-        <p class="game-subtitle">3D 體素過馬路原型 (4人動物競速版)</p>
+        <p class="game-subtitle">3D 體素過馬路原型大廳</p>
+
+        <!-- 模式選擇卡片區域 -->
+        <div class="mode-select-container">
+          <!-- 卡片 1: 挑戰模式 -->
+          <div class="mode-card challenge-card selected" data-mode="challenge">
+            <div class="mode-badge">熱門</div>
+            <div class="mode-icon">🏆</div>
+            <h3 class="mode-title">挑戰模式</h3>
+            <p class="mode-desc">含 7 秒老鷹淘汰與 4 人動物同起點競速榜！挑戰高分極限。</p>
+            <div class="mode-cost">消耗 ⚡ 1</div>
+          </div>
+
+          <!-- 卡片 2: 休閒模式 -->
+          <div class="mode-card casual-card" data-mode="casual">
+            <div class="mode-badge casual">推薦</div>
+            <div class="mode-icon">🍃</div>
+            <h3 class="mode-title">休閒模式</h3>
+            <p class="mode-desc">無老鷹發呆淘汰死！輕鬆漫遊過馬路、練習技能與遊玩。</p>
+            <div class="mode-cost">消耗 ⚡ 1</div>
+          </div>
+        </div>
+
         <div class="instructions">
           <div class="key-hint">
             <span class="key">W</span> 前進，<span class="key">S</span> 後退，<span class="key">A</span> 往左，<span class="key">D</span> 往右
@@ -84,9 +115,9 @@
           <div class="key-hint">
             <span class="key">1</span> 護盾技能 / <span class="key">2</span> 火箭技能 / <span class="key">3</span> 超感技能
           </div>
-          <div class="touch-hint">手機可點擊螢幕 / 虛擬 D-Pad 與技能鈕控制</div>
         </div>
-        <button id="btn-start" class="btn-primary">開始遊戲</button>
+
+        <button id="btn-start" class="btn-primary">進入遊戲 (消耗 1 ⚡)</button>
       </div>
     </div>
 
@@ -101,27 +132,28 @@
             <strong id="final-score">0</strong>
           </div>
           <div class="score-item">
-            <span>最高紀錄</span>
-            <strong id="modal-high-score">0</strong>
+            <span>歷史最高</span>
+            <strong id="final-best">0</strong>
           </div>
         </div>
-        <div class="gameover-actions">
-          <button id="btn-respawn" class="btn-secondary">⚡ 3秒原地復活</button>
-          <button id="btn-restart" class="btn-primary">重新開局</button>
+        <div class="btn-group">
+          <button id="btn-restart" class="btn-primary">再試一次 (消耗 1 ⚡)</button>
+          <button id="btn-fast-respawn" class="btn-secondary">空投復活 (3秒)</button>
+          <button id="btn-lobby" class="btn-secondary">返回大廳</button>
         </div>
       </div>
     </div>
 
-    <!-- 行動裝置虛擬方向鍵 -->
+    <!-- 虛擬 D-Pad 控制器 (Mobile 顯示) -->
     <div id="mobile-controls">
-      <button id="btn-up" class="dpad-btn up">▲</button>
+      <button id="btn-up" class="dpad-btn dpad-up">▲</button>
       <div class="dpad-middle">
-        <button id="btn-left" class="dpad-btn left">◄</button>
-        <button id="btn-down" class="dpad-btn down">▼</button>
-        <button id="btn-right" class="dpad-btn right">►</button>
+        <button id="btn-left" class="dpad-btn dpad-left">◄</button>
+        <button id="btn-down" class="dpad-btn dpad-down">▼</button>
+        <button id="btn-right" class="dpad-btn dpad-right">►</button>
       </div>
     </div>
   </div>
-
+
 </body>
 </html>

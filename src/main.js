@@ -7,12 +7,16 @@ import { AIBot } from './mechanics/AIBot.js';
 import { MapGenerator } from './mechanics/MapGenerator.js';
 import { Physics } from './mechanics/Physics.js';
 import { ItemSystem, ITEM_TYPES } from './mechanics/ItemSystem.js';
+import { GameModes, GAME_MODES } from './mechanics/GameModes.js';
 import { UIManager } from './ui/UIManager.js';
 
 class Game {
   constructor() {
     this.container = document.getElementById('canvas-container');
     this.uiManager = new UIManager();
+
+    // 遊戲模式與能量系統 (30 秒恢復 1 點)
+    this.gameModes = new GameModes();
 
     // 初始化 3D 場景 (鏡頭距離拉近至 d=4.0)
     this.sceneSetup = new SceneSetup(this.container);
@@ -66,12 +70,13 @@ class Game {
 
     this.clock = new THREE.Clock();
 
-    // 綁定 UI 與 3 大獨立技能獨立按鈕
+    // 綁定 UI 大廳與雙模式選擇
     this.uiManager.init(
-      () => this.startGame(),
-      () => this.restartGame(),
+      (mode) => this.startGame(mode),
+      (mode) => this.restartGame(mode),
       () => this.fastRespawn(),
-      (skillType) => this.triggerSkill(skillType)
+      (skillType) => this.triggerSkill(skillType),
+      () => this.returnToLobby()
     );
 
     this.setupInputListeners();
@@ -130,7 +135,7 @@ class Game {
 
     // 螢幕 Touch / Click 往前跳
     this.container.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#hud') || e.target.closest('#skill-bar') || e.target.closest('#leaderboard') || e.target.closest('#mobile-controls') || e.target.closest('.overlay')) return;
+      if (e.target.closest('#hud') || e.target.closest('#skill-bar') || e.target.closest('#leaderboard') || e.target.closest('#mobile-controls') || e.target.closest('.overlay') || e.target.closest('#energy-bar')) return;
       if (!this.isGameStarted || this.isGameOver) return;
       this.handlePlayerInput('UP');
     });
@@ -182,7 +187,16 @@ class Game {
     this.itemSystem.useItem(skillType);
   }
 
-  startGame() {
+  startGame(mode = GAME_MODES.CHALLENGE) {
+    // 檢查並消耗能量
+    if (!this.gameModes.useEnergy()) {
+      alert(`能量不足！目前能量：${this.gameModes.energy}/5，請等待 30 秒恢復倒數！`);
+      return;
+    }
+
+    this.gameModes.setMode(mode);
+    this.uiManager.hideOverlays();
+
     this.isGameStarted = true;
     this.isGameOver = false;
     this.maxCameraZ = 0;
@@ -195,20 +209,27 @@ class Game {
       this.eagleMesh = null;
     }
 
-    // 先重置玩家與 AI 選手狀態
+    // 重置選手與地圖
     this.resetAllRunners();
 
-    // 歸零並精準設定底邊界為 -3.15 格 (7 秒空間)
     this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
     this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
 
-    // 0 延遲重置相機 (焦點向前推進 +1.6 格，使主角置於畫面下 25%)
     this.sceneSetup.resetCamera();
     this.itemSystem.reset();
     this.clock.start();
   }
 
-  restartGame() {
+  restartGame(mode = GAME_MODES.CHALLENGE) {
+    if (!this.gameModes.useEnergy()) {
+      alert(`能量不足！目前能量：${this.gameModes.energy}/5，請等待 30 秒恢復倒數！`);
+      this.returnToLobby();
+      return;
+    }
+
+    this.gameModes.setMode(mode);
+    this.uiManager.hideOverlays();
+
     this.mapGenerator.initMap();
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
@@ -224,17 +245,19 @@ class Game {
       this.eagleMesh = null;
     }
 
-    // 1. 先重置選手網格與物理座標
     this.resetAllRunners();
 
-    // 2. 徹底歸零底邊界 (-3.15 格)
     this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
     this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
 
-    // 3. 相機焦點 0 延遲完全閃回對齊起點
     this.sceneSetup.resetCamera();
-
     this.clock.start();
+  }
+
+  returnToLobby() {
+    this.isGameStarted = false;
+    this.isGameOver = false;
+    this.uiManager.showLobby();
   }
 
   resetAllRunners() {
@@ -291,9 +314,15 @@ class Game {
     this.uiManager.showGameOver(this.player.score, reason, allowRespawn);
   }
 
-  // 觸發正版老鷹極速 0.4 秒俯衝抓走動畫
+  // 觸發老鷹 0.75 秒飛行俯衝抓走動畫 (調慢節奏感，增加張力與預警)
   triggerEagleAttack() {
     if (this.isEagleAttacking) return;
+
+    // 休閒模式完全停用老鷹發呆淘汰死
+    if (this.gameModes.currentMode === GAME_MODES.CASUAL) {
+      return;
+    }
+
     this.isEagleAttacking = true;
 
     this.eagleMesh = createEagle();
@@ -306,7 +335,7 @@ class Game {
     const playerTarget = this.player.position.clone();
 
     const animateEagle = () => {
-      progress += 0.08;
+      progress += 0.045; // ~0.75 秒俯衝，具備滿滿威壓感
       if (progress < 0.5) {
         const t = progress / 0.5;
         this.eagleMesh.position.x = THREE.MathUtils.lerp(startX, playerTarget.x, t);
@@ -342,21 +371,32 @@ class Game {
     const elapsedTime = this.clock.getElapsedTime();
     const activeRows = this.mapGenerator.getActiveRows();
 
+    // 0. 更新 30 秒能量恢復機制與 UI
+    this.gameModes.update(deltaTime);
+    const energyStatus = {
+      energy: this.gameModes.energy,
+      maxEnergy: this.gameModes.maxEnergy,
+      timeToNext: this.gameModes.getTimeToNextEnergy()
+    };
+    this.uiManager.updateEnergyUI(energyStatus.energy, energyStatus.maxEnergy, energyStatus.timeToNext);
+
     // 1. 更新主角狀態與跳躍 (觸地自動觸發緩衝佇列連跳)
     this.player.update(deltaTime);
 
-    // 2. 底邊界以 0.45 格/秒 穩定向前平滑推進
+    // 2. 挑戰模式下：底邊界以 0.45 格/秒 穩定向前平滑推進
     if (this.isGameStarted && !this.isGameOver) {
-      this.cameraAutoScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
-      this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+      if (this.gameModes.currentMode === GAME_MODES.CHALLENGE) {
+        this.cameraAutoScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
+        this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
 
-      // 若發呆 7 秒不前進，底邊界追上小雞，立即召喚老鷹俯衝
-      if (this.player.position.z <= this.cameraAutoScrollZ + 0.05 * CONFIG.GRID_SIZE && !this.player.isRespawning && !this.isEagleAttacking) {
-        this.triggerEagleAttack();
+        // 若發呆 7 秒不前進，底邊界追上小雞，立即召喚老鷹俯衝
+        if (this.player.position.z <= this.cameraAutoScrollZ + 0.05 * CONFIG.GRID_SIZE && !this.player.isRespawning && !this.isEagleAttacking) {
+          this.triggerEagleAttack();
+        }
       }
     }
 
-    // 3. 更新 3 隻 AI 動物決策與跳躍
+    // 3. 更新 3 隻高智商高競爭性 AI 動物決策與跳躍 (0.22s 決策)
     if (this.isGameStarted && !this.isGameOver) {
       this.aiBots.forEach((bot) => {
         if (!bot.isDead && !bot.isRespawning) {

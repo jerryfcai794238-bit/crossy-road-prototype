@@ -2,14 +2,18 @@ import { Player } from './Player.js';
 import { CONFIG } from '../config.js';
 
 export class AIBot extends Player {
-  constructor(mesh, name, startGridX, startGridZ, reactionSpeed = 0.35) {
+  constructor(mesh, botName, startX = 0, startZ = 0, baseAggression = 0.38) {
     super(mesh);
-    this.botName = name;
-    this.reactionSpeed = reactionSpeed; // 跳躍間隔決策時間 (秒)
-    this.decisionTimer = Math.random() * 0.5; // 隨機錯開起跳時間
+    this.botName = botName;
+    this.startX = startX;
+    this.startZ = startZ;
+    this.baseAggression = baseAggression; // AI 移動基礎衝勁
 
-    // 初始位置設定
-    this.resetAt(startGridX, startGridZ);
+    // 決策計時器 (縮短至 0.22 秒，大幅提升 AI 前進競爭力)
+    this.decisionTimer = 0;
+    this.decisionInterval = 0.22;
+
+    this.resetAt(startX, startZ);
   }
 
   resetAt(startX, startZ) {
@@ -18,113 +22,96 @@ export class AIBot extends Player {
     this.gridZ = startZ;
     this.targetGridX = startX;
     this.targetGridZ = startZ;
-
-    const posX = startX * CONFIG.GRID_SIZE;
-    const posZ = startZ * CONFIG.GRID_SIZE;
-
-    this.position.set(posX, 0, posZ);
-    this.startPosition.set(posX, 0, posZ);
-    this.targetPosition.set(posX, 0, posZ);
+    this.position.set(startX * CONFIG.GRID_SIZE, 0, startZ * CONFIG.GRID_SIZE);
+    this.startPosition.copy(this.position);
+    this.targetPosition.copy(this.position);
+    this.isDead = false;
 
     if (this.mesh) {
-      this.mesh.position.set(posX, 0, posZ);
-      this.mesh.rotation.y = 0;
+      this.mesh.position.copy(this.position);
       this.mesh.visible = true;
     }
   }
 
   updateAI(deltaTime, activeRows, physics) {
-    if (this.isJumping || this.isRespawning) return;
+    if (this.isJumping || this.isRespawning || this.isDead) return;
 
-    this.decisionTimer -= deltaTime;
-    if (this.decisionTimer > 0) return;
+    this.decisionTimer += deltaTime;
+    if (this.decisionTimer < this.decisionInterval) return;
 
-    // 重置決策計時器 (帶有些微隨機抖動，模擬人類手感)
-    this.decisionTimer = this.reactionSpeed + (Math.random() - 0.5) * 0.15;
+    this.decisionTimer = 0;
 
-    // 決策移動方向
-    const bestMove = this.decideBestMove(activeRows, physics);
-    if (bestMove) {
-      // 檢查樹木阻擋
-      const targetPos = this.getTargetGridPosition(bestMove);
-      if (!physics.checkTreeCollision(targetPos, activeRows)) {
-        this.move(bestMove);
-      }
-    }
-  }
+    // AI 決策邏輯：評估向前、左、右三個方向的安全權重
+    const directions = ['UP', 'LEFT', 'RIGHT'];
+    let bestDirection = null;
+    let bestScore = -999;
 
-  /**
-   * AI 智慧路徑決策邏輯 (向前、左避、右避、等待)
-   */
-  decideBestMove(activeRows, physics) {
-    const upTarget = this.getTargetGridPosition('UP');
-    const leftTarget = this.getTargetGridPosition('LEFT');
-    const rightTarget = this.getTargetGridPosition('RIGHT');
+    directions.forEach((dir) => {
+      const targetPos = this.getTargetGridPosition(dir);
 
-    const isUpBlocked = physics.checkTreeCollision(upTarget, activeRows);
-    const isUpSafe = this.isCellSafe(upTarget, activeRows);
+      // 1. 檢查樹木檔路
+      if (physics.checkTreeCollision(targetPos, activeRows)) return;
 
-    // 1. 如果前方無樹且無危險，90% 優先向前 jump
-    if (!isUpBlocked && isUpSafe) {
-      return 'UP';
-    }
+      // 2. 地圖左右邊界限制
+      if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X) return;
 
-    // 2. 如果前方有樹木，嘗試往左或往右避開
-    const canLeft = !physics.checkTreeCollision(leftTarget, activeRows) && this.isCellSafe(leftTarget, activeRows);
-    const canRight = !physics.checkTreeCollision(rightTarget, activeRows) && this.isCellSafe(rightTarget, activeRows);
+      let score = 0;
 
-    if (canLeft && canRight) {
-      return Math.random() > 0.5 ? 'LEFT' : 'RIGHT';
-    } else if (canLeft) {
-      return 'LEFT';
-    } else if (canRight) {
-      return 'RIGHT';
-    }
+      // 優先向前 (+Z 軸) 增加競爭分
+      if (dir === 'UP') score += 15.0 + Math.random() * 5.0;
+      if (dir === 'LEFT' || dir === 'RIGHT') score += 2.0;
 
-    // 3. 前方為危險車道/無浮木，暫時停頓等待
-    return null;
-  }
+      const row = activeRows.get(targetPos.z);
+      if (row) {
+        // 車道預判：若有車接近，給予極大負分扣除
+        if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
+          for (const veh of row.vehicles) {
+            const obsX = veh.position ? veh.position.x : veh.mesh.position.x;
+            const dist = Math.abs(targetPos.x * CONFIG.GRID_SIZE - obsX);
+            if (dist < 2.5) {
+              score -= 80.0;
+            }
+          }
+        }
 
-  /**
-   * 檢查目標格子是否有即將撞击的車輛或危險水域
-   */
-  isCellSafe(targetGridPos, activeRows) {
-    const row = activeRows.get(targetGridPos.z);
-    if (!row) return true;
+        // 鐵路號誌預警：若有紅燈 flashing，給予極大負分
+        if (row.type === CONFIG.ROW_TYPES.RAILROAD && (row.trainState === 'SIGNAL_FLASHING' || row.trainState === 'TRAIN_PASSING')) {
+          score -= 120.0;
+        }
 
-    // 馬路車流預測
-    if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
-      const targetX = targetGridPos.x * CONFIG.GRID_SIZE;
-      for (const veh of row.vehicles) {
-        const obsX = veh.position ? veh.position.x : veh.mesh.position.x;
-        const halfWidth = (veh.width || 1.6) / 2;
-        // 若車輛極度靠近該 X 座標，判定為危險
-        if (Math.abs(targetX - obsX) < halfWidth + 0.8) {
-          return false;
+        // 河流漂木預判：若踩不到漂木，給予極大負分
+        if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
+          let canLandOnLog = false;
+          for (const log of row.logs) {
+            const logX = log.position ? log.position.x : log.mesh.position.x;
+            const width = (log.length || 3) * CONFIG.GRID_SIZE * 0.85;
+            const halfWidth = width / 2;
+            const targetXUnits = targetPos.x * CONFIG.GRID_SIZE;
+
+            if (targetXUnits >= logX - halfWidth - 0.2 && targetXUnits <= logX + halfWidth + 0.2) {
+              canLandOnLog = true;
+              break;
+            }
+          }
+          if (!canLandOnLog) {
+            score -= 150.0;
+          } else {
+            score += 10.0;
+          }
         }
       }
-    }
 
-    // 河流浮木預測
-    if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
-      const targetX = targetGridPos.x * CONFIG.GRID_SIZE;
-      let onLog = false;
-      for (const log of row.logs) {
-        const logX = log.position ? log.position.x : log.mesh.position.x;
-        const width = (log.length || 3) * CONFIG.GRID_SIZE * 0.85;
-        if (Math.abs(targetX - logX) < width / 2) {
-          onLog = true;
-          break;
-        }
+      if (score > bestScore) {
+        bestScore = score;
+        bestDirection = dir;
       }
-      if (!onLog) return false; // 無浮木水域不安全
-    }
+    });
 
-    // 鐵路火車警示燈預測
-    if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.trainState !== 'IDLE') {
-      return false; // 警示燈亮起或火車通過中不安全
+    // 隨機決策概率 (當安全分數 > -40 時執行前進)
+    if (bestDirection && bestScore > -40.0) {
+      if (Math.random() < this.baseAggression + 0.45) {
+        this.move(bestDirection);
+      }
     }
-
-    return true;
   }
 }

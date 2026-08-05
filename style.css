@@ -38,6 +38,53 @@ body, html {
   z-index: 1;
 }
 
+/* 頂部能量與計時 UI */
+#energy-bar {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.energy-pill {
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 2.5 solid rgba(255, 204, 0, 0.4);
+  border-radius: 24px;
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.energy-icon {
+  font-size: 20px;
+  animation: pulseEnergy 1.5s infinite alternate;
+}
+
+@keyframes pulseEnergy {
+  from { transform: scale(1); filter: drop-shadow(0 0 2px #ffcc00); }
+  to { transform: scale(1.2); filter: drop-shadow(0 0 8px #ffcc00); }
+}
+
+#energy-count {
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffcc00;
+  letter-spacing: 1px;
+}
+
+.energy-timer-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #94a3b8;
+  min-width: 65px;
+}
+
 /* HUD 分數 */
 #hud {
   position: absolute;
@@ -98,101 +145,114 @@ body, html {
 }
 
 .leaderboard-header {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 900;
-  color: var(--primary-color);
+  color: #ffcc00;
+  text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.1);
   text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 4px;
 }
 
-.rank-item {
+#leaderboard-list {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lb-row {
+  display: flex;
   align-items: center;
-  font-size: 12px;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 700;
   color: #cbd5e1;
-  margin-bottom: 4px;
-  padding: 2px 6px;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.rank-item.is-player {
-  background: rgba(255, 204, 0, 0.22);
+.lb-row.player-row {
+  background: rgba(255, 204, 0, 0.2);
   border: 1px solid rgba(255, 204, 0, 0.5);
   color: #ffffff;
 }
 
-.rank-item.first-place {
-  color: #ffd700;
-}
-
-.rank-score {
-  font-weight: 900;
-  color: #10b981;
-  margin-left: 8px;
-}
-
-.rank-item.is-dead {
-  opacity: 0.5;
+.lb-row.dead-row {
+  opacity: 0.45;
   text-decoration: line-through;
 }
 
-/* 3 大獨立技能快捷列 (Skill Bar) */
+.lb-rank {
+  font-weight: 900;
+  width: 22px;
+}
+
+.lb-name {
+  flex: 1;
+  margin: 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-score {
+  font-weight: 900;
+  color: #38bdf8;
+}
+
+/* 3 大獨立技能列 (Skill Bar) */
 #skill-bar {
   position: absolute;
   bottom: 24px;
   left: 24px;
-  z-index: 15;
+  z-index: 10;
   display: flex;
-  gap: 12px;
+  gap: 14px;
 }
 
 .skill-btn {
   position: relative;
-  width: 84px;
-  height: 84px;
-  border-radius: 20px;
-  background: linear-gradient(145deg, #1e293b, #0f172a);
-  border: 2.5px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  width: 72px;
+  height: 80px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
   overflow: hidden;
-  transition: transform 0.15s ease, border-color 0.2s;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, border-color 0.2s ease;
 }
 
 .skill-btn:hover {
+  transform: translateY(-4px);
   border-color: var(--primary-color);
 }
 
 .skill-btn:active {
-  transform: scale(0.92);
+  transform: scale(0.95);
 }
 
-/* 技能內容置於遮罩上方 (z-index: 5) */
 .skill-key {
   position: absolute;
   top: 4px;
   left: 6px;
   font-size: 10px;
   font-weight: 900;
-  color: var(--primary-color);
-  z-index: 5;
+  color: #94a3b8;
 }
 
 .skill-icon {
-  font-size: 24px;
-  line-height: 1;
+  font-size: 26px;
   margin-top: 4px;
-  z-index: 5;
-  position: relative;
 }
 
 .skill-name {
@@ -200,207 +260,240 @@ body, html {
   font-weight: 700;
   color: #e2e8f0;
   margin-top: 2px;
-  z-index: 5;
-  position: relative;
 }
 
 .skill-cd-text {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
-  color: #10b981;
+  color: #38bdf8;
   margin-top: 1px;
-  z-index: 5;
-  position: relative;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 
-.skill-btn.on-cd .skill-cd-text {
-  color: #ff4757;
-}
-
-/* 暗化冷卻進度遮罩 (z-index: 1) */
 .skill-cd-overlay {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
   height: 0%;
-  background: rgba(15, 23, 42, 0.78);
-  border-top: 2px solid rgba(255, 71, 87, 0.6);
+  background: rgba(15, 23, 42, 0.85);
   transition: height 0.1s linear;
   pointer-events: none;
-  z-index: 1;
 }
 
-/* Modal Overlay 彈窗通用 */
+/* Modal 彈窗與遊戲大廳 */
 .overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 20;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 100;
   display: flex;
-  justify-content: center;
   align-items: center;
-  background: var(--bg-dark);
-  backdrop-filter: blur(8px);
-  opacity: 0;
-  pointer-events: none;
+  justify-content: center;
+  opacity: 1;
   transition: opacity 0.3s ease;
 }
 
-.overlay.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .overlay.hidden {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .modal-card {
-  background: linear-gradient(145deg, #1e293b, #0f172a);
-  border: 3px solid rgba(255, 255, 255, 0.1);
+  background: rgba(30, 41, 59, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 28px;
-  padding: 40px;
-  text-align: center;
-  max-width: 420px;
+  padding: 32px 36px;
+  max-width: 520px;
   width: 90%;
+  text-align: center;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-  transform: translateY(0);
-  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-@keyframes popIn {
-  0% { transform: scale(0.8) translateY(20px); opacity: 0; }
-  100% { transform: scale(1) translateY(0); opacity: 1; }
+.lobby-card {
+  max-width: 580px;
 }
 
 .game-title {
-  font-size: 42px;
+  font-size: 40px;
   font-weight: 900;
   color: var(--primary-color);
   letter-spacing: 2px;
-  text-shadow: 0 4px 12px rgba(255, 204, 0, 0.4);
-  margin-bottom: 4px;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
 .game-subtitle {
+  font-size: 14px;
   color: #94a3b8;
-  font-size: 16px;
+  margin-top: 4px;
+  margin-bottom: 20px;
+}
+
+/* 大廳模式選擇卡片區域 */
+.mode-select-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
+.mode-card {
+  position: relative;
+  background: rgba(15, 23, 42, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 20px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all 0.25s ease;
+}
+
+.mode-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 204, 0, 0.6);
+}
+
+.mode-card.selected {
+  background: rgba(255, 204, 0, 0.12);
+  border: 2.5px solid var(--primary-color);
+  box-shadow: 0 8px 24px rgba(255, 204, 0, 0.25);
+}
+
+.mode-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--danger-color);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.mode-badge.casual {
+  background: #2ed573;
+}
+
+.mode-icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+.mode-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.mode-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  flex: 1;
+}
+
+.mode-cost {
+  font-size: 12px;
+  font-weight: 900;
+  color: #ffcc00;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
 .instructions {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(15, 23, 42, 0.5);
   border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 28px;
-  text-align: left;
+  padding: 12px 16px;
+  margin-bottom: 24px;
 }
 
 .key-hint {
-  color: #e2e8f0;
-  font-size: 14px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  font-size: 13px;
+  color: #cbd5e1;
+  margin: 4px 0;
 }
 
 .key {
-  background: #334155;
-  border: 1px solid #475569;
-  border-bottom: 3px solid #1e293b;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
   border-radius: 6px;
-  padding: 2px 8px;
   font-weight: 700;
-  color: #f8fafc;
-  font-size: 13px;
-}
-
-.touch-hint {
-  font-size: 12px;
-  color: #64748b;
-  margin-top: 10px;
-  text-align: center;
+  color: var(--primary-color);
 }
 
 .btn-primary {
   width: 100%;
   padding: 16px;
-  font-family: inherit;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 900;
-  color: #0f172a;
-  background: linear-gradient(135deg, var(--primary-color), #f59e0b);
+  color: #1e293b;
+  background: var(--primary-color);
   border: none;
   border-radius: 16px;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+  box-shadow: 0 8px 20px rgba(255, 204, 0, 0.3);
   transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
+  background: var(--primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(245, 158, 11, 0.6);
-  background: linear-gradient(135deg, var(--primary-hover), #fbbf24);
-}
-
-.btn-primary:active {
-  transform: translateY(1px);
-}
-
-.gameover-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 .btn-secondary {
   width: 100%;
-  padding: 14px;
-  font-family: inherit;
-  font-size: 18px;
+  padding: 12px;
+  font-size: 14px;
   font-weight: 900;
   color: #ffffff;
-  background: linear-gradient(135deg, #10b981, #059669);
-  border: none;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
   transition: all 0.2s ease;
 }
 
 .btn-secondary:hover {
-  transform: translateY(-2px);
-  background: linear-gradient(135deg, #34d399, #10b981);
+  background: rgba(255, 255, 255, 0.2);
 }
 
-/* Game Over 專屬樣式 */
+.btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
 .gameover-title {
-  font-size: 38px;
+  font-size: 36px;
   font-weight: 900;
   color: var(--danger-color);
-  text-shadow: 0 4px 12px rgba(255, 71, 87, 0.4);
   margin-bottom: 8px;
 }
 
 .death-reason {
-  color: #cbd5e1;
   font-size: 16px;
-  margin-bottom: 24px;
+  color: #e2e8f0;
+  margin-bottom: 20px;
 }
 
 .final-score-box {
   display: flex;
   justify-content: space-around;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(15, 23, 42, 0.6);
   border-radius: 16px;
   padding: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .score-item {
@@ -416,50 +509,44 @@ body, html {
 
 .score-item strong {
   font-size: 28px;
-  color: #ffffff;
+  color: var(--primary-color);
 }
 
-/* 行動裝置懸浮虛擬鍵盤 */
+/* 虛擬 D-Pad 控制器 (Mobile) */
 #mobile-controls {
   position: absolute;
-  bottom: 30px;
-  right: 30px;
-  z-index: 15;
-  display: flex;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10;
+  display: none;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  opacity: 0.85;
 }
 
-@media (min-width: 768px) {
+@media (max-width: 768px) {
   #mobile-controls {
-    display: none;
+    display: flex;
   }
+}
+
+.dpad-btn {
+  width: 52px;
+  height: 52px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  color: #ffffff;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 .dpad-middle {
   display: flex;
-  gap: 8px;
-}
-
-.dpad-btn {
-  width: 56px;
-  height: 56px;
-  background: rgba(30, 41, 59, 0.8);
-  backdrop-filter: blur(10px);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  color: #ffffff;
-  font-size: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.dpad-btn:active {
-  background: var(--primary-color);
-  color: #000;
+  gap: 52px;
+  margin: 4px 0;
 }
