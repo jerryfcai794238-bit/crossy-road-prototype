@@ -17,7 +17,7 @@ class Game {
     // 遊戲模式與能量系統 (30 秒恢復 1 點)
     this.gameModes = new GameModes();
 
-    // 初始化 3D 場景 (鏡頭距離拉近至 d=4.0)
+    // 初始化 3D 場景 (鏡頭距離 d=4.0)
     this.sceneSetup = new SceneSetup(this.container);
     this.scene = this.sceneSetup.scene;
 
@@ -25,10 +25,7 @@ class Game {
     this.isGameStarted = false;
     this.isGameOver = false;
 
-    // 單向前進相機歷史最高值 Z 座標
-    this.maxCameraZ = 0;
-
-    // 身後底邊界 (0.45格/秒平滑推進，發呆7秒追上小雞)
+    // 身後底邊界 (0.45格/秒平滑推進)
     this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
 
     // 老鷹與攻擊狀態
@@ -217,7 +214,6 @@ class Game {
 
     this.isGameStarted = true;
     this.isGameOver = false;
-    this.maxCameraZ = 0;
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
     this.lastSafeGrassZ = 0;
@@ -252,7 +248,6 @@ class Game {
     this.uiManager.updateScore(0);
     this.isGameOver = false;
     this.isGameStarted = true;
-    this.maxCameraZ = 0;
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
     this.lastSafeGrassZ = 0;
@@ -481,15 +476,12 @@ class Game {
       // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
       this.mapGenerator.animateObstacles(deltaTime, elapsedTime, slowdownMultiplier);
 
-      // 9. 精準視口相機跟隨 (使用 Number.isFinite 安全防護，徹底消除相機鎖死)
+      // 9. 🔥 徹底移除死區：鏡頭對準主角 position.z 即時跟隨！每一步跳躍畫面必動！
       const pZ = Number.isFinite(this.player.position.z) ? this.player.position.z : 0;
       const pX = Number.isFinite(this.player.position.x) ? this.player.position.x : 0;
-      const autoZ = Number.isFinite(this.cameraAutoScrollZ) ? this.cameraAutoScrollZ : -3.15 * CONFIG.GRID_SIZE;
 
-      const targetCameraZ = Math.max(
-        pZ + 1.6 * CONFIG.GRID_SIZE,
-        autoZ + 4.75 * CONFIG.GRID_SIZE
-      );
+      // 鏡頭目標點直接鎖定玩家前方 1.6 格
+      const targetCameraZ = pZ + 1.6 * CONFIG.GRID_SIZE;
 
       this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ });
 
@@ -501,7 +493,7 @@ class Game {
           const { safeX, safeZ } = this.physics.findNearestSafeZ(this.player, activeRows);
           const isDead = this.player.takeDamage(hitObstacle.damage, safeZ, safeX);
 
-          // 受傷彈回身後草地時，同步重置底邊界與相機鎖定 baseline
+          // 受傷彈回身後草地時，同步重置底邊界
           this.cameraAutoScrollZ = (safeZ - 3.15) * CONFIG.GRID_SIZE;
           this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
 
