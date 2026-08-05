@@ -271,7 +271,7 @@ class Game {
     this.aiBots[2].resetAt(4, 0);  // 體素柴犬
   }
 
-  // 3 秒快速空投復活 (隱藏彈窗 + 清理障礙 + 3.5 秒黃金無敵護盾)
+  // 3 秒快速空投復活
   fastRespawn() {
     this.uiManager.hideOverlays();
 
@@ -306,6 +306,9 @@ class Game {
 
     this.idleTimer = 0;
     this.player.respawn(safeX, safeZ);
+
+    // 重置最遠距離標記至復活點 safeZ，防止向前跳躍時相機讀取舊高分暴走閃退
+    this.player.maxReachedZ = safeZ;
 
     // 給予 3.5 秒護盾無敵防護 (防止 0.2 秒後瞬間二次死亡)
     this.itemSystem.useItem(ITEM_TYPES.SHIELD);
