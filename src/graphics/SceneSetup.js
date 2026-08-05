@@ -9,9 +9,9 @@ export class SceneSetup {
     this.scene.background = new THREE.Color(0xa0d8ef); // 天藍色背景
     this.scene.fog = new THREE.FogExp2(0xa0d8ef, 0.015); // 遠景霧化效果
 
-    // 2. 正交相機 (Isometric Camera - 拉近鏡頭可視範圍 d = 9.5)
+    // 2. 正交相機 (Isometric Camera - 極致拉近鏡頭 d = 4.0)
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 9.5; // 鏡頭距離拉近，視野範圍變小，角色與車輛比例放大
+    const d = 4.0; // 鏡頭極致拉近，特寫級視角，可視範圍大幅縮小
     this.camera = new THREE.OrthographicCamera(
       -d * aspect,
       d * aspect,
@@ -21,7 +21,7 @@ export class SceneSetup {
       1000
     );
 
-    // 恢復上一版左下角往右上角經典視角角度 (-14, 18, -14)
+    // 恢復經典左下角往右上角視角角度 (-14, 18, -14)
     this.cameraOffset = new THREE.Vector3(-14, 18, -14);
     this.cameraTarget = new THREE.Vector3(0, 0, 0);
     this.camera.position.copy(this.cameraOffset);
@@ -96,7 +96,7 @@ export class SceneSetup {
 
   onWindowResize() {
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 9.5; // 拉近鏡頭，維持 d = 9.5
+    const d = 4.0; // 保持極致拉近 d = 4.0
     this.camera.left = -d * aspect;
     this.camera.right = d * aspect;
     this.camera.top = d;

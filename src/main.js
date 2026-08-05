@@ -14,7 +14,7 @@ class Game {
     this.container = document.getElementById('canvas-container');
     this.uiManager = new UIManager();
 
-    // 初始化 3D 場景 (對齊正版 Crossy Road 視角)
+    // 初始化 3D 場景 (鏡頭極致拉近 d=4.0)
     this.sceneSetup = new SceneSetup(this.container);
     this.scene = this.sceneSetup.scene;
 
@@ -116,7 +116,7 @@ class Game {
 
     // 螢幕 Touch / Click 往前跳
     this.container.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#hud') || e.target.closest('#skill-bar') || e.target.closest('#mobile-controls') || e.target.closest('.overlay')) return;
+      if (e.target.closest('#hud') || e.target.closest('#skill-bar') || e.target.closest('#leaderboard') || e.target.closest('#mobile-controls') || e.target.closest('.overlay')) return;
       if (!this.isGameStarted || this.isGameOver) return;
       this.handlePlayerMove('UP');
     });
@@ -173,6 +173,7 @@ class Game {
   resetAllRunners() {
     this.player.reset();
     this.aiBots.forEach(bot => {
+      bot.isDead = false;
       this.scene.add(bot.mesh);
     });
     this.aiBots[0].resetAt(-2, 0); // 黃色小鴨
@@ -233,7 +234,7 @@ class Game {
     // 2. 更新 3 隻 AI 動物決策與跳躍
     if (this.isGameStarted && !this.isGameOver) {
       this.aiBots.forEach((bot) => {
-        if (!bot.isRespawning) {
+        if (!bot.isDead && !bot.isRespawning) {
           bot.updateAI(deltaTime, activeRows, this.physics);
           bot.update(deltaTime);
         }
@@ -250,21 +251,30 @@ class Game {
       this.itemSystem.cooldowns
     );
 
-    // 5. 超感時空減速倍率 (0.35x)
+    // 5. 實時刷新右上角 4 人競速排行榜
+    const runnersData = [
+      { name: '主角小雞', score: this.player.score, isPlayer: true, isDead: this.isGameOver },
+      { name: this.aiBots[0].botName, score: this.aiBots[0].score, isPlayer: false, isDead: this.aiBots[0].isDead },
+      { name: this.aiBots[1].botName, score: this.aiBots[1].score, isPlayer: false, isDead: this.aiBots[1].isDead },
+      { name: this.aiBots[2].botName, score: this.aiBots[2].score, isPlayer: false, isDead: this.aiBots[2].isDead }
+    ];
+    this.uiManager.updateLeaderboard(runnersData);
+
+    // 6. 超感時空減速倍率 (0.35x)
     const speedMultiplier = this.player.isReflexHyper ? 0.35 : 1.0;
 
-    // 6. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
+    // 7. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 7. 畫面動態推進機制
+    // 8. 畫面動態推進機制 (修復畫面自動推進)
     if (this.isGameStarted && !this.isGameOver) {
-      this.cameraAutoScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
+      this.cameraAutoScrollZ += 0.55 * deltaTime * CONFIG.GRID_SIZE;
       
       const effectiveTargetZ = Math.max(this.cameraAutoScrollZ, this.player.position.z);
       this.sceneSetup.updateCamera({ x: this.player.position.x, z: effectiveTargetZ });
 
       // 檢查主角是否落後被捲出視角外
-      const maxDistanceBehind = 6.5 * CONFIG.GRID_SIZE;
+      const maxDistanceBehind = 5.0 * CONFIG.GRID_SIZE;
       if (this.player.position.z < this.cameraAutoScrollZ - maxDistanceBehind && !this.player.isRespawning) {
         this.gameOver('已被推離視角外淘汰！(地形已被回收無法復活)', false);
       }
@@ -272,7 +282,7 @@ class Game {
       this.sceneSetup.updateCamera(this.player.position);
     }
 
-    // 8. 主角碰撞與落水判定
+    // 9. 主角碰撞與落水判定
     if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning) {
       // 車輛 / 火車撞擊判定
       const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
@@ -300,16 +310,16 @@ class Game {
       }
     }
 
-    // 9. 更新 AI 對手的撞車、河流漂木隨波流動與落水淘汰判定 (修復圖 1)
+    // 10. 更新 AI 對手的撞車、河流漂木隨波流動與落水淘汰判定
     if (this.isGameStarted && !this.isGameOver) {
       this.aiBots.forEach((bot) => {
-        if (bot.isRespawning) return;
+        if (bot.isDead || bot.isRespawning) return;
 
         // AI 撞車/火車淘汰
         const botHit = this.physics.checkObstacleCollision(bot, activeRows);
         if (botHit && !bot.isShielded) {
           bot.triggerFlattenAnimation();
-          bot.isRespawning = true;
+          bot.isDead = true;
           setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
         }
 
@@ -323,19 +333,19 @@ class Game {
             const drownBoundaryX = (CONFIG.MAP_BOUNDS_X + 3.8) * CONFIG.GRID_SIZE;
             if (Math.abs(bot.position.x) > drownBoundaryX) {
               bot.triggerDrownAnimation();
-              bot.isRespawning = true;
+              bot.isDead = true;
               setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
             }
           } else {
             bot.triggerDrownAnimation();
-            bot.isRespawning = true;
+            bot.isDead = true;
             setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
           }
         }
       });
     }
 
-    // 10. 渲染 Three.js 畫面
+    // 11. 渲染 Three.js 畫面
     this.sceneSetup.render();
   }
 }

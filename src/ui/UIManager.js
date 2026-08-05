@@ -10,6 +10,7 @@ export class UIManager {
     this.btnStart = document.getElementById('btn-start');
     this.btnRestart = document.getElementById('btn-restart');
     this.btnRespawn = document.getElementById('btn-respawn');
+    this.leaderboardList = document.getElementById('leaderboard-list');
 
     // 3 大獨立技能按鈕 UI
     this.skillBtns = {
@@ -45,6 +46,29 @@ export class UIManager {
         onTriggerSkill(key);
       });
     }
+  }
+
+  // 實時刷新 4 人競速排行榜名次與分數
+  updateLeaderboard(runnersData) {
+    if (!this.leaderboardList) return;
+
+    const sorted = [...runnersData].sort((a, b) => b.score - a.score);
+
+    this.leaderboardList.innerHTML = sorted.map((runner, index) => {
+      const isFirst = index === 0;
+      const isPlayerClass = runner.isPlayer ? 'is-player' : '';
+      const firstClass = isFirst ? 'first-place' : '';
+      const deadClass = runner.isDead ? 'is-dead' : '';
+      const crown = isFirst ? '👑 ' : `${index + 1}. `;
+      const statusText = runner.isDead ? '💀 淘汰' : `${runner.score}分`;
+
+      return `
+        <div class="rank-item ${isPlayerClass} ${firstClass} ${deadClass}">
+          <span>${crown}${runner.name}</span>
+          <span class="rank-score">${statusText}</span>
+        </div>
+      `;
+    }).join('');
   }
 
   updateIndependentCooldowns(cooldownRatios, cooldowns) {
@@ -99,7 +123,6 @@ export class UIManager {
     this.modalHighScoreElement.textContent = this.highScore;
     this.deathReasonElement.textContent = reason;
 
-    // 控制是否提供 3 秒原地復活 (若被推離視角外/沒路了，隱藏復活鈕)
     if (this.btnRespawn) {
       this.btnRespawn.style.display = allowRespawn ? 'block' : 'none';
     }
