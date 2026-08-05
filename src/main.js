@@ -388,166 +388,178 @@ class Game {
   animate() {
     requestAnimationFrame(this.animate);
 
-    const deltaTime = this.clock.getDelta();
-    const elapsedTime = this.clock.getElapsedTime();
-    const activeRows = this.mapGenerator.getActiveRows();
+    try {
+      const deltaTime = this.clock.getDelta();
+      const elapsedTime = this.clock.getElapsedTime();
+      const activeRows = this.mapGenerator.getActiveRows();
 
-    // 0. 更新 30 秒能量與 100 HP 紅色長血條 UI
-    this.gameModes.update(deltaTime);
-    const energyStatus = {
-      energy: this.gameModes.energy,
-      maxEnergy: this.gameModes.maxEnergy,
-      timeToNext: this.gameModes.getTimeToNextEnergy()
-    };
-    this.uiManager.updateEnergyUI(energyStatus.energy, energyStatus.maxEnergy, energyStatus.timeToNext);
+      // 0. 更新 30 秒能量與 100 HP 紅色長血條 UI
+      this.gameModes.update(deltaTime);
+      const energyStatus = {
+        energy: this.gameModes.energy,
+        maxEnergy: this.gameModes.maxEnergy,
+        timeToNext: this.gameModes.getTimeToNextEnergy()
+      };
+      this.uiManager.updateEnergyUI(energyStatus.energy, energyStatus.maxEnergy, energyStatus.timeToNext);
 
-    if (this.isGameStarted) {
-      this.uiManager.updateHealthUI(this.player.hp, this.player.maxHp);
+      if (this.isGameStarted) {
+        this.uiManager.updateHealthUI(this.player.hp, this.player.maxHp);
 
-      const currentRow = activeRows.get(this.player.gridZ);
-      const isGrass = currentRow && currentRow.type === CONFIG.ROW_TYPES.GRASS;
-      this.uiManager.updateCasualSlowdownUI(
-        this.gameModes.currentMode === GAME_MODES.CASUAL,
-        this.player.slowdownStack,
-        isGrass
+        const currentRow = activeRows.get(this.player.gridZ);
+        const isGrass = currentRow && currentRow.type === CONFIG.ROW_TYPES.GRASS;
+        this.uiManager.updateCasualSlowdownUI(
+          this.gameModes.currentMode === GAME_MODES.CASUAL,
+          this.player.slowdownStack,
+          isGrass
+        );
+      }
+
+      // 1. 更新主角狀態與跳躍 (觸地自動觸發緩衝佇列連跳)
+      this.player.update(deltaTime);
+
+      // 2. 挑戰模式下：底邊界以 0.45 格/秒 穩定向前平滑推進
+      if (this.isGameStarted && !this.isGameOver) {
+        if (this.gameModes.currentMode === GAME_MODES.CHALLENGE) {
+          this.cameraAutoScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
+          this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+
+          // 若發呆 7 秒不前進，底邊界追上小雞，拋出老鷹俯衝
+          if (this.player.position.z <= this.cameraAutoScrollZ + 0.05 * CONFIG.GRID_SIZE && !this.player.isRespawning && !this.isEagleAttacking) {
+            this.triggerEagleAttack();
+          }
+        }
+      }
+
+      // 3. 更新 3 隻高智商高競爭性 AI 動物決策與跳躍 (0.22s 決策)
+      if (this.isGameStarted && !this.isGameOver) {
+        this.aiBots.forEach((bot) => {
+          if (!bot.isDead && !bot.isRespawning) {
+            bot.updateAI(deltaTime, activeRows, this.physics);
+            bot.update(deltaTime);
+          }
+        });
+      }
+
+      // 4. 👑 計算 4 人 Z 軸得分，即時將 3D 體素皇冠飛至第 1 名頭頂
+      const allLivingRunners = [this.player, ...this.aiBots].filter(r => r && !r.isDead && !r.isRespawning);
+      if (allLivingRunners.length > 0 && this.crownMesh) {
+        let topLeader = allLivingRunners[0];
+        for (let i = 1; i < allLivingRunners.length; i++) {
+          if (allLivingRunners[i].score > topLeader.score) {
+            topLeader = allLivingRunners[i];
+          }
+        }
+        if (topLeader && topLeader.mesh) {
+          this.crownMesh.visible = true;
+          this.crownMesh.position.copy(topLeader.mesh.position);
+          this.crownMesh.position.y += 0.85;
+          this.crownMesh.rotation.y += deltaTime * 2.0; // 皇冠金色旋轉
+        }
+      } else if (this.crownMesh) {
+        this.crownMesh.visible = false;
+      }
+
+      // 5. 處理 4 人 1x1 網格 Bump 推擠碰撞
+      this.physics.resolveGridBump(this.allRunners);
+
+      // 6. 實時刷新右上角 4 人競速排行榜
+      const runnersData = [
+        { name: '主角小雞', score: this.player.score, isPlayer: true, isDead: this.isGameOver },
+        { name: this.aiBots[0].botName, score: this.aiBots[0].score, isPlayer: false, isDead: this.aiBots[0].isDead },
+        { name: this.aiBots[1].botName, score: this.aiBots[1].score, isPlayer: false, isDead: this.aiBots[1].isDead },
+        { name: this.aiBots[2].botName, score: this.aiBots[2].score, isPlayer: false, isDead: this.aiBots[2].isDead }
+      ];
+      this.uiManager.updateLeaderboard(runnersData);
+
+      // 7. 休閒模式金幣減速倍率 (10/20/40金幣減速：-15%, -30%, -45%)
+      const slowdownMultiplier = 1.0 - (this.player.slowdownStack * 0.15);
+
+      // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
+      this.mapGenerator.animateObstacles(deltaTime, elapsedTime, slowdownMultiplier);
+
+      // 9. 精準視口相機跟隨
+      const targetCameraZ = Math.max(
+        this.player.position.z + 1.6 * CONFIG.GRID_SIZE,
+        this.cameraAutoScrollZ + 4.75 * CONFIG.GRID_SIZE
       );
-    }
+      this.sceneSetup.updateCamera({ x: this.player.position.x, z: targetCameraZ });
 
-    // 1. 更新主角狀態與跳躍 (觸地自動觸發緩衝佇列連跳)
-    this.player.update(deltaTime);
+      // 10. 主角碰撞與 100 HP 扣血判定
+      if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning && !this.isEagleAttacking) {
+        // 車輛 / 火車撞擊判定
+        const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
+        if (hitObstacle) {
+          const { safeX, safeZ } = this.physics.findNearestSafeZ(this.player, activeRows);
+          const isDead = this.player.takeDamage(hitObstacle.damage, safeZ, safeX);
 
-    // 2. 挑戰模式下：底邊界以 0.45 格/秒 穩定向前平滑推進
-    if (this.isGameStarted && !this.isGameOver) {
-      if (this.gameModes.currentMode === GAME_MODES.CHALLENGE) {
-        this.cameraAutoScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
-        this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
-
-        // 若發呆 7 秒不前進，底邊界追上小雞，拋出老鷹俯衝
-        if (this.player.position.z <= this.cameraAutoScrollZ + 0.05 * CONFIG.GRID_SIZE && !this.player.isRespawning && !this.isEagleAttacking) {
-          this.triggerEagleAttack();
-        }
-      }
-    }
-
-    // 3. 更新 3 隻高智商高競爭性 AI 動物決策與跳躍 (0.22s 決策)
-    if (this.isGameStarted && !this.isGameOver) {
-      this.aiBots.forEach((bot) => {
-        if (!bot.isDead && !bot.isRespawning) {
-          bot.updateAI(deltaTime, activeRows, this.physics);
-          bot.update(deltaTime);
-        }
-      });
-    }
-
-    // 4. 👑 計算 4 人 Z 軸得分，即時將 3D 體素皇冠飛至第 1 名頭頂
-    const allLivingRunners = [this.player, ...this.aiBots].filter(r => !r.isDead && !r.isRespawning);
-    if (allLivingRunners.length > 0 && this.crownMesh) {
-      const topLeader = allLivingRunners.reduce((prev, curr) => (curr.score > prev.score ? curr : prev));
-      if (topLeader && topLeader.mesh) {
-        this.crownMesh.position.copy(topLeader.mesh.position);
-        this.crownMesh.position.y += 0.85;
-        this.crownMesh.rotation.y += deltaTime * 2.0; // 皇冠金色旋轉
-      }
-    }
-
-    // 5. 處理 4 人 1x1 網格 Bump 推擠碰撞
-    this.physics.resolveGridBump(this.allRunners);
-
-    // 6. 實時刷新右上角 4 人競速排行榜
-    const runnersData = [
-      { name: '主角小雞', score: this.player.score, isPlayer: true, isDead: this.isGameOver },
-      { name: this.aiBots[0].botName, score: this.aiBots[0].score, isPlayer: false, isDead: this.aiBots[0].isDead },
-      { name: this.aiBots[1].botName, score: this.aiBots[1].score, isPlayer: false, isDead: this.aiBots[1].isDead },
-      { name: this.aiBots[2].botName, score: this.aiBots[2].score, isPlayer: false, isDead: this.aiBots[2].isDead }
-    ];
-    this.uiManager.updateLeaderboard(runnersData);
-
-    // 7. 休閒模式金幣減速倍率 (10/20/40金幣減速：-15%, -30%, -45%)
-    const slowdownMultiplier = 1.0 - (this.player.slowdownStack * 0.15);
-
-    // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
-    this.mapGenerator.animateObstacles(deltaTime, elapsedTime, slowdownMultiplier);
-
-    // 9. 精準視口相機跟隨
-    const targetCameraZ = Math.max(
-      this.player.position.z + 1.6 * CONFIG.GRID_SIZE,
-      this.cameraAutoScrollZ + 4.75 * CONFIG.GRID_SIZE
-    );
-    this.sceneSetup.updateCamera({ x: this.player.position.x, z: targetCameraZ });
-
-    // 10. 主角碰撞與 100 HP 扣血判定
-    if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning && !this.isEagleAttacking) {
-      // 車輛 / 火車撞擊判定
-      const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
-      if (hitObstacle) {
-        const safeZ = this.physics.findNearestSafeZ(this.player, activeRows);
-        const isDead = this.player.takeDamage(hitObstacle.damage, safeZ);
-
-        if (isDead) {
-          this.player.triggerFlattenAnimation();
-          this.gameOver(hitObstacle.type === 'train' ? '慘遭高速火車輾過，HP 歸零！' : '被車輛撞擊，HP 歸零！');
-        }
-      }
-
-      // 河流與木塊落水判定
-      const riverStatus = this.physics.checkRiverStatus(this.player, activeRows);
-      if (riverStatus.inRiver) {
-        if (riverStatus.onLog) {
-          this.player.position.x += riverStatus.logSpeed * slowdownMultiplier * deltaTime;
-          this.player.gridX = Math.round(this.player.position.x / CONFIG.GRID_SIZE);
-          
-          const drownBoundaryX = (CONFIG.MAP_BOUNDS_X + 3.8) * CONFIG.GRID_SIZE;
-          if (Math.abs(this.player.position.x) > drownBoundaryX) {
-            const safeZ = this.physics.findNearestSafeZ(this.player, activeRows);
-            const isDead = this.player.takeDamage(20, safeZ);
-            if (isDead) {
-              this.player.triggerDrownAnimation();
-              this.gameOver('漂流過遠，掉出邊界外，HP 歸零！');
-            }
-          }
-        } else {
-          // 落水扣 20 HP 並彈回身後安全草地
-          const safeZ = this.physics.findNearestSafeZ(this.player, activeRows);
-          const isDead = this.player.takeDamage(20, safeZ);
           if (isDead) {
-            this.player.triggerDrownAnimation();
-            this.gameOver('噗通！落水淹死，HP 歸零！');
+            this.player.triggerFlattenAnimation();
+            this.gameOver(hitObstacle.type === 'train' ? '慘遭高速火車輾過，HP 歸零！' : '被車輛撞擊，HP 歸零！');
           }
         }
-      }
-    }
 
-    // 11. 更新 AI 對手的撞車與淘汰判定
-    if (this.isGameStarted && !this.isGameOver) {
-      this.aiBots.forEach((bot) => {
-        if (bot.isDead || bot.isRespawning) return;
-
-        const botHit = this.physics.checkObstacleCollision(bot, activeRows);
-        if (botHit) {
-          bot.triggerFlattenAnimation();
-          bot.isDead = true;
-          setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
-        }
-
-        const botRiver = this.physics.checkRiverStatus(bot, activeRows);
-        if (botRiver.inRiver) {
-          if (botRiver.onLog) {
-            bot.position.x += botRiver.logSpeed * slowdownMultiplier * deltaTime;
-            bot.gridX = Math.round(bot.position.x / CONFIG.GRID_SIZE);
+        // 河流與木塊落水判定
+        const riverStatus = this.physics.checkRiverStatus(this.player, activeRows);
+        if (riverStatus.inRiver) {
+          if (riverStatus.onLog) {
+            this.player.position.x += riverStatus.logSpeed * slowdownMultiplier * deltaTime;
+            this.player.gridX = Math.round(this.player.position.x / CONFIG.GRID_SIZE);
             
             const drownBoundaryX = (CONFIG.MAP_BOUNDS_X + 3.8) * CONFIG.GRID_SIZE;
-            if (Math.abs(bot.position.x) > drownBoundaryX) {
+            if (Math.abs(this.player.position.x) > drownBoundaryX) {
+              const { safeX, safeZ } = this.physics.findNearestSafeZ(this.player, activeRows);
+              const isDead = this.player.takeDamage(20, safeZ, safeX);
+              if (isDead) {
+                this.player.triggerDrownAnimation();
+                this.gameOver('漂流過遠，掉出邊界外，HP 歸零！');
+              }
+            }
+          } else {
+            // 落水扣 20 HP 並彈回身後安全草地
+            const { safeX, safeZ } = this.physics.findNearestSafeZ(this.player, activeRows);
+            const isDead = this.player.takeDamage(20, safeZ, safeX);
+            if (isDead) {
+              this.player.triggerDrownAnimation();
+              this.gameOver('噗通！落水淹死，HP 歸零！');
+            }
+          }
+        }
+      }
+
+      // 11. 更新 AI 對手的撞車與淘汰判定
+      if (this.isGameStarted && !this.isGameOver) {
+        this.aiBots.forEach((bot) => {
+          if (bot.isDead || bot.isRespawning) return;
+
+          const botHit = this.physics.checkObstacleCollision(bot, activeRows);
+          if (botHit) {
+            bot.triggerFlattenAnimation();
+            bot.isDead = true;
+            setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
+          }
+
+          const botRiver = this.physics.checkRiverStatus(bot, activeRows);
+          if (botRiver.inRiver) {
+            if (botRiver.onLog) {
+              bot.position.x += botRiver.logSpeed * slowdownMultiplier * deltaTime;
+              bot.gridX = Math.round(bot.position.x / CONFIG.GRID_SIZE);
+              
+              const drownBoundaryX = (CONFIG.MAP_BOUNDS_X + 3.8) * CONFIG.GRID_SIZE;
+              if (Math.abs(bot.position.x) > drownBoundaryX) {
+                bot.triggerDrownAnimation();
+                bot.isDead = true;
+                setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
+              }
+            } else {
               bot.triggerDrownAnimation();
               bot.isDead = true;
               setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
             }
-          } else {
-            bot.triggerDrownAnimation();
-            bot.isDead = true;
-            setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
           }
-        }
-      });
+        });
+      }
+    } catch (err) {
+      console.error('Render loop error:', err);
     }
 
     // 12. 渲染 Three.js 畫面

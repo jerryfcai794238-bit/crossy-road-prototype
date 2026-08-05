@@ -76,7 +76,7 @@ export class Player {
   /**
    * 受傷扣血並彈回身後安全草地 (BAD 斷 Combo，無無敵時間)
    */
-  takeDamage(amount, safeZ = 0) {
+  takeDamage(amount, safeZ = 0, safeX = 0) {
     if (this.isDead || this.isRespawning) return false;
 
     this.hp = Math.max(0, this.hp - amount);
@@ -90,10 +90,10 @@ export class Player {
     // 100% 彈回身後安全草地 (無無敵時間)
     this.gridZ = safeZ;
     this.targetGridZ = safeZ;
-    this.gridX = Math.round(this.position.x / CONFIG.GRID_SIZE);
-    this.targetGridX = this.gridX;
+    this.gridX = safeX;
+    this.targetGridX = safeX;
 
-    this.position.z = safeZ * CONFIG.GRID_SIZE;
+    this.position.set(safeX * CONFIG.GRID_SIZE, 0, safeZ * CONFIG.GRID_SIZE);
     this.startPosition.copy(this.position);
     this.targetPosition.copy(this.position);
 

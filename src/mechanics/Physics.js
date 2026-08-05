@@ -38,18 +38,25 @@ export class Physics {
   }
 
   /**
-   * 搜尋 player 身後最靠近的安全草地/岸邊 Z 座標
+   * 搜尋 player 身後最靠近的安全草地/岸邊 Z 座標與無樹木的 X 座標
    */
   findNearestSafeZ(player, activeRows) {
     let safeZ = Math.max(0, player.gridZ - 1);
     while (safeZ > 0) {
       const row = activeRows.get(safeZ);
       if (row && row.type === CONFIG.ROW_TYPES.GRASS) {
-        return safeZ;
+        let safeX = player.gridX;
+        if (row.trees && row.trees.some(t => t.gridX === safeX)) {
+          for (let x = 0; x <= CONFIG.MAP_BOUNDS_X; x++) {
+            if (!row.trees.some(t => t.gridX === x)) { safeX = x; break; }
+            if (!row.trees.some(t => t.gridX === -x)) { safeX = -x; break; }
+          }
+        }
+        return { safeX, safeZ };
       }
       safeZ--;
     }
-    return 0; // 回到起點 0
+    return { safeX: 0, safeZ: 0 };
   }
 
   /**
