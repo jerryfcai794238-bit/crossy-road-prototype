@@ -38,27 +38,27 @@ body, html {
   z-index: 1;
 }
 
-/* 頂部能量與計時 UI */
+/* 頂部能量與計時 UI (z-index 120 確保在大廳與遊戲中均清晰可見) */
 #energy-bar {
   position: absolute;
   top: 24px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 20;
+  z-index: 120;
   pointer-events: auto;
 }
 
 .energy-pill {
-  background: rgba(15, 23, 42, 0.82);
+  background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 2.5 solid rgba(255, 204, 0, 0.4);
+  border: 2.5px solid rgba(255, 204, 0, 0.4);
   border-radius: 24px;
   padding: 8px 20px;
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 .energy-icon {

@@ -40,7 +40,12 @@ export class UIManager {
   init(onStart, onRestart, onFastRespawn, onTriggerSkill, onReturnLobby) {
     this.btnStart.addEventListener('click', () => onStart(this.selectedMode));
     this.btnRestart.addEventListener('click', () => onRestart(this.selectedMode));
-    this.btnFastRespawn.addEventListener('click', () => onFastRespawn());
+    
+    // 點擊空投復活：自動隱藏 Game Over 彈窗 Popup 並呼叫復活
+    this.btnFastRespawn.addEventListener('click', () => {
+      this.hideOverlays();
+      if (onFastRespawn) onFastRespawn();
+    });
 
     if (this.btnLobby) {
       this.btnLobby.addEventListener('click', () => {
