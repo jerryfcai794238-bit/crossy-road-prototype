@@ -42,8 +42,8 @@ export class Player {
    * 計算特定方向延伸距離後的網格座標 { x, z }
    */
   getTargetGridPosition(direction, distance = 1) {
-    let targetX = this.targetGridX;
-    let targetZ = this.targetGridZ;
+    let targetX = Math.round(this.position.x / CONFIG.GRID_SIZE);
+    let targetZ = Math.round(this.position.z / CONFIG.GRID_SIZE);
 
     switch (direction) {
       case 'UP':
@@ -63,8 +63,22 @@ export class Player {
     return { x: targetX, z: targetZ };
   }
 
+  /**
+   * 🚀 火箭跳躍：爆衝向前 3 格
+   */
+  rocketJump() {
+    this.isRocketJumping = true;
+    this.move('UP', 3);
+  }
+
   move(direction, distance = 1) {
     if (this.isJumping || this.isRespawning || this.isDead) return false;
+
+    // 起跳前依據實時 position 重新校正基準網格 (修復在漂木上左右跳爆衝問題)
+    this.gridX = Math.round(this.position.x / CONFIG.GRID_SIZE);
+    this.gridZ = Math.round(this.position.z / CONFIG.GRID_SIZE);
+    this.targetGridX = this.gridX;
+    this.targetGridZ = this.gridZ;
 
     let newGridX = this.targetGridX;
     let newGridZ = this.targetGridZ;

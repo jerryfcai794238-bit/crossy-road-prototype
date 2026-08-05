@@ -113,24 +113,32 @@ export class Physics {
     return { inRiver: true, onLog: false, logSpeed: 0 };
   }
 
-  // 5. 多人/AI 網格碰撞彈退機制 (Grid Bump Physics)
+  // 5. 多人/AI 網格碰撞彈退機制 (Grid Bump Physics - 同步離散網格座標)
   resolveGridBump(runners) {
     for (let i = 0; i < runners.length; i++) {
       for (let j = i + 1; j < runners.length; j++) {
         const r1 = runners[i];
         const r2 = runners[j];
 
-        if (!r1 || !r2 || r1.isRespawning || r2.isRespawning) continue;
+        if (!r1 || !r2 || r1.isRespawning || r2.isRespawning || r1.isDead || r2.isDead) continue;
 
         // 檢測當前或目標網格重疊 (1x1 格子)
         const cellOverlap = r1.targetGridX === r2.targetGridX && r1.targetGridZ === r2.targetGridZ;
-        const posOverlap = Math.abs(r1.position.x - r2.position.x) < 0.6 && Math.abs(r1.position.z - r2.position.z) < 0.6;
+        const posOverlap = Math.abs(r1.position.x - r2.position.x) < 0.65 && Math.abs(r1.position.z - r2.position.z) < 0.65;
 
         if (cellOverlap && posOverlap) {
-          // 產生 Bump 彈退 (較遲跳躍者或 r2 被推離 1 格)
+          // 產生 Bump 彈退 (較遲起跳者被推後 1 格，並同步離散網格座標)
           const targetToPush = r1.isJumping ? r2 : r1;
-          targetToPush.position.x += (Math.random() > 0.5 ? 0.3 : -0.3);
-          targetToPush.position.z -= 0.2;
+          
+          targetToPush.gridZ = Math.max(0, targetToPush.gridZ - 1);
+          targetToPush.targetGridZ = targetToPush.gridZ;
+          targetToPush.position.z = targetToPush.gridZ * CONFIG.GRID_SIZE;
+          targetToPush.startPosition.copy(targetToPush.position);
+          targetToPush.targetPosition.copy(targetToPush.position);
+          
+          if (targetToPush.mesh) {
+            targetToPush.mesh.position.copy(targetToPush.position);
+          }
         }
       }
     }
