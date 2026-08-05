@@ -15,7 +15,27 @@ export class Physics {
     return false;
   }
 
-  // 2. 檢查車輛與火車碰撞
+  // 2. 摧毀落腳點處的樹木 (火箭跳躍爆破清除)
+  destroyTreeAt(targetGridPos, activeRows) {
+    const row = activeRows.get(targetGridPos.z);
+    if (!row || row.type !== CONFIG.ROW_TYPES.GRASS || !Array.isArray(row.trees)) return false;
+
+    const treeIndex = row.trees.findIndex((t) => t.gridX === targetGridPos.x);
+    if (treeIndex !== -1) {
+      const tree = row.trees[treeIndex];
+      if (tree.mesh && tree.mesh.parent) {
+        tree.mesh.parent.remove(tree.mesh);
+        tree.mesh.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+        });
+      }
+      row.trees.splice(treeIndex, 1);
+      return true;
+    }
+    return false;
+  }
+
+  // 3. 檢查車輛與火車碰撞
   checkObstacleCollision(player, activeRows) {
     if (player.isShielded) return null;
 
@@ -25,7 +45,7 @@ export class Physics {
     const playerX = player.position.x;
     const playerRadius = (CONFIG.PLAYER?.COLLISION_RADIUS || 0.35) * CONFIG.GRID_SIZE;
 
-    // 車輛碰撞 (使用 row.vehicles)
+    // 車輛碰撞
     if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
       for (const veh of row.vehicles) {
         const obsX = veh.position ? veh.position.x : veh.mesh.position.x;
@@ -37,7 +57,7 @@ export class Physics {
       }
     }
 
-    // 火車碰撞 (使用 row.train)
+    // 火車碰撞
     if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.trainState === 'TRAIN_PASSING' && row.train) {
       const trainX = row.train.position ? row.train.position.x : row.train.mesh.position.x;
       const halfWidth = (row.train.length || 22.0) / 2;
@@ -50,7 +70,7 @@ export class Physics {
     return null;
   }
 
-  // 3. 檢查河流與浮木狀態
+  // 4. 檢查河流與浮木狀態
   checkRiverStatus(player, activeRows) {
     const row = activeRows.get(player.gridZ);
     if (!row || row.type !== CONFIG.ROW_TYPES.RIVER) {
@@ -83,7 +103,7 @@ export class Physics {
     return { inRiver: true, onLog: false, logSpeed: 0 };
   }
 
-  // 4. 多人/AI 網格碰撞彈退機制
+  // 5. 多人/AI 網格碰撞彈退機制
   checkGridBump(player1, player2) {
     if (!player1 || !player2) return false;
     return player1.gridX === player2.gridX && player1.gridZ === player2.gridZ;

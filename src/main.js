@@ -105,6 +105,13 @@ class Game {
 
   triggerSkill(skillType) {
     if (!this.isGameStarted || this.isGameOver) return;
+
+    // 若為火箭跳躍，先檢測並爆破落腳點處的樹木，避免塞在樹幹內
+    if (skillType === ITEM_TYPES.ROCKET) {
+      const targetPos = this.player.getTargetGridPosition('UP', 3);
+      this.physics.destroyTreeAt(targetPos, this.mapGenerator.getActiveRows());
+    }
+
     this.itemSystem.useItem(skillType);
   }
 
