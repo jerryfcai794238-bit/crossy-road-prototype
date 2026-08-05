@@ -18,13 +18,13 @@ export const CONFIG = {
     RAILROAD: 'RAILROAD'
   },
 
-  // 主題色彩設定
+  // 主題色彩設定 (明顯高對比草地雙色交錯)
   COLORS: {
-    GRASS_PRIMARY: 0x7ec850,
-    GRASS_SECONDARY: 0x73bd45,
-    ROAD: 0x3d3d45,
-    ROAD_LINE: 0xf1c40f,
-    RIVER: 0x3498db,
+    GRASS_PRIMARY: 0x8cd64f,   // 亮草綠 (強對比 1)
+    GRASS_SECONDARY: 0x58ab2d, // 深草綠 (強對比 2)
+    ROAD: 0x333742,
+    ROAD_LINE: 0xffcc00,
+    RIVER: 0x2980b9,
     RIVER_FOAM: 0x7ecef4,
     RAILROAD_GRAVEL: 0x5a5a60,
     RAILROAD_RAIL: 0xb0b0b8,
@@ -58,21 +58,17 @@ export const CONFIG = {
     TRUCK: {
       SPEED_MIN: 2.2,
       SPEED_MAX: 4.2,
-      WIDTH: 2.8,
+      WIDTH: 2.3,
       DEPTH: 1.1
     },
     LOG: {
-      SPEED_MIN: 2.0,
-      SPEED_MAX: 4.5,
-      MIN_LENGTH: 2,
-      MAX_LENGTH: 4
+      SPEED_MIN: 1.8,
+      SPEED_MAX: 3.8,
+      LENGTH: [2, 3, 4]
     },
     TRAIN: {
-      SPEED: 32.0,
-      WARNING_TIME: 1.5,
-      INTERVAL_MIN: 5.0,
-      INTERVAL_MAX: 10.0,
-      LENGTH: 22.0
+      SPEED: 18.0,
+      WARNING_TIME: 1.2
     }
   }
 };
