@@ -12,12 +12,26 @@ export class ItemSystem {
     this.scene = scene;
     this.player = player;
 
-    this.activeItem = ITEM_TYPES.SHIELD; // 預設配備金剛護盾
-    this.cooldownTimer = 0;
-    this.cooldownDuration = 6.0; // 6 秒冷卻
-    this.activeTimer = 0;
+    // 各道具獨立 CD (剩餘秒數) 與 CD 總長度
+    this.cooldowns = {
+      shield: 0,
+      rocket: 0,
+      time_slow: 0
+    };
 
-    // VFX 網格引用
+    this.cooldownDurations = {
+      shield: 6.0,
+      rocket: 5.0,
+      time_slow: 6.0
+    };
+
+    // 各道具作用持續時間
+    this.activeTimers = {
+      shield: 0,
+      time_slow: 0
+    };
+
+    // 特效 Mesh
     this.shieldMesh = null;
     this.rocketMesh = null;
     this.timeWaveMesh = null;
@@ -39,14 +53,11 @@ export class ItemSystem {
     this.scene.add(this.timeWaveMesh);
   }
 
-  selectItem(type) {
-    this.activeItem = type;
-  }
+  useItem(type) {
+    if (!this.player || this.player.isRespawning) return false;
+    if (this.cooldowns[type] > 0) return false;
 
-  useItem() {
-    if (this.cooldownTimer > 0 || !this.player || this.player.isRespawning) return false;
-
-    switch (this.activeItem) {
+    switch (type) {
       case ITEM_TYPES.SHIELD:
         this.activateShield();
         break;
@@ -60,14 +71,14 @@ export class ItemSystem {
         break;
     }
 
-    this.cooldownTimer = this.cooldownDuration;
+    this.cooldowns[type] = this.cooldownDurations[type];
     return true;
   }
 
   activateShield() {
     this.player.isShielded = true;
     this.shieldMesh.visible = true;
-    this.activeTimer = 3.5; // 護盾持續 3.5 秒
+    this.activeTimers.shield = 3.5; // 護盾持續 3.5 秒
   }
 
   activateRocket() {
@@ -83,7 +94,7 @@ export class ItemSystem {
     this.timeWaveMesh.position.copy(this.player.position);
     this.timeWaveMesh.scale.set(0.1, 0.1, 0.1);
     this.timeWaveMesh.visible = true;
-    this.activeTimer = 3.0; // 超感時間持續 3 秒
+    this.activeTimers.time_slow = 3.5; // 時空減速持續 3.5 秒
   }
 
   deactivateShield() {
@@ -97,35 +108,51 @@ export class ItemSystem {
   }
 
   update(deltaTime) {
-    if (this.cooldownTimer > 0) {
-      this.cooldownTimer -= deltaTime;
-      if (this.cooldownTimer < 0) this.cooldownTimer = 0;
+    // 獨立更新各道具 CD
+    for (const key in this.cooldowns) {
+      if (this.cooldowns[key] > 0) {
+        this.cooldowns[key] -= deltaTime;
+        if (this.cooldowns[key] < 0) this.cooldowns[key] = 0;
+      }
     }
 
-    if (this.activeTimer > 0) {
-      this.activeTimer -= deltaTime;
+    // 更新護盾作用倒數
+    if (this.activeTimers.shield > 0) {
+      this.activeTimers.shield -= deltaTime;
+      if (this.activeTimers.shield <= 0) {
+        this.deactivateShield();
+      }
+    }
 
-      // 超感時間波紋擴散動畫
-      if (this.player.isReflexHyper && this.timeWaveMesh.visible) {
+    // 更新時空減速作用倒數與波紋擴散
+    if (this.activeTimers.time_slow > 0) {
+      this.activeTimers.time_slow -= deltaTime;
+      if (this.timeWaveMesh && this.timeWaveMesh.visible) {
         this.timeWaveMesh.position.copy(this.player.position);
-        const scale = (3.0 - this.activeTimer) * 2.5;
+        const scale = (3.5 - this.activeTimers.time_slow) * 2.5;
         this.timeWaveMesh.scale.set(scale, scale, scale);
       }
-
-      if (this.activeTimer <= 0) {
-        this.deactivateShield();
+      if (this.activeTimers.time_slow <= 0) {
         this.deactivateTimeSlow();
       }
     }
   }
 
-  getCooldownRatio() {
-    return this.cooldownTimer / this.cooldownDuration;
+  getCooldownRatios() {
+    return {
+      shield: this.cooldowns.shield / this.cooldownDurations.shield,
+      rocket: this.cooldowns.rocket / this.cooldownDurations.rocket,
+      time_slow: this.cooldowns.time_slow / this.cooldownDurations.time_slow
+    };
   }
 
   reset() {
-    this.cooldownTimer = 0;
-    this.activeTimer = 0;
+    for (const key in this.cooldowns) {
+      this.cooldowns[key] = 0;
+    }
+    for (const key in this.activeTimers) {
+      this.activeTimers[key] = 0;
+    }
     this.deactivateShield();
     this.deactivateTimeSlow();
     if (this.rocketMesh) this.rocketMesh.visible = false;

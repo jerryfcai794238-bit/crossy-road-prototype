@@ -33,13 +33,12 @@ class Game {
 
     this.clock = new THREE.Clock();
 
-    // 綁定 UI 與 控制器
+    // 綁定 UI 與 3 大技能獨立按鈕
     this.uiManager.init(
       () => this.startGame(),
       () => this.restartGame(),
       () => this.fastRespawn(),
-      () => this.useItem(),
-      (itemType) => this.itemSystem.selectItem(itemType)
+      (skillType) => this.triggerSkill(skillType)
     );
 
     this.setupInputListeners();
@@ -53,7 +52,7 @@ class Game {
   }
 
   setupInputListeners() {
-    // 鍵盤控制：W/A/D 移動，1/2/3 道具快捷鍵
+    // 鍵盤控制：W/A/D/S 移動，1/2/3 直接觸發對應技能
     window.addEventListener('keydown', (e) => {
       if (!this.isGameStarted || this.isGameOver) return;
 
@@ -79,18 +78,13 @@ class Game {
           this.handlePlayerMove('RIGHT');
           break;
         case '1':
-          this.triggerSpecificItem(ITEM_TYPES.SHIELD, 'shield');
+          this.triggerSkill(ITEM_TYPES.SHIELD);
           break;
         case '2':
-          this.triggerSpecificItem(ITEM_TYPES.ROCKET, 'rocket');
+          this.triggerSkill(ITEM_TYPES.ROCKET);
           break;
         case '3':
-          this.triggerSpecificItem(ITEM_TYPES.TIME_SLOW, 'time_slow');
-          break;
-        case ' ':
-        case 'e':
-        case 'E':
-          this.useItem();
+          this.triggerSkill(ITEM_TYPES.TIME_SLOW);
           break;
       }
     });
@@ -103,21 +97,15 @@ class Game {
 
     // 螢幕 Touch / Click 往前跳
     this.container.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#hud') || e.target.closest('#item-hud') || e.target.closest('#mobile-controls') || e.target.closest('.overlay')) return;
+      if (e.target.closest('#hud') || e.target.closest('#skill-bar') || e.target.closest('#mobile-controls') || e.target.closest('.overlay')) return;
       if (!this.isGameStarted || this.isGameOver) return;
       this.handlePlayerMove('UP');
     });
   }
 
-  triggerSpecificItem(itemType, uiItemType) {
-    this.itemSystem.selectItem(itemType);
-    this.uiManager.setActiveItemUI(uiItemType);
-    this.useItem();
-  }
-
-  useItem() {
+  triggerSkill(skillType) {
     if (!this.isGameStarted || this.isGameOver) return;
-    this.itemSystem.useItem();
+    this.itemSystem.useItem(skillType);
   }
 
   handlePlayerMove(direction) {
@@ -160,7 +148,6 @@ class Game {
     const activeRows = this.mapGenerator.getActiveRows();
     let safeZ = Math.max(0, this.player.gridZ - 1);
     
-    // 往後尋找最近的草地 (GRASS)
     while (safeZ > 0) {
       const row = activeRows.get(safeZ);
       if (row && row.type === CONFIG.ROW_TYPES.GRASS) {
@@ -169,7 +156,6 @@ class Game {
       safeZ--;
     }
 
-    // 尋找無樹木阻擋的 X 座標
     const row = activeRows.get(safeZ);
     let safeX = 0;
     if (row && Array.isArray(row.trees)) {
@@ -206,15 +192,18 @@ class Game {
     // 更新角色狀態與跳躍動畫
     this.player.update(deltaTime);
 
-    // 更新道具系統 CD 與 VFX
+    // 更新 3 大技能獨立 CD 與 UI
     this.itemSystem.update(deltaTime);
-    this.uiManager.updateItemCooldown(
-      this.itemSystem.getCooldownRatio(),
-      this.itemSystem.cooldownTimer
+    this.uiManager.updateIndependentCooldowns(
+      this.itemSystem.getCooldownRatios(),
+      this.itemSystem.cooldowns
     );
 
-    // 更新馬路車輛 / 河流浮木 / 鐵路火車位置
-    this.mapGenerator.animateObstacles(deltaTime, elapsedTime);
+    // 計算時空減速效果倍率 (若觸發超感時空減速，車輛與浮木速度降為 35%)
+    const speedMultiplier = this.player.isReflexHyper ? 0.35 : 1.0;
+
+    // 更新馬路車輛 / 河流浮木 / 鐵路火車位置 (全場減速)
+    this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
     // 鏡頭平滑跟隨小雞
     this.sceneSetup.updateCamera(this.player.position);
@@ -230,14 +219,13 @@ class Game {
         this.gameOver(hitObstacle.type === 'train' ? '慘遭高速火車輾過！' : '被車輛撞飛了！');
       }
 
-      // 2. 河流與木塊落水判定 (邊界調整至視覺邊緣綠線位置)
+      // 2. 河流與木塊落水判定
       const riverStatus = this.physics.checkRiverStatus(this.player, activeRows);
       if (riverStatus.inRiver && !this.player.isShielded) {
         if (riverStatus.onLog) {
-          this.player.position.x += riverStatus.logSpeed * deltaTime;
+          this.player.position.x += riverStatus.logSpeed * speedMultiplier * deltaTime;
           this.player.gridX = Math.round(this.player.position.x / CONFIG.GRID_SIZE);
           
-          // 修正：飄移邊界判定對齊可視地圖邊緣（綠線位置：CONFIG.MAP_BOUNDS_X + 3.8）
           const drownBoundaryX = (CONFIG.MAP_BOUNDS_X + 3.8) * CONFIG.GRID_SIZE;
           if (Math.abs(this.player.position.x) > drownBoundaryX) {
             this.player.triggerDrownAnimation();

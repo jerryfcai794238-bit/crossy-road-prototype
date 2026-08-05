@@ -11,18 +11,18 @@ export class UIManager {
     this.btnRestart = document.getElementById('btn-restart');
     this.btnRespawn = document.getElementById('btn-respawn');
 
-    // 道具 HUD 元件
-    this.btnUseItem = document.getElementById('btn-use-item');
-    this.itemIcon = document.getElementById('item-icon');
-    this.itemCooldownText = document.getElementById('item-cooldown-text');
-    this.cooldownOverlay = document.getElementById('cooldown-overlay');
-    this.itemSelectBtns = document.querySelectorAll('.item-select-btn');
+    // 3 大獨立技能按鈕 UI
+    this.skillBtns = {
+      shield: document.getElementById('btn-skill-shield'),
+      rocket: document.getElementById('btn-skill-rocket'),
+      time_slow: document.getElementById('btn-skill-time_slow')
+    };
 
     this.highScore = parseInt(localStorage.getItem('crossy_road_high_score') || '0', 10);
     this.updateHighScoreDisplay();
   }
 
-  init(onStart, onRestart, onRespawn, onUseItem, onSelectItem) {
+  init(onStart, onRestart, onRespawn, onTriggerSkill) {
     this.btnStart.addEventListener('click', () => {
       this.hideStartScreen();
       onStart();
@@ -38,42 +38,34 @@ export class UIManager {
       onRespawn();
     });
 
-    this.btnUseItem?.addEventListener('click', () => {
-      onUseItem();
-    });
-
-    this.itemSelectBtns.forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const itemType = e.target.getAttribute('data-item');
-        this.setActiveItemUI(itemType);
-        onSelectItem(itemType);
+    // 各技能按鈕獨立點擊事件
+    for (const key in this.skillBtns) {
+      const btn = this.skillBtns[key];
+      btn?.addEventListener('click', () => {
+        onTriggerSkill(key);
       });
-    });
+    }
   }
 
-  setActiveItemUI(itemType) {
-    this.itemSelectBtns.forEach((b) => {
-      if (b.getAttribute('data-item') === itemType) {
-        b.classList.add('active');
+  updateIndependentCooldowns(cooldownRatios, cooldowns) {
+    for (const key in this.skillBtns) {
+      const btn = this.skillBtns[key];
+      if (!btn) continue;
+
+      const overlay = btn.querySelector('.skill-cd-overlay');
+      const cdText = btn.querySelector('.skill-cd-text');
+      const ratio = cooldownRatios[key] || 0;
+      const remainingSec = cooldowns[key] || 0;
+
+      if (ratio > 0) {
+        btn.classList.add('on-cd');
+        if (overlay) overlay.style.height = `${ratio * 100}%`;
+        if (cdText) cdText.textContent = `${remainingSec.toFixed(1)}s`;
       } else {
-        b.classList.remove('active');
+        btn.classList.remove('on-cd');
+        if (overlay) overlay.style.height = '0%';
+        if (cdText) cdText.textContent = 'READY';
       }
-    });
-
-    if (itemType === 'shield') this.itemIcon.textContent = '🛡️';
-    else if (itemType === 'rocket') this.itemIcon.textContent = '🚀';
-    else if (itemType === 'time_slow') this.itemIcon.textContent = '⏳';
-  }
-
-  updateItemCooldown(ratio, remainingSeconds) {
-    if (!this.cooldownOverlay || !this.itemCooldownText) return;
-
-    if (ratio > 0) {
-      this.cooldownOverlay.style.height = `${ratio * 100}%`;
-      this.itemCooldownText.textContent = `${remainingSeconds.toFixed(1)}s`;
-    } else {
-      this.cooldownOverlay.style.height = '0%';
-      this.itemCooldownText.textContent = 'READY';
     }
   }
 
