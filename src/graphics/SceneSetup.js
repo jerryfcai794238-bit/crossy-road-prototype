@@ -9,9 +9,9 @@ export class SceneSetup {
     this.scene.background = new THREE.Color(0xa0d8ef); // 天藍色背景
     this.scene.fog = new THREE.FogExp2(0xa0d8ef, 0.015); // 遠景霧化效果
 
-    // 2. 正交相機 (Isometric Camera - 對齊正版 Crossy Road 視角)
+    // 2. 正交相機 (Isometric Camera - 拉近鏡頭可視範圍 d = 9.5)
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 14;
+    const d = 9.5; // 鏡頭距離拉近，視野範圍變小，角色與車輛比例放大
     this.camera = new THREE.OrthographicCamera(
       -d * aspect,
       d * aspect,
@@ -21,8 +21,8 @@ export class SceneSetup {
       1000
     );
 
-    // 精準對齊 Crossy Road 經典視角：相機位於 (-8, 22, -18)
-    this.cameraOffset = new THREE.Vector3(-8, 22, -18);
+    // 恢復上一版左下角往右上角經典視角角度 (-14, 18, -14)
+    this.cameraOffset = new THREE.Vector3(-14, 18, -14);
     this.cameraTarget = new THREE.Vector3(0, 0, 0);
     this.camera.position.copy(this.cameraOffset);
     this.camera.lookAt(this.cameraTarget);
@@ -54,7 +54,7 @@ export class SceneSetup {
 
     // 主平行日光 + 動態陰影
     this.dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
-    this.dirLight.position.set(-15, 35, -20);
+    this.dirLight.position.set(-20, 35, -15);
     this.dirLight.castShadow = true;
 
     this.dirLight.shadow.mapSize.width = 2048;
@@ -84,9 +84,9 @@ export class SceneSetup {
     // 更新相機與平行光位置
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
     this.dirLight.position.set(
-      this.cameraTarget.x - 15,
+      this.cameraTarget.x - 20,
       35,
-      this.cameraTarget.z - 20
+      this.cameraTarget.z - 15
     );
     this.dirLight.target.position.copy(this.cameraTarget);
     this.dirLight.target.updateMatrixWorld();
@@ -96,7 +96,7 @@ export class SceneSetup {
 
   onWindowResize() {
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 14;
+    const d = 9.5; // 拉近鏡頭，維持 d = 9.5
     this.camera.left = -d * aspect;
     this.camera.right = d * aspect;
     this.camera.top = d;
