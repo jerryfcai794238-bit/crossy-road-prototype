@@ -14,7 +14,7 @@ class Game {
     this.container = document.getElementById('canvas-container');
     this.uiManager = new UIManager();
 
-    // 初始化 3D 場景
+    // 初始化 3D 場景 (對齊正版 Crossy Road 視角)
     this.sceneSetup = new SceneSetup(this.container);
     this.scene = this.sceneSetup.scene;
 
@@ -172,6 +172,9 @@ class Game {
 
   resetAllRunners() {
     this.player.reset();
+    this.aiBots.forEach(bot => {
+      this.scene.add(bot.mesh);
+    });
     this.aiBots[0].resetAt(-2, 0); // 黃色小鴨
     this.aiBots[1].resetAt(2, 0);  // 綠色青蛙
     this.aiBots[2].resetAt(4, 0);  // 體素柴犬
@@ -230,8 +233,10 @@ class Game {
     // 2. 更新 3 隻 AI 動物決策與跳躍
     if (this.isGameStarted && !this.isGameOver) {
       this.aiBots.forEach((bot) => {
-        bot.updateAI(deltaTime, activeRows, this.physics);
-        bot.update(deltaTime);
+        if (!bot.isRespawning) {
+          bot.updateAI(deltaTime, activeRows, this.physics);
+          bot.update(deltaTime);
+        }
       });
     }
 
@@ -267,7 +272,7 @@ class Game {
       this.sceneSetup.updateCamera(this.player.position);
     }
 
-    // 8. 遊戲進行中的碰撞與判定
+    // 8. 主角碰撞與落水判定
     if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning) {
       // 車輛 / 火車撞擊判定
       const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
@@ -293,13 +298,39 @@ class Game {
           this.gameOver('噗通！落水淹死了！');
         }
       }
+    }
 
-      // 9. 更新 AI 對手的河流漂木隨波流動與撞車判定
+    // 9. 更新 AI 對手的撞車、河流漂木隨波流動與落水淘汰判定 (修復圖 1)
+    if (this.isGameStarted && !this.isGameOver) {
       this.aiBots.forEach((bot) => {
+        if (bot.isRespawning) return;
+
+        // AI 撞車/火車淘汰
+        const botHit = this.physics.checkObstacleCollision(bot, activeRows);
+        if (botHit && !bot.isShielded) {
+          bot.triggerFlattenAnimation();
+          bot.isRespawning = true;
+          setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
+        }
+
+        // AI 河流漂流與落水淹死淘汰
         const botRiver = this.physics.checkRiverStatus(bot, activeRows);
-        if (botRiver.inRiver && botRiver.onLog) {
-          bot.position.x += botRiver.logSpeed * speedMultiplier * deltaTime;
-          bot.gridX = Math.round(bot.position.x / CONFIG.GRID_SIZE);
+        if (botRiver.inRiver && !bot.isShielded) {
+          if (botRiver.onLog) {
+            bot.position.x += botRiver.logSpeed * speedMultiplier * deltaTime;
+            bot.gridX = Math.round(bot.position.x / CONFIG.GRID_SIZE);
+            
+            const drownBoundaryX = (CONFIG.MAP_BOUNDS_X + 3.8) * CONFIG.GRID_SIZE;
+            if (Math.abs(bot.position.x) > drownBoundaryX) {
+              bot.triggerDrownAnimation();
+              bot.isRespawning = true;
+              setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
+            }
+          } else {
+            bot.triggerDrownAnimation();
+            bot.isRespawning = true;
+            setTimeout(() => { this.scene.remove(bot.mesh); }, 600);
+          }
         }
       });
     }

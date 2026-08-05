@@ -44,6 +44,9 @@ export class MapGenerator {
 
     this.tieGeo = new THREE.BoxGeometry(0.18, 0.05, laneDepth * 0.85);
     this.tieMat = new THREE.MeshLambertMaterial({ color: CONFIG.COLORS.RAILROAD_TIE });
+
+    // 火車預警紅色雷射光帶幾何體與材質
+    this.warningStripeGeo = new THREE.BoxGeometry(laneWidth, 0.02, laneDepth * 0.9);
   }
 
   initMap() {
@@ -64,7 +67,7 @@ export class MapGenerator {
 
     while (this.highestZGenerated < targetAheadZ) {
       this.highestZGenerated++;
-      const nextType = this.getNextRowType();
+      const nextType = this.getNextRowType(this.highestZGenerated);
       this.generateRow(this.highestZGenerated, nextType);
     }
 
@@ -76,7 +79,10 @@ export class MapGenerator {
     }
   }
 
-  getNextRowType() {
+  /**
+   * 前期平緩遞增難度演算法 (z < 25 時單線道且間距大)
+   */
+  getNextRowType(targetZ = 0) {
     if (this.clusterRemaining > 0) {
       this.clusterRemaining--;
       return this.currentClusterType;
@@ -96,15 +102,21 @@ export class MapGenerator {
 
     this.currentClusterType = nextType;
 
+    // 前期 (z < 25) 限制為單列，避免多重連續車道
+    if (targetZ < 25) {
+      this.clusterRemaining = 1;
+      return this.currentClusterType;
+    }
+
     switch (nextType) {
       case CONFIG.ROW_TYPES.GRASS:
         this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
         break;
       case CONFIG.ROW_TYPES.ROAD:
-        this.clusterRemaining = Math.floor(Math.random() * 4) + 1;
+        this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
         break;
       case CONFIG.ROW_TYPES.RIVER:
-        this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+        this.clusterRemaining = Math.floor(Math.random() * 2) + 1;
         break;
       case CONFIG.ROW_TYPES.RAILROAD:
         this.clusterRemaining = 1;
@@ -127,6 +139,7 @@ export class MapGenerator {
       logs: [],
       train: null,
       signal: null,
+      warningStripe: null,
       trainState: 'IDLE',
       idleTimer: Math.random() * 4 + 3.0,
       warningTimer: 0,
@@ -203,12 +216,18 @@ export class MapGenerator {
     const isTruck = Math.random() < 0.35;
     const speedMin = isTruck ? CONFIG.OBSTACLES.TRUCK.SPEED_MIN : CONFIG.OBSTACLES.CAR.SPEED_MIN;
     const speedMax = isTruck ? CONFIG.OBSTACLES.TRUCK.SPEED_MAX : CONFIG.OBSTACLES.CAR.SPEED_MAX;
-    rowData.speed = speedMin + Math.random() * (speedMax - speedMin);
+    
+    // 前期 (z < 25) 車速降低
+    const isEarlyGame = rowData.z < 25;
+    const speedFactor = isEarlyGame ? 0.75 : 1.0;
+    rowData.speed = (speedMin + Math.random() * (speedMax - speedMin)) * speedFactor;
 
     const vehicleWidth = isTruck ? CONFIG.OBSTACLES.TRUCK.WIDTH : CONFIG.OBSTACLES.CAR.WIDTH;
     const vehicleDepth = isTruck ? CONFIG.OBSTACLES.TRUCK.DEPTH : CONFIG.OBSTACLES.CAR.DEPTH;
 
-    const spacing = (vehicleWidth + CONFIG.GRID_SIZE * (3 + Math.random() * 2.5));
+    // 前期車輛間距加大，簡單好過
+    const spacingFactor = isEarlyGame ? 1.6 : 1.0;
+    const spacing = (vehicleWidth + CONFIG.GRID_SIZE * (3 + Math.random() * 2.5)) * spacingFactor;
     const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 6) * CONFIG.GRID_SIZE;
     const count = Math.floor(totalSpan / spacing);
 
@@ -287,6 +306,17 @@ export class MapGenerator {
       rowGroup.add(tie);
     }
 
+    // 火車警示紅色雷射條 (對齊正版圖 2 警示效果)
+    const stripeMat = new THREE.MeshBasicMaterial({
+      color: 0xff0000,
+      transparent: true,
+      opacity: 0
+    });
+    const warningStripe = new THREE.Mesh(this.warningStripeGeo, stripeMat);
+    warningStripe.position.set(0, 0.24, 0);
+    rowGroup.add(warningStripe);
+    rowData.warningStripe = warningStripe;
+
     const signalMesh = createSignalMesh();
     const signalX = (CONFIG.MAP_BOUNDS_X - 0.5) * CONFIG.GRID_SIZE;
     signalMesh.position.set(signalX, 0.2, 0.4);
@@ -309,9 +339,6 @@ export class MapGenerator {
     };
   }
 
-  /**
-   * 每幀更新所有障礙物 (支援 speedMultiplier 超感時空減速效果)
-   */
   animateObstacles(deltaTime, elapsedTime, speedMultiplier = 1.0) {
     const boundMargin = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
     const effectiveDelta = deltaTime * speedMultiplier;
@@ -343,10 +370,12 @@ export class MapGenerator {
 
       else if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.train) {
         const { bulbMat } = row.signal.userData;
+        const stripeMat = row.warningStripe.material;
 
         if (row.trainState === 'IDLE') {
           row.idleTimer -= effectiveDelta;
           bulbMat.color.setHex(CONFIG.COLORS.SIGNAL_OFF);
+          stripeMat.opacity = 0;
 
           if (row.idleTimer <= 0) {
             row.trainState = 'WARNING';
@@ -356,15 +385,19 @@ export class MapGenerator {
         } else if (row.trainState === 'WARNING') {
           row.warningTimer -= effectiveDelta;
 
+          // 號誌紅燈閃爍 + 整條軌道紅色雷射警示光束 (對齊圖 2)
           const flash = Math.floor(elapsedTime * 10) % 2 === 0;
           bulbMat.color.setHex(flash ? CONFIG.COLORS.SIGNAL_RED : CONFIG.COLORS.SIGNAL_OFF);
+          stripeMat.opacity = flash ? 0.45 : 0.15;
 
           if (row.warningTimer <= 0) {
             row.trainState = 'TRAIN_PASSING';
             bulbMat.color.setHex(CONFIG.COLORS.SIGNAL_RED);
+            stripeMat.opacity = 0.55;
           }
         } else if (row.trainState === 'TRAIN_PASSING') {
           row.train.position.x += row.direction * row.train.speed * effectiveDelta;
+          stripeMat.opacity = 0.55;
 
           const trainPassed = row.direction === 1
             ? row.train.position.x > boundMargin + row.train.length / 2
@@ -375,6 +408,7 @@ export class MapGenerator {
             row.idleTimer = CONFIG.OBSTACLES.TRAIN.INTERVAL_MIN +
               Math.random() * (CONFIG.OBSTACLES.TRAIN.INTERVAL_MAX - CONFIG.OBSTACLES.TRAIN.INTERVAL_MIN);
             bulbMat.color.setHex(CONFIG.COLORS.SIGNAL_OFF);
+            stripeMat.opacity = 0;
           }
         }
       }
@@ -389,7 +423,7 @@ export class MapGenerator {
     this.scene.remove(rowData.mesh);
     rowData.mesh.traverse((child) => {
       if (child.isMesh) {
-        if (child.geometry !== this.laneGeo && child.geometry !== this.railGeo && child.geometry !== this.tieGeo) {
+        if (child.geometry !== this.laneGeo && child.geometry !== this.railGeo && child.geometry !== this.tieGeo && child.geometry !== this.warningStripeGeo) {
           child.geometry.dispose();
         }
       }

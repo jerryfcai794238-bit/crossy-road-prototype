@@ -9,7 +9,7 @@ export class SceneSetup {
     this.scene.background = new THREE.Color(0xa0d8ef); // 天藍色背景
     this.scene.fog = new THREE.FogExp2(0xa0d8ef, 0.015); // 遠景霧化效果
 
-    // 2. 正交相機 (Isometric Camera - 左下至右上 45 度視角)
+    // 2. 正交相機 (Isometric Camera - 對齊正版 Crossy Road 視角)
     const aspect = window.innerWidth / window.innerHeight;
     const d = 14;
     this.camera = new THREE.OrthographicCamera(
@@ -21,8 +21,8 @@ export class SceneSetup {
       1000
     );
 
-    // 設定視角方向：相機位於 (-14, 18, -14)，使 +Z 前進方向呈現「左下角往右上角」
-    this.cameraOffset = new THREE.Vector3(-14, 18, -14);
+    // 精準對齊 Crossy Road 經典視角：相機位於 (-8, 22, -18)
+    this.cameraOffset = new THREE.Vector3(-8, 22, -18);
     this.cameraTarget = new THREE.Vector3(0, 0, 0);
     this.camera.position.copy(this.cameraOffset);
     this.camera.lookAt(this.cameraTarget);
@@ -47,17 +47,16 @@ export class SceneSetup {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
     this.scene.add(ambientLight);
 
-    // 半球光 (天空與地面層次光)
+    // 半球光
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.35);
     hemiLight.position.set(0, 50, 0);
     this.scene.add(hemiLight);
 
     // 主平行日光 + 動態陰影
     this.dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
-    this.dirLight.position.set(-20, 35, -15);
+    this.dirLight.position.set(-15, 35, -20);
     this.dirLight.castShadow = true;
 
-    // 陰影圖層與品質設定
     this.dirLight.shadow.mapSize.width = 2048;
     this.dirLight.shadow.mapSize.height = 2048;
     const d = 25;
@@ -71,9 +70,6 @@ export class SceneSetup {
     this.scene.add(this.dirLight);
   }
 
-  /**
-   * 鏡頭平滑跟隨玩家移動 (左下至右上動態追蹤)
-   */
   updateCamera(targetPosition) {
     if (!targetPosition) return;
 
@@ -88,9 +84,9 @@ export class SceneSetup {
     // 更新相機與平行光位置
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
     this.dirLight.position.set(
-      this.cameraTarget.x - 20,
+      this.cameraTarget.x - 15,
       35,
-      this.cameraTarget.z - 15
+      this.cameraTarget.z - 20
     );
     this.dirLight.target.position.copy(this.cameraTarget);
     this.dirLight.target.updateMatrixWorld();
