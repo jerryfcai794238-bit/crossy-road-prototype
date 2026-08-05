@@ -22,6 +22,9 @@ class Game {
     this.isGameStarted = false;
     this.isGameOver = false;
 
+    // 單向前進相機鎖定 Z 座標 (正版 Crossy Road 相機跟隨)
+    this.maxCameraZ = 0;
+
     // 靜止發呆發動老鷹攻擊計時器
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
@@ -156,6 +159,7 @@ class Game {
   startGame() {
     this.isGameStarted = true;
     this.isGameOver = false;
+    this.maxCameraZ = 0;
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
     this.isEagleAttacking = false;
@@ -172,6 +176,7 @@ class Game {
     this.mapGenerator.initMap();
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
+    this.maxCameraZ = 0;
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
     this.isEagleAttacking = false;
@@ -226,6 +231,7 @@ class Game {
 
     this.idleTimer = 0;
     this.player.respawn(safeX, safeZ);
+    this.maxCameraZ = Math.max(this.maxCameraZ, safeZ * CONFIG.GRID_SIZE);
     this.isGameOver = false;
     this.isGameStarted = true;
     this.clock.start();
@@ -254,20 +260,17 @@ class Game {
     const animateEagle = () => {
       progress += 0.04;
       if (progress < 0.5) {
-        // 俯衝階段
         const t = progress / 0.5;
         this.eagleMesh.position.x = THREE.MathUtils.lerp(startX, playerTarget.x, t);
         this.eagleMesh.position.z = THREE.MathUtils.lerp(startZ, playerTarget.z, t);
         this.eagleMesh.position.y = THREE.MathUtils.lerp(14, 0.5, t);
         requestAnimationFrame(animateEagle);
       } else if (progress < 1.0) {
-        // 抓起飛往天空
         const t = (progress - 0.5) / 0.5;
         this.eagleMesh.position.x = THREE.MathUtils.lerp(playerTarget.x, playerTarget.x + 5, t);
         this.eagleMesh.position.z = THREE.MathUtils.lerp(playerTarget.z, playerTarget.z + 15, t);
         this.eagleMesh.position.y = THREE.MathUtils.lerp(0.5, 20, t);
 
-        // 小雞被老鷹爪子抓著飛走
         if (this.player.mesh) {
           this.player.mesh.position.copy(this.eagleMesh.position);
           this.player.mesh.position.y -= 0.6;
@@ -342,8 +345,9 @@ class Game {
     // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 9. 正版相機平滑跟隨 (不自主無腦前飄)
-    this.sceneSetup.updateCamera(this.player.position);
+    // 9. 正版相機單向前進鎖定 (玩家前進時鏡頭即刻推進，後退時不倒退)
+    this.maxCameraZ = Math.max(this.maxCameraZ, this.player.position.z);
+    this.sceneSetup.updateCamera({ x: this.player.position.x, z: this.maxCameraZ });
 
     // 10. 主角碰撞與落水判定
     if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning && !this.isEagleAttacking) {

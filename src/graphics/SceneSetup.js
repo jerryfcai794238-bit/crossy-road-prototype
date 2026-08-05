@@ -79,7 +79,8 @@ export class SceneSetup {
       targetPosition.z
     );
 
-    this.cameraTarget.lerp(desiredTarget, 0.08);
+    // 提高相機追蹤平滑係數 (0.14) 使前進反應更敏捷
+    this.cameraTarget.lerp(desiredTarget, 0.14);
 
     // 更新相機與平行光位置
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
