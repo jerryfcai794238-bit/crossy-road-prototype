@@ -338,7 +338,27 @@ export function createEagle() {
   return group;
 }
 
-// 12. 道具 VFX 特效模型
+// 12. 實體身後動態警示邊界牆 (Back Boundary Wall Mesh)
+export function createBackBoundaryWall() {
+  const group = new THREE.Group();
+  const width = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
+
+  // 主懸崖牆體 (Dark Purple/Slate Cliff Wall)
+  const wallBody = createCube(width, 3.5, 1.2, 0x1e1e2e);
+  wallBody.position.set(0, 1.75, 0);
+  group.add(wallBody);
+
+  // 頂邊黃黑相間警示警示斜線帶 (Hazard Border)
+  for (let x = -width / 2; x <= width / 2; x += 1.2) {
+    const stripe = createCube(0.6, 0.08, 1.22, 0xfbc531);
+    stripe.position.set(x, 3.55, 0);
+    group.add(stripe);
+  }
+
+  return group;
+}
+
+// 13. 道具 VFX 特效模型
 export function createShieldMesh() {
   const geometry = new THREE.SphereGeometry(0.85, 16, 16);
   const material = new THREE.MeshBasicMaterial({
