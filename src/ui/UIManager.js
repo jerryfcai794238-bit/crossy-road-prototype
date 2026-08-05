@@ -7,6 +7,19 @@ export class UIManager {
     this.energyCountEl = document.getElementById('energy-count');
     this.energyTimerEl = document.getElementById('energy-timer');
 
+    // 🟥 紅色長血條 DOM
+    this.healthBarFillEl = document.getElementById('health-bar-fill');
+    this.healthBarTextEl = document.getElementById('health-bar-text');
+
+    // 🔥 Combo 與 Rating 特效 DOM
+    this.comboContainerEl = document.getElementById('combo-container');
+    this.ratingTextEl = document.getElementById('rating-text');
+    this.comboCountEl = document.getElementById('combo-count');
+
+    // 🐌 休閒模式金幣減速按鈕
+    this.btnCasualSlowdown = document.getElementById('btn-casual-slowdown');
+    this.slowdownTextEl = document.getElementById('slowdown-text');
+
     this.startOverlay = document.getElementById('start-overlay');
     this.gameoverOverlay = document.getElementById('gameover-overlay');
 
@@ -37,7 +50,7 @@ export class UIManager {
     });
   }
 
-  init(onStart, onRestart, onFastRespawn, onTriggerSkill, onReturnLobby) {
+  init(onStart, onRestart, onFastRespawn, onReturnLobby, onCasualSlowdown) {
     this.btnStart.addEventListener('click', () => onStart(this.selectedMode));
     this.btnRestart.addEventListener('click', () => onRestart(this.selectedMode));
     
@@ -54,15 +67,11 @@ export class UIManager {
       });
     }
 
-    // 綁定技能按鈕
-    const skillBtns = document.querySelectorAll('.skill-btn');
-    skillBtns.forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const skillType = btn.getAttribute('data-skill');
-        if (onTriggerSkill) onTriggerSkill(skillType);
+    if (this.btnCasualSlowdown) {
+      this.btnCasualSlowdown.addEventListener('click', () => {
+        if (onCasualSlowdown) onCasualSlowdown();
       });
-    });
+    }
   }
 
   updateEnergyUI(energy, maxEnergy, timeToNext) {
@@ -77,6 +86,63 @@ export class UIManager {
         this.energyTimerEl.innerText = `恢復倒數: ${timeToNext}s`;
         this.energyTimerEl.style.color = '#ffcc00';
       }
+    }
+  }
+
+  // 🟥 更新 100 HP 紅色長血條
+  updateHealthUI(hp, maxHp = 100) {
+    if (this.healthBarFillEl) {
+      const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+      this.healthBarFillEl.style.width = `${pct}%`;
+    }
+    if (this.healthBarTextEl) {
+      this.healthBarTextEl.innerText = `${Math.max(0, Math.ceil(hp))}/${maxHp}`;
+    }
+  }
+
+  // 🔥 彈出 PERFECT!! / GREAT! / GOOD 評分與 Combo
+  showRating(rating, combo) {
+    if (!this.comboContainerEl || !this.ratingTextEl || !this.comboCountEl) return;
+
+    this.ratingTextEl.className = '';
+    if (rating === 'PERFECT') {
+      this.ratingTextEl.innerText = 'PERFECT!!';
+      this.ratingTextEl.classList.add('rating-perfect');
+    } else if (rating === 'GREAT') {
+      this.ratingTextEl.innerText = 'GREAT!';
+      this.ratingTextEl.classList.add('rating-great');
+    } else {
+      this.ratingTextEl.innerText = 'GOOD';
+      this.ratingTextEl.classList.add('rating-good');
+    }
+
+    this.comboCountEl.innerText = `🔥 ${combo} COMBO`;
+    this.comboContainerEl.classList.remove('combo-hidden');
+
+    clearTimeout(this.ratingTimer);
+    this.ratingTimer = setTimeout(() => {
+      this.comboContainerEl.classList.add('combo-hidden');
+    }, 1200);
+  }
+
+  // 🐌 休閒模式專屬減速按鈕 UI 更新
+  updateCasualSlowdownUI(isCasual, stack, isGrass) {
+    if (!this.btnCasualSlowdown) return;
+
+    if (!isCasual) {
+      this.btnCasualSlowdown.classList.add('hidden');
+      return;
+    }
+
+    this.btnCasualSlowdown.classList.remove('hidden');
+
+    if (stack >= 3 || !isGrass) {
+      this.btnCasualSlowdown.classList.add('disabled');
+      this.slowdownTextEl.innerText = stack >= 3 ? '減速已達上限 (-45%)' : '請在安全草地使用減速';
+    } else {
+      this.btnCasualSlowdown.classList.remove('disabled');
+      const currentPct = (stack + 1) * 15;
+      this.slowdownTextEl.innerText = `🐌 減速輔助 (-${currentPct}%, 剩 ${3 - stack} 次)`;
     }
   }
 
@@ -120,30 +186,6 @@ export class UIManager {
       `;
       this.leaderboardListEl.appendChild(row);
     });
-  }
-
-  updateIndependentCooldowns(cooldownRatios, cooldownTimes) {
-    for (const [type, ratio] of Object.entries(cooldownRatios)) {
-      const btn = document.getElementById(`btn-skill-${type}`);
-      if (!btn) continue;
-
-      const overlay = btn.querySelector('.skill-cd-overlay');
-      const textEl = btn.querySelector('.skill-cd-text');
-
-      if (overlay) {
-        overlay.style.height = `${ratio * 100}%`;
-      }
-
-      if (textEl) {
-        if (ratio > 0) {
-          textEl.innerText = `${cooldownTimes[type].toFixed(1)}s`;
-          textEl.style.color = '#a0aec0';
-        } else {
-          textEl.innerText = 'READY';
-          textEl.style.color = '#38bdf8';
-        }
-      }
-    }
   }
 
   showGameOver(score, reason = '被車撞飛了！', allowRespawn = true) {

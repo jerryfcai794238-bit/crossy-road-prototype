@@ -1,144 +1,176 @@
 import { CONFIG } from '../config.js';
 
 export class Physics {
-  // 1. 檢查樹木與地圖邊界碰撞
-  checkTreeCollision(targetGridPos, activeRows) {
-    const row = activeRows.get(targetGridPos.z);
-    if (!row || row.type !== CONFIG.ROW_TYPES.GRASS) return false;
+  constructor() {}
 
-    if (Array.isArray(row.trees)) {
-      return row.trees.some((t) => t.gridX === targetGridPos.x);
+  /**
+   * 評估跳躍的音速 4 級判定 (PERFECT / GREAT / GOOD / BAD)
+   * PERFECT: 距離車輛 > 1.2 格 (絕對安全)
+   * GOOD: 距離車輛 <= 0.45 格 (極限擦車冒險)
+   * GREAT: 介於中間
+   */
+  evaluateHopRating(player, activeRows) {
+    const targetZ = player.targetGridZ;
+    const row = activeRows.get(targetZ);
+
+    if (!row || !row.vehicles || row.vehicles.length === 0) {
+      return 'PERFECT'; // 草地/普通地塊遠離危險
     }
-    if (row.trees instanceof Set) {
-      return row.trees.has(targetGridPos.x);
-    }
-    return false;
-  }
 
-  // 2. 爆破清理以中心點為首的 3x3 (九宮格) 範圍內所有樹木 (火箭跳躍落地爆破)
-  destroyTreesInArea(centerGridPos, radius = 1, activeRows) {
-    let destroyedCount = 0;
+    let minVehicleDist = 999;
+    const playerX = player.position.x;
 
-    for (let zOffset = -radius; zOffset <= radius; zOffset++) {
-      const targetZ = centerGridPos.z + zOffset;
-      const row = activeRows.get(targetZ);
-      if (!row || row.type !== CONFIG.ROW_TYPES.GRASS || !Array.isArray(row.trees)) continue;
-
-      for (let xOffset = -radius; xOffset <= radius; xOffset++) {
-        const targetX = centerGridPos.x + xOffset;
-        const treeIndex = row.trees.findIndex((t) => t.gridX === targetX);
-
-        if (treeIndex !== -1) {
-          const tree = row.trees[treeIndex];
-          if (tree.mesh && tree.mesh.parent) {
-            tree.mesh.parent.remove(tree.mesh);
-            tree.mesh.traverse((child) => {
-              if (child.geometry) child.geometry.dispose();
-            });
-          }
-          row.trees.splice(treeIndex, 1);
-          destroyedCount++;
-        }
+    for (const veh of row.vehicles) {
+      const obsX = veh.position ? veh.position.x : veh.mesh.position.x;
+      const distInGrids = Math.abs(playerX - obsX) / CONFIG.GRID_SIZE;
+      if (distInGrids < minVehicleDist) {
+        minVehicleDist = distInGrids;
       }
     }
 
-    return destroyedCount;
+    if (minVehicleDist <= 0.45) {
+      return 'GOOD'; // 極限擦車
+    } else if (minVehicleDist > 1.2) {
+      return 'PERFECT'; // 絕對安全
+    } else {
+      return 'GREAT';
+    }
   }
 
-  // 3. 檢查車輛與火車碰撞
+  /**
+   * 搜尋 player 身後最靠近的安全草地/岸邊 Z 座標
+   */
+  findNearestSafeZ(player, activeRows) {
+    let safeZ = Math.max(0, player.gridZ - 1);
+    while (safeZ > 0) {
+      const row = activeRows.get(safeZ);
+      if (row && row.type === CONFIG.ROW_TYPES.GRASS) {
+        return safeZ;
+      }
+      safeZ--;
+    }
+    return 0; // 回到起點 0
+  }
+
+  /**
+   * 判斷玩家與動態障礙物 (車輛 / 火車) 的 AABB 碰撞
+   */
   checkObstacleCollision(player, activeRows) {
-    if (player.isShielded) return null;
+    if (player.isDead || player.isRespawning) return null;
 
     const row = activeRows.get(player.gridZ);
     if (!row) return null;
 
     const playerX = player.position.x;
-    const playerRadius = (CONFIG.PLAYER?.COLLISION_RADIUS || 0.35) * CONFIG.GRID_SIZE;
+    const playerWidth = CONFIG.GRID_SIZE * 0.55;
 
-    // 車輛碰撞
+    // 1. 車輛碰撞檢測
     if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
       for (const veh of row.vehicles) {
         const obsX = veh.position ? veh.position.x : veh.mesh.position.x;
-        const halfWidth = (veh.width || 1.6) / 2;
+        const width = (veh.isTruck ? 2.3 : 1.6) * CONFIG.GRID_SIZE * 0.7;
 
-        if (Math.abs(playerX - obsX) < halfWidth + playerRadius) {
-          return { type: 'car' };
+        if (Math.abs(playerX - obsX) < (playerWidth + width) / 2) {
+          return { type: 'vehicle', isTruck: veh.isTruck, damage: veh.isTruck ? 10 : 5 };
         }
       }
     }
 
-    // 火車碰撞
-    if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.trainState === 'TRAIN_PASSING' && row.train) {
+    // 2. 高速火車碰撞檢測
+    if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.train) {
       const trainX = row.train.position ? row.train.position.x : row.train.mesh.position.x;
-      const halfWidth = (row.train.length || 22.0) / 2;
+      const trainWidth = 8.0 * CONFIG.GRID_SIZE * 0.7;
 
-      if (Math.abs(playerX - trainX) < halfWidth + playerRadius) {
-        return { type: 'train' };
+      if (Math.abs(playerX - trainX) < (playerWidth + trainWidth) / 2) {
+        return { type: 'train', damage: 15 };
       }
     }
 
     return null;
   }
 
-  // 4. 檢查河流與浮木狀態
+  /**
+   * 判斷玩家在河流處的踩木與落水狀態
+   */
   checkRiverStatus(player, activeRows) {
     const row = activeRows.get(player.gridZ);
     if (!row || row.type !== CONFIG.ROW_TYPES.RIVER) {
       return { inRiver: false, onLog: false, logSpeed: 0 };
     }
 
-    if (player.isJumping || player.isShielded) {
-      return { inRiver: true, onLog: true, logSpeed: 0 };
-    }
-
     const playerX = player.position.x;
-    const playerRadius = 0.25;
+    const playerWidth = CONFIG.GRID_SIZE * 0.45;
 
     if (row.logs) {
       for (const log of row.logs) {
         const logX = log.position ? log.position.x : log.mesh.position.x;
-        const width = (log.length || 3) * CONFIG.GRID_SIZE * 0.85;
-        const halfWidth = width / 2;
+        const logWidth = (log.length || 3) * CONFIG.GRID_SIZE * 0.85;
 
-        if (playerX >= logX - halfWidth - playerRadius && playerX <= logX + halfWidth + playerRadius) {
-          return {
-            inRiver: true,
-            onLog: true,
-            logSpeed: row.direction * row.speed
-          };
+        if (Math.abs(playerX - logX) < (playerWidth + logWidth) / 2) {
+          return { inRiver: true, onLog: true, logSpeed: row.speed, damage: 0 };
         }
       }
     }
 
-    return { inRiver: true, onLog: false, logSpeed: 0 };
+    // 未踩在浮木上，判定落水 (-20 HP)
+    return { inRiver: true, onLog: false, logSpeed: 0, damage: 20 };
   }
 
-  // 5. 多人/AI 網格碰撞彈退機制 (Grid Bump Physics - 同步離散網格座標)
+  /**
+   * 判斷玩家前方目標格是否被樹木碰撞阻擋
+   */
+  checkTreeCollision(targetGridPos, activeRows) {
+    const row = activeRows.get(targetGridPos.z);
+    if (!row || row.type !== CONFIG.ROW_TYPES.GRASS || !row.trees) {
+      return false;
+    }
+
+    return row.trees.some((tree) => tree.gridX === targetGridPos.x);
+  }
+
+  /**
+   * 清除指定區域內的樹木
+   */
+  destroyTreesInArea(targetGridPos, radius = 1, activeRows) {
+    for (let z = targetGridPos.z - radius; z <= targetGridPos.z + radius; z++) {
+      const row = activeRows.get(z);
+      if (row && row.type === CONFIG.ROW_TYPES.GRASS && Array.isArray(row.trees)) {
+        for (let i = row.trees.length - 1; i >= 0; i--) {
+          const tree = row.trees[i];
+          if (Math.abs(tree.gridX - targetGridPos.x) <= radius) {
+            if (tree.mesh && tree.mesh.parent) {
+              tree.mesh.parent.remove(tree.mesh);
+            }
+            row.trees.splice(i, 1);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 4 人 1x1 網格 Bump 碰撞推擠
+   */
   resolveGridBump(runners) {
     for (let i = 0; i < runners.length; i++) {
       for (let j = i + 1; j < runners.length; j++) {
         const r1 = runners[i];
         const r2 = runners[j];
 
-        if (!r1 || !r2 || r1.isRespawning || r2.isRespawning || r1.isDead || r2.isDead) continue;
+        if (r1.isDead || r2.isDead || r1.isRespawning || r2.isRespawning) continue;
 
-        // 檢測當前或目標網格重疊 (1x1 格子)
-        const cellOverlap = r1.targetGridX === r2.targetGridX && r1.targetGridZ === r2.targetGridZ;
-        const posOverlap = Math.abs(r1.position.x - r2.position.x) < 0.65 && Math.abs(r1.position.z - r2.position.z) < 0.65;
+        if (r1.targetGridX === r2.targetGridX && r1.targetGridZ === r2.targetGridZ) {
+          const pusher = r1.isJumping ? r1 : r2;
+          const pushed = r1.isJumping ? r2 : r1;
 
-        if (cellOverlap && posOverlap) {
-          // 產生 Bump 彈退 (較遲起跳者被推後 1 格，並同步離散網格座標)
-          const targetToPush = r1.isJumping ? r2 : r1;
-          
-          targetToPush.gridZ = Math.max(0, targetToPush.gridZ - 1);
-          targetToPush.targetGridZ = targetToPush.gridZ;
-          targetToPush.position.z = targetToPush.gridZ * CONFIG.GRID_SIZE;
-          targetToPush.startPosition.copy(targetToPush.position);
-          targetToPush.targetPosition.copy(targetToPush.position);
-          
-          if (targetToPush.mesh) {
-            targetToPush.mesh.position.copy(targetToPush.position);
-          }
+          pushed.targetGridZ -= 1;
+          pushed.gridZ = pushed.targetGridZ;
+          pushed.startPosition.copy(pushed.position);
+          pushed.targetPosition.set(
+            pushed.targetGridX * CONFIG.GRID_SIZE,
+            0,
+            pushed.targetGridZ * CONFIG.GRID_SIZE
+          );
         }
       }
     }

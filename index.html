@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Crossy Road Prototype - 天天過馬路 3D</title>
+  <title>Crossy Road Prototype - 《玩星派對》音速過馬路</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,6 +32,27 @@
       </div>
     </div>
 
+    <!-- 頂部 100 HP 紅色長血條 (Red Health Bar) -->
+    <div id="health-bar-container">
+      <div class="health-bar-label">HP</div>
+      <div class="health-bar-track">
+        <div id="health-bar-fill" class="health-bar-fill"></div>
+      </div>
+      <div id="health-bar-text">100/100</div>
+    </div>
+
+    <!-- 🔥 Combo 音速連擊與 PERFECT 打擊浮字特效 -->
+    <div id="combo-container" class="combo-hidden">
+      <span id="rating-text" class="rating-perfect">PERFECT!!</span>
+      <span id="combo-count">🔥 5 COMBO</span>
+    </div>
+
+    <!-- 🎮 休閒模式專屬：金幣減速輔助按鈕 -->
+    <button id="btn-casual-slowdown" class="casual-slowdown-btn hidden">
+      <span class="slowdown-icon">🐌</span>
+      <span id="slowdown-text">金幣減速 (可按 3 次)</span>
+    </button>
+
     <!-- 遊戲 HUD UI -->
     <div id="hud">
       <div class="score-card">
@@ -44,46 +65,19 @@
       </div>
     </div>
 
-    <!-- 右上角即時競速排行榜面板 (Live Leaderboard) -->
+    <!-- 右上角即時競速排行榜面板 (Live Leaderboard with 👑 Crown) -->
     <div id="leaderboard">
       <div class="leaderboard-header">🏆 4人同起點競速榜</div>
       <div id="leaderboard-list">
-        <!-- 4 位選手動態名次列表 -->
+        <!-- 4 位選手動態名次列表與 👑 皇冠 -->
       </div>
-    </div>
-
-    <!-- 3 大獨立技能快捷列 (Skill Bar) -->
-    <div id="skill-bar">
-      <button id="btn-skill-shield" class="skill-btn" data-skill="shield">
-        <span class="skill-key">[1]</span>
-        <span class="skill-icon">🛡️</span>
-        <span class="skill-name">護盾</span>
-        <span class="skill-cd-text">READY</span>
-        <div class="skill-cd-overlay"></div>
-      </button>
-
-      <button id="btn-skill-rocket" class="skill-btn" data-skill="rocket">
-        <span class="skill-key">[2]</span>
-        <span class="skill-icon">🚀</span>
-        <span class="skill-name">火箭</span>
-        <span class="skill-cd-text">READY</span>
-        <div class="skill-cd-overlay"></div>
-      </button>
-
-      <button id="btn-skill-time_slow" class="skill-btn" data-skill="time_slow">
-        <span class="skill-key">[3]</span>
-        <span class="skill-icon">⏳</span>
-        <span class="skill-name">超感</span>
-        <span class="skill-cd-text">READY</span>
-        <div class="skill-cd-overlay"></div>
-      </button>
     </div>
 
     <!-- 🏛️ 遊戲大廳 / 模式選擇 (Game Lobby) -->
     <div id="start-overlay" class="overlay active">
       <div class="modal-card lobby-card">
-        <h1 class="game-title">CROSSY ROAD</h1>
-        <p class="game-subtitle">3D 體素過馬路原型大廳</p>
+        <h1 class="game-title">《玩星派對》</h1>
+        <p class="game-subtitle">音速過馬路 (3D 體素大廳)</p>
 
         <!-- 模式選擇卡片區域 -->
         <div class="mode-select-container">
@@ -92,7 +86,7 @@
             <div class="mode-badge">熱門</div>
             <div class="mode-icon">🏆</div>
             <h3 class="mode-title">挑戰模式</h3>
-            <p class="mode-desc">含 7 秒老鷹淘汰與 4 人動物同起點競速榜！挑戰高分極限。</p>
+            <p class="mode-desc">含 7 秒老鷹淘汰與 4 人競速榜！100 HP 紅色血條與 👑 皇冠搶奪。</p>
             <div class="mode-cost">消耗 ⚡ 1</div>
           </div>
 
@@ -101,7 +95,7 @@
             <div class="mode-badge casual">推薦</div>
             <div class="mode-icon">🍃</div>
             <h3 class="mode-title">休閒模式</h3>
-            <p class="mode-desc">無老鷹發呆淘汰死！輕鬆漫遊過馬路、練習技能與遊玩。</p>
+            <p class="mode-desc">無老鷹發呆淘汰死！獨家支援 🐌 減速輔助器 (可疊加 3 次降速 45%)！</p>
             <div class="mode-cost">消耗 ⚡ 1</div>
           </div>
         </div>
@@ -110,9 +104,7 @@
           <div class="key-hint">
             <span class="key">W</span> 前進，<span class="key">S</span> 後退，<span class="key">A</span> 往左，<span class="key">D</span> 往右
           </div>
-          <div class="key-hint">
-            <span class="key">1</span> 護盾技能 / <span class="key">2</span> 火箭技能 / <span class="key">3</span> 超感技能
-          </div>
+          <div class="touch-hint">手機可點擊螢幕 / 虛擬 D-Pad 與減速鈕控制</div>
         </div>
 
         <button id="btn-start" class="btn-primary">進入遊戲 (消耗 1 ⚡)</button>

@@ -11,6 +11,18 @@ export class Player {
     this.maxReachedZ = 0;
     this.score = 0;
 
+    // 100 HP 紅色長血條機制 (HP = 100)
+    this.maxHp = 100;
+    this.hp = 100;
+    this.combo = 0;
+
+    // 20 Combo FEVER 狂熱狀態
+    this.isFever = false;
+    this.feverTimer = 0;
+
+    // 休閒模式專屬：金幣減速次數 (每區塊最多 3 次，每次-15%)
+    this.slowdownStack = 0;
+
     // 最小可後退到的 Z 軸網格邊界
     this.minAllowedZ = -4;
 
@@ -27,19 +39,13 @@ export class Player {
     // 面向角度 (0: 朝 +Z 前方, PI/2: 左, -PI/2: 右, PI: 後)
     this.targetRotationY = 0;
 
-    // 死亡與特殊狀態
+    // 死亡與重生狀態
     this.isDead = false;
-    this.isShielded = false;
-    this.isRocketJumping = false;
-    this.isReflexHyper = false;
     this.isRespawning = false;
 
     // 輸入緩衝佇列 (Input Buffer - 預存連點指令)
     this.inputBuffer = [];
     this.onBufferedMoveRequested = null;
-
-    // 事件監聽 (例如火箭跳躍 touchdown 觸地)
-    this.onRocketLand = null;
   }
 
   /**
@@ -68,11 +74,52 @@ export class Player {
   }
 
   /**
-   * 🚀 火箭跳躍：爆衝向前 3 格
+   * 受傷扣血並彈回身後安全草地 (BAD 斷 Combo，無無敵時間)
    */
-  rocketJump() {
-    this.isRocketJumping = true;
-    this.move('UP', 3);
+  takeDamage(amount, safeZ = 0) {
+    if (this.isDead || this.isRespawning) return false;
+
+    this.hp = Math.max(0, this.hp - amount);
+    this.combo = 0; // BAD 斷 Combo 重置為 0
+
+    if (this.hp <= 0) {
+      this.isDead = true;
+      return true; // 死亡
+    }
+
+    // 100% 彈回身後安全草地 (無無敵時間)
+    this.gridZ = safeZ;
+    this.targetGridZ = safeZ;
+    this.gridX = Math.round(this.position.x / CONFIG.GRID_SIZE);
+    this.targetGridX = this.gridX;
+
+    this.position.z = safeZ * CONFIG.GRID_SIZE;
+    this.startPosition.copy(this.position);
+    this.targetPosition.copy(this.position);
+
+    if (this.mesh) {
+      this.mesh.position.copy(this.position);
+    }
+
+    return false; // 存活
+  }
+
+  /**
+   * 增加 Combo 與 10 Combo (+5 HP) 自動回血
+   */
+  addCombo() {
+    this.combo++;
+
+    // 10 Combo (+5 HP) 自動技術回血
+    if (this.combo % 10 === 0) {
+      this.hp = Math.min(this.maxHp, this.hp + 5);
+    }
+
+    // 20 Combo 觸發 5 秒 FEVER 狂熱時刻
+    if (this.combo >= 20 && !this.isFever) {
+      this.isFever = true;
+      this.feverTimer = 5.0;
+    }
   }
 
   /**
@@ -96,7 +143,7 @@ export class Player {
   move(direction, distance = 1) {
     if (this.isJumping || this.isRespawning || this.isDead) return false;
 
-    // 起跳前依據實時 position 重新校正基準網格 (修復在漂木上左右跳爆衝問題)
+    // 起跳前依據實時 position 重新校正基準網格
     this.gridX = Math.round(this.position.x / CONFIG.GRID_SIZE);
     this.gridZ = Math.round(this.position.z / CONFIG.GRID_SIZE);
     this.targetGridX = this.gridX;
@@ -165,6 +212,15 @@ export class Player {
   }
 
   update(deltaTime) {
+    // 更新 FEVER 狂熱計時
+    if (this.isFever) {
+      this.feverTimer -= deltaTime;
+      if (this.feverTimer <= 0) {
+        this.isFever = false;
+        this.feverTimer = 0;
+      }
+    }
+
     if (this.mesh) {
       this.mesh.rotation.y = THREE.MathUtils.lerp(
         this.mesh.rotation.y,
@@ -182,14 +238,6 @@ export class Player {
         this.gridX = this.targetGridX;
         this.gridZ = this.targetGridZ;
         this.position.copy(this.targetPosition);
-
-        // 火箭跳躍 0ms 觸地事件
-        if (this.isRocketJumping) {
-          this.isRocketJumping = false;
-          if (this.onRocketLand) {
-            this.onRocketLand(this.targetGridX, this.targetGridZ);
-          }
-        }
 
         // 觸地 0ms 檢查緩衝佇列發動連續無縫跳躍 (0ms 零卡頓)
         if (this.onBufferedMoveRequested && this.inputBuffer.length > 0) {
@@ -239,6 +287,8 @@ export class Player {
     this.isDead = false;
     this.isRespawning = true;
     this.inputBuffer = [];
+    this.hp = this.maxHp;
+    this.combo = 0;
     this.gridX = safeX;
     this.gridZ = safeZ;
     this.targetGridX = safeX;
@@ -279,12 +329,14 @@ export class Player {
     this.targetGridZ = 0;
     this.maxReachedZ = 0;
     this.score = 0;
+    this.hp = 100;
+    this.combo = 0;
+    this.isFever = false;
+    this.feverTimer = 0;
+    this.slowdownStack = 0;
     this.minAllowedZ = -4;
     this.isJumping = false;
     this.isDead = false;
-    this.isShielded = false;
-    this.isRocketJumping = false;
-    this.isReflexHyper = false;
     this.inputBuffer = [];
 
     this.position.set(0, 0, 0);
