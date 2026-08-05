@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createShieldMesh, createRocketExhaust, createTimeWave } from '../graphics/VoxelModels.js';
+import { createShieldMesh, createRocketExhaust, createTimeWave, createRocketBlastRing } from '../graphics/VoxelModels.js';
 
 export const ITEM_TYPES = {
   SHIELD: 'shield',
@@ -78,7 +78,7 @@ export class ItemSystem {
   activateShield() {
     this.player.isShielded = true;
     this.shieldMesh.visible = true;
-    this.activeTimers.shield = 3.5; // 護盾持續 3.5 秒
+    this.activeTimers.shield = 3.5;
   }
 
   activateRocket() {
@@ -86,7 +86,15 @@ export class ItemSystem {
     this.rocketMesh.visible = true;
     setTimeout(() => {
       this.rocketMesh.visible = false;
-    }, 600);
+
+      // 落地產生 3x3 爆破光環 VFX
+      const blast = createRocketBlastRing();
+      blast.position.copy(this.player.position);
+      this.scene.add(blast);
+      setTimeout(() => {
+        this.scene.remove(blast);
+      }, 450);
+    }, 450);
   }
 
   activateTimeSlow() {
@@ -94,7 +102,7 @@ export class ItemSystem {
     this.timeWaveMesh.position.copy(this.player.position);
     this.timeWaveMesh.scale.set(0.1, 0.1, 0.1);
     this.timeWaveMesh.visible = true;
-    this.activeTimers.time_slow = 3.5; // 時空減速持續 3.5 秒
+    this.activeTimers.time_slow = 3.5;
   }
 
   deactivateShield() {

@@ -52,22 +52,18 @@ export function createChicken() {
 export function createCar(colorHex = 0xff4757) {
   const group = new THREE.Group();
 
-  // 車身底盤
   const body = createCube(1.4, 0.45, 0.95, colorHex);
   body.position.y = 0.35;
   group.add(body);
 
-  // 車頂駕駛艙
   const cabin = createCube(0.85, 0.4, 0.85, 0xffffff);
   cabin.position.set(-0.1, 0.75, 0);
   group.add(cabin);
 
-  // 車窗
   const windowGlass = createCube(0.8, 0.32, 0.87, 0x2f3542);
   windowGlass.position.set(-0.1, 0.75, 0);
   group.add(windowGlass);
 
-  // 四個輪胎
   const wheelColor = 0x222222;
   const wheelPositions = [
     [0.45, 0.15, 0.48], [0.45, 0.15, -0.48],
@@ -80,7 +76,6 @@ export function createCar(colorHex = 0xff4757) {
     group.add(wheel);
   });
 
-  // 車燈
   const lightL = createCube(0.08, 0.12, 0.18, 0xfffa65);
   lightL.position.set(0.71, 0.38, 0.3);
   const lightR = createCube(0.08, 0.12, 0.18, 0xfffa65);
@@ -94,17 +89,14 @@ export function createCar(colorHex = 0xff4757) {
 export function createTruck(colorHex = 0x57606f) {
   const group = new THREE.Group();
 
-  // 車頭
   const cabin = createCube(0.7, 0.75, 0.95, 0xff6b6b);
   cabin.position.set(0.65, 0.5, 0);
   group.add(cabin);
 
-  // 後方貨斗
   const cargo = createCube(1.4, 0.9, 1.0, colorHex || 0xf1f2f6);
   cargo.position.set(-0.4, 0.6, 0);
   group.add(cargo);
 
-  // 輪胎
   const wheelPositions = [
     [0.65, 0.18, 0.48], [0.65, 0.18, -0.48],
     [-0.2, 0.18, 0.48], [-0.2, 0.18, -0.48],
@@ -124,12 +116,10 @@ export function createTruck(colorHex = 0x57606f) {
 export function createTree(type = 0) {
   const group = new THREE.Group();
 
-  // 樹幹
   const trunk = createCube(0.35, 0.6, 0.35, CONFIG.COLORS.TREE_TRUNK);
   trunk.position.y = 0.3;
   group.add(trunk);
 
-  // 階梯狀樹葉
   const leafColor = CONFIG.COLORS.TREE_LEAVES[type % CONFIG.COLORS.TREE_LEAVES.length];
 
   const tier1 = createCube(1.0, 0.45, 1.0, leafColor);
@@ -152,7 +142,6 @@ export function createLog(lengthInGrids = 2.5) {
   logBody.position.y = 0.15;
   group.add(logBody);
 
-  // 年輪細節
   const ring1 = createCube(0.05, 0.22, 0.55, 0xd2b48c);
   ring1.position.set(width / 2 + 0.01, 0.15, 0);
   const ring2 = createCube(0.05, 0.22, 0.55, 0xd2b48c);
@@ -166,17 +155,14 @@ export function createLog(lengthInGrids = 2.5) {
 export function createTrain() {
   const group = new THREE.Group();
 
-  // 車頭 (Engine Body)
   const engine = createCube(3.2, 1.1, 0.95, CONFIG.COLORS.TRAIN);
   engine.position.y = 0.65;
   group.add(engine);
 
-  // 車頭車窗
   const windowFront = createCube(0.4, 0.4, 0.96, 0xffd32a);
   windowFront.position.set(1.2, 0.8, 0);
   group.add(windowFront);
 
-  // 警示燈
   const warningLight = createCube(0.2, 0.2, 0.2, 0xff4d4d);
   warningLight.position.set(1.5, 1.25, 0);
   group.add(warningLight);
@@ -188,17 +174,14 @@ export function createTrain() {
 export function createSignal() {
   const group = new THREE.Group();
 
-  // 燈柱
   const pole = createCube(0.12, 1.2, 0.12, 0x57606f);
   pole.position.y = 0.6;
   group.add(pole);
 
-  // 號誌箱
   const box = createCube(0.3, 0.45, 0.25, 0x2f3542);
   box.position.set(0, 1.0, 0);
   group.add(box);
 
-  // 警示紅燈
   const bulbMat = new THREE.MeshBasicMaterial({ color: 0x550000 });
   const bulbGeo = new THREE.BoxGeometry(0.15, 0.15, 0.1);
   const bulb = new THREE.Mesh(bulbGeo, bulbMat);
@@ -243,6 +226,32 @@ export function createRocketExhaust() {
     );
     group.add(p);
   }
+  return group;
+}
+
+// 火箭 3x3 落地爆破光環
+export function createRocketBlastRing() {
+  const group = new THREE.Group();
+
+  const geometry = new THREE.RingGeometry(0.3, 3.4, 32);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xff4757,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.8
+  });
+  const ring = new THREE.Mesh(geometry, material);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.05;
+  group.add(ring);
+
+  for (let i = 0; i < 12; i++) {
+    const p = createCube(0.25, 0.25, 0.25, Math.random() < 0.5 ? 0xffa502 : 0xff781e);
+    const angle = (i / 12) * Math.PI * 2;
+    p.position.set(Math.cos(angle) * 1.8, 0.2, Math.sin(angle) * 1.8);
+    group.add(p);
+  }
+
   return group;
 }
 
