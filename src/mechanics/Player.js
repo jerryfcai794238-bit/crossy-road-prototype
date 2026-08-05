@@ -6,118 +6,77 @@ export class Player {
     this.mesh = mesh;
     this.gridX = 0;
     this.gridZ = 0;
-
     this.targetGridX = 0;
     this.targetGridZ = 0;
+    this.maxReachedZ = 0;
+    this.score = 0;
+
+    // 最小可後退到的 Z 軸邊界
+    this.minAllowedZ = 0;
+
+    // 動畫與狀態控制
+    this.isJumping = false;
+    this.jumpProgress = 0;
+    this.jumpDuration = CONFIG.JUMP_DURATION || 0.18; // 跳躍時間 (秒)
+    this.jumpHeight = CONFIG.JUMP_HEIGHT || 0.65;    // 跳躍弧形高度
 
     this.position = new THREE.Vector3(0, 0, 0);
     this.startPosition = new THREE.Vector3(0, 0, 0);
     this.targetPosition = new THREE.Vector3(0, 0, 0);
 
-    this.isJumping = false;
-    this.jumpProgress = 0;
-    this.jumpDuration = CONFIG.JUMP_DURATION;
-    this.jumpHeight = CONFIG.JUMP_HEIGHT;
+    // 面向角度 (0: 朝 +Z 前方, PI/2: 左, -PI/2: 右, PI: 後)
+    this.targetRotationY = 0;
 
-    this.score = 0;
-    this.maxReachedZ = 0;
-    this.facingAngle = 0;
-
+    // 死亡與特殊狀態
+    this.isDead = false;
     this.isShielded = false;
+    this.isRocketJumping = false;
     this.isReflexHyper = false;
     this.isRespawning = false;
-    this.isRocketJumping = false;
+
+    // 事件監聽 (例如火箭跳躍 touchdown 觸地)
     this.onRocketLand = null;
-
-    this.reset();
   }
 
-  reset() {
-    this.gridX = 0;
-    this.gridZ = 0;
-    this.targetGridX = 0;
-    this.targetGridZ = 0;
-
-    this.position.set(0, 0, 0);
-    this.startPosition.set(0, 0, 0);
-    this.targetPosition.set(0, 0, 0);
-
-    this.isJumping = false;
-    this.jumpProgress = 0;
-    this.jumpDuration = CONFIG.JUMP_DURATION;
-    this.jumpHeight = CONFIG.JUMP_HEIGHT;
-
-    this.score = 0;
-    this.maxReachedZ = 0;
-    this.facingAngle = 0;
-
-    this.isShielded = false;
-    this.isReflexHyper = false;
-    this.isRespawning = false;
-    this.isRocketJumping = false;
-    this.onRocketLand = null;
-
-    if (this.mesh) {
-      this.mesh.position.set(0, 0, 0);
-      this.mesh.rotation.y = 0;
-      this.mesh.scale.set(1, 1, 1);
-      this.mesh.visible = true;
-    }
-  }
-
-  getTargetGridPosition(direction, distance = 1) {
-    let nextX = this.gridX;
-    let nextZ = this.gridZ;
-
-    switch (direction) {
-      case 'UP':
-        nextZ += distance;
-        break;
-      case 'DOWN':
-        nextZ -= distance;
-        break;
-      case 'LEFT':
-        nextX += distance;
-        break;
-      case 'RIGHT':
-        nextX -= distance;
-        break;
-    }
-
-    nextX = Math.max(-CONFIG.MAP_BOUNDS_X, Math.min(CONFIG.MAP_BOUNDS_X, nextX));
-    return { x: nextX, z: nextZ };
-  }
-
-  setFacingDirection(direction) {
-    switch (direction) {
-      case 'UP':
-        this.facingAngle = 0;
-        break;
-      case 'DOWN':
-        this.facingAngle = Math.PI;
-        break;
-      case 'LEFT':
-        this.facingAngle = Math.PI / 2;
-        break;
-      case 'RIGHT':
-        this.facingAngle = -Math.PI / 2;
-        break;
-    }
-    if (this.mesh) {
-      this.mesh.rotation.y = this.facingAngle;
-    }
-  }
-
-  move(direction, customDistance = 1) {
+  move(direction, distance = 1) {
     if (this.isJumping || this.isRespawning) return false;
 
-    const targetGrid = this.getTargetGridPosition(direction, customDistance);
-    this.setFacingDirection(direction);
+    let newGridX = this.targetGridX;
+    let newGridZ = this.targetGridZ;
+
+    switch (direction) {
+      case 'UP':
+        newGridZ += distance;
+        this.targetRotationY = 0;
+        break;
+      case 'DOWN':
+        newGridZ -= distance;
+        this.targetRotationY = Math.PI;
+        break;
+      case 'LEFT':
+        newGridX += distance;
+        this.targetRotationY = Math.PI / 2;
+        break;
+      case 'RIGHT':
+        newGridX -= distance;
+        this.targetRotationY = -Math.PI / 2;
+        break;
+    }
+
+    // 地圖左右 X 軸邊界限制
+    if (Math.abs(newGridX) > CONFIG.MAP_BOUNDS_X) {
+      return false;
+    }
+
+    // 身後邊界限制：不允許向後跳出視角下邊界
+    if (this.minAllowedZ !== undefined && newGridZ < this.minAllowedZ) {
+      return false;
+    }
+
+    this.targetGridX = newGridX;
+    this.targetGridZ = newGridZ;
 
     this.startPosition.copy(this.position);
-    this.targetGridX = targetGrid.x;
-    this.targetGridZ = targetGrid.z;
-
     this.targetPosition.set(
       this.targetGridX * CONFIG.GRID_SIZE,
       0,
@@ -127,100 +86,147 @@ export class Player {
     this.isJumping = true;
     this.jumpProgress = 0;
 
-    this.jumpDuration = this.isReflexHyper ? CONFIG.JUMP_DURATION * 0.5 : CONFIG.JUMP_DURATION;
-    this.jumpHeight = customDistance > 1 ? CONFIG.JUMP_HEIGHT * 2.2 : CONFIG.JUMP_HEIGHT;
-
     if (this.targetGridZ > this.maxReachedZ) {
       this.maxReachedZ = this.targetGridZ;
       this.score = this.maxReachedZ;
+      this.minAllowedZ = Math.max(0, this.maxReachedZ - 4);
     }
 
     return true;
   }
 
-  rocketJump() {
-    this.isRocketJumping = true;
-    return this.move('UP', 3);
-  }
-
-  // 3 秒空投復活
-  respawn(safeGridX = 0, safeGridZ = 0) {
-    this.isRespawning = true;
-    this.isJumping = true;
-    this.jumpProgress = 0;
-    this.jumpDuration = 3.0;
-    this.jumpHeight = 0;
-
-    this.gridX = safeGridX;
-    this.gridZ = safeGridZ;
-    this.targetGridX = safeGridX;
-    this.targetGridZ = safeGridZ;
-
-    const posX = safeGridX * CONFIG.GRID_SIZE;
-    const posZ = safeGridZ * CONFIG.GRID_SIZE;
-
-    this.startPosition.set(posX, 10, posZ);
-    this.targetPosition.set(posX, 0, posZ);
-    this.position.copy(this.startPosition);
-
-    if (this.mesh) {
-      this.mesh.scale.set(1, 1, 1);
-      this.mesh.rotation.y = 0;
-      this.mesh.position.copy(this.position);
-      this.mesh.visible = true;
+  setFacingDirection(direction) {
+    switch (direction) {
+      case 'UP': this.targetRotationY = 0; break;
+      case 'DOWN': this.targetRotationY = Math.PI; break;
+      case 'LEFT': this.targetRotationY = Math.PI / 2; break;
+      case 'RIGHT': this.targetRotationY = -Math.PI / 2; break;
     }
   }
 
   update(deltaTime) {
-    if (!this.mesh) return;
+    if (this.mesh) {
+      this.mesh.rotation.y = THREE.MathUtils.lerp(
+        this.mesh.rotation.y,
+        this.targetRotationY,
+        deltaTime * 20
+      );
+    }
 
     if (this.isJumping) {
       this.jumpProgress += deltaTime / this.jumpDuration;
+
       if (this.jumpProgress >= 1.0) {
         this.jumpProgress = 1.0;
         this.isJumping = false;
-        this.isRespawning = false;
-
         this.gridX = this.targetGridX;
         this.gridZ = this.targetGridZ;
         this.position.copy(this.targetPosition);
 
-        // 火箭跳躍著地瞬間 (第 0.00 秒) 觸發事件
+        // 火箭跳躍 0ms 觸地事件
         if (this.isRocketJumping) {
           this.isRocketJumping = false;
-          if (typeof this.onRocketLand === 'function') {
-            this.onRocketLand();
+          if (this.onRocketLand) {
+            this.onRocketLand(this.targetGridX, this.targetGridZ);
           }
         }
       } else {
-        this.position.x = THREE.MathUtils.lerp(this.startPosition.x, this.targetPosition.x, this.jumpProgress);
-        this.position.z = THREE.MathUtils.lerp(this.startPosition.z, this.targetPosition.z, this.jumpProgress);
-
-        if (this.isRespawning) {
-          this.position.y = THREE.MathUtils.lerp(this.startPosition.y, 0, this.jumpProgress);
-        } else {
-          const jumpY = Math.sin(this.jumpProgress * Math.PI) * this.jumpHeight;
-          this.position.y = jumpY;
-        }
+        this.position.x = THREE.MathUtils.lerp(
+          this.startPosition.x,
+          this.targetPosition.x,
+          this.jumpProgress
+        );
+        this.position.z = THREE.MathUtils.lerp(
+          this.startPosition.z,
+          this.targetPosition.z,
+          this.jumpProgress
+        );
+        this.position.y = Math.sin(this.jumpProgress * Math.PI) * this.jumpHeight;
       }
 
-      this.mesh.position.copy(this.position);
-    } else {
-      this.mesh.position.copy(this.position);
+      if (this.mesh) {
+        this.mesh.position.copy(this.position);
+      }
     }
   }
 
   triggerFlattenAnimation() {
-    if (this.mesh && !this.isShielded) {
+    this.isDead = true;
+    if (this.mesh) {
       this.mesh.scale.set(1.4, 0.1, 1.4);
       this.mesh.position.y = 0.05;
     }
   }
 
   triggerDrownAnimation() {
-    if (this.mesh && !this.isShielded) {
+    this.isDead = true;
+    if (this.mesh) {
       this.mesh.scale.set(0.2, 0.2, 0.2);
-      this.mesh.position.y = -0.3;
+      this.mesh.position.y = -0.4;
+    }
+  }
+
+  respawn(safeX = 0, safeZ = 0) {
+    this.isDead = false;
+    this.isRespawning = true;
+    this.gridX = safeX;
+    this.gridZ = safeZ;
+    this.targetGridX = safeX;
+    this.targetGridZ = safeZ;
+    this.minAllowedZ = Math.max(0, safeZ - 4);
+
+    const targetX = safeX * CONFIG.GRID_SIZE;
+    const targetZ = safeZ * CONFIG.GRID_SIZE;
+
+    this.position.set(targetX, 0, targetZ);
+    this.startPosition.copy(this.position);
+    this.targetPosition.copy(this.position);
+
+    if (this.mesh) {
+      this.mesh.visible = true;
+      this.mesh.scale.set(0.95, 0.95, 0.95);
+      this.mesh.position.set(targetX, 10, targetZ);
+    }
+
+    let dropProgress = 0;
+    const animateDrop = () => {
+      dropProgress += 0.08;
+      if (dropProgress >= 1.0) {
+        if (this.mesh) this.mesh.position.set(targetX, 0, targetZ);
+        this.isRespawning = false;
+      } else {
+        const currentY = THREE.MathUtils.lerp(10, 0, dropProgress);
+        if (this.mesh) this.mesh.position.y = currentY;
+        requestAnimationFrame(animateDrop);
+      }
+    };
+    requestAnimationFrame(animateDrop);
+  }
+
+  reset() {
+    this.gridX = 0;
+    this.gridZ = 0;
+    this.targetGridX = 0;
+    this.targetGridZ = 0;
+    this.maxReachedZ = 0;
+    this.score = 0;
+    this.minAllowedZ = 0;
+    this.isJumping = false;
+    this.isDead = false;
+    this.isShielded = false;
+    this.isRocketJumping = false;
+    this.isReflexHyper = false;
+
+    this.position.set(0, 0, 0);
+    this.startPosition.set(0, 0, 0);
+    this.targetPosition.set(0, 0, 0);
+    this.targetRotationY = 0;
+
+    if (this.mesh) {
+      this.mesh.position.set(0, 0, 0);
+      this.mesh.rotation.set(0, 0, 0);
+      this.mesh.scale.set(0.95, 0.95, 0.95);
+      this.mesh.visible = true;
     }
   }
 }

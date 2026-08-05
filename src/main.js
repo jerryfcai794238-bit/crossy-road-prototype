@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { SceneSetup } from './graphics/SceneSetup.js';
-import { createChicken, createDuck, createFrog, createShiba } from './graphics/VoxelModels.js';
+import { createChicken, createDuck, createFrog, createShiba, createEagle } from './graphics/VoxelModels.js';
 import { Player } from './mechanics/Player.js';
 import { AIBot } from './mechanics/AIBot.js';
 import { MapGenerator } from './mechanics/MapGenerator.js';
@@ -14,7 +14,7 @@ class Game {
     this.container = document.getElementById('canvas-container');
     this.uiManager = new UIManager();
 
-    // 初始化 3D 場景 (鏡頭極致拉近 d=4.0)
+    // 初始化 3D 場景 (鏡頭距離拉至 d=5.0)
     this.sceneSetup = new SceneSetup(this.container);
     this.scene = this.sceneSetup.scene;
 
@@ -22,8 +22,11 @@ class Game {
     this.isGameStarted = false;
     this.isGameOver = false;
 
-    // 畫面自動慢速推進 baseline Z
-    this.cameraAutoScrollZ = 0;
+    // 靜止發呆發動老鷹攻擊計時器
+    this.idleTimer = 0;
+    this.lastPlayerZ = 0;
+    this.eagleMesh = null;
+    this.isEagleAttacking = false;
 
     // 1. 建立主角小雞 (Chicken)
     this.chickenMesh = createChicken();
@@ -153,7 +156,13 @@ class Game {
   startGame() {
     this.isGameStarted = true;
     this.isGameOver = false;
-    this.cameraAutoScrollZ = 0;
+    this.idleTimer = 0;
+    this.lastPlayerZ = 0;
+    this.isEagleAttacking = false;
+    if (this.eagleMesh) {
+      this.scene.remove(this.eagleMesh);
+      this.eagleMesh = null;
+    }
     this.itemSystem.reset();
     this.resetAllRunners();
     this.clock.start();
@@ -163,7 +172,13 @@ class Game {
     this.mapGenerator.initMap();
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
-    this.cameraAutoScrollZ = 0;
+    this.idleTimer = 0;
+    this.lastPlayerZ = 0;
+    this.isEagleAttacking = false;
+    if (this.eagleMesh) {
+      this.scene.remove(this.eagleMesh);
+      this.eagleMesh = null;
+    }
     this.isGameOver = false;
     this.isGameStarted = true;
     this.resetAllRunners();
@@ -209,6 +224,7 @@ class Game {
       }
     }
 
+    this.idleTimer = 0;
     this.player.respawn(safeX, safeZ);
     this.isGameOver = false;
     this.isGameStarted = true;
@@ -221,6 +237,53 @@ class Game {
     this.uiManager.showGameOver(this.player.score, reason, allowRespawn);
   }
 
+  // 觸發正版老鷹俯衝抓走動畫
+  triggerEagleAttack() {
+    if (this.isEagleAttacking) return;
+    this.isEagleAttacking = true;
+
+    this.eagleMesh = createEagle();
+    const startX = this.player.position.x;
+    const startZ = this.player.position.z - 12 * CONFIG.GRID_SIZE;
+    this.eagleMesh.position.set(startX, 14, startZ);
+    this.scene.add(this.eagleMesh);
+
+    let progress = 0;
+    const playerTarget = this.player.position.clone();
+
+    const animateEagle = () => {
+      progress += 0.04;
+      if (progress < 0.5) {
+        // 俯衝階段
+        const t = progress / 0.5;
+        this.eagleMesh.position.x = THREE.MathUtils.lerp(startX, playerTarget.x, t);
+        this.eagleMesh.position.z = THREE.MathUtils.lerp(startZ, playerTarget.z, t);
+        this.eagleMesh.position.y = THREE.MathUtils.lerp(14, 0.5, t);
+        requestAnimationFrame(animateEagle);
+      } else if (progress < 1.0) {
+        // 抓起飛往天空
+        const t = (progress - 0.5) / 0.5;
+        this.eagleMesh.position.x = THREE.MathUtils.lerp(playerTarget.x, playerTarget.x + 5, t);
+        this.eagleMesh.position.z = THREE.MathUtils.lerp(playerTarget.z, playerTarget.z + 15, t);
+        this.eagleMesh.position.y = THREE.MathUtils.lerp(0.5, 20, t);
+
+        // 小雞被老鷹爪子抓著飛走
+        if (this.player.mesh) {
+          this.player.mesh.position.copy(this.eagleMesh.position);
+          this.player.mesh.position.y -= 0.6;
+        }
+
+        requestAnimationFrame(animateEagle);
+      } else {
+        if (this.player.mesh) this.player.mesh.visible = false;
+        if (this.eagleMesh) this.scene.remove(this.eagleMesh);
+        this.gameOver('停太久發呆，慘遭老鷹抓走了！', false);
+      }
+    };
+
+    requestAnimationFrame(animateEagle);
+  }
+
   animate() {
     requestAnimationFrame(this.animate);
 
@@ -231,7 +294,20 @@ class Game {
     // 1. 更新主角狀態與跳躍
     this.player.update(deltaTime);
 
-    // 2. 更新 3 隻 AI 動物決策與跳躍
+    // 2. 正版發呆 5 秒老鷹俯衝檢測
+    if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning && !this.isEagleAttacking) {
+      if (this.player.gridZ > this.lastPlayerZ) {
+        this.lastPlayerZ = this.player.gridZ;
+        this.idleTimer = 0; // 向前推進重置發呆計時器
+      } else {
+        this.idleTimer += deltaTime;
+        if (this.idleTimer >= 5.0) {
+          this.triggerEagleAttack();
+        }
+      }
+    }
+
+    // 3. 更新 3 隻 AI 動物決策與跳躍
     if (this.isGameStarted && !this.isGameOver) {
       this.aiBots.forEach((bot) => {
         if (!bot.isDead && !bot.isRespawning) {
@@ -241,17 +317,17 @@ class Game {
       });
     }
 
-    // 3. 處理 4 人 1x1 網格 Bump 推擠碰撞
+    // 4. 處理 4 人 1x1 網格 Bump 推擠碰撞
     this.physics.resolveGridBump(this.allRunners);
 
-    // 4. 更新 3 大技能獨立 CD 與 UI
+    // 5. 更新 3 大技能獨立 CD 與 UI
     this.itemSystem.update(deltaTime);
     this.uiManager.updateIndependentCooldowns(
       this.itemSystem.getCooldownRatios(),
       this.itemSystem.cooldowns
     );
 
-    // 5. 實時刷新右上角 4 人競速排行榜
+    // 6. 實時刷新右上角 4 人競速排行榜
     const runnersData = [
       { name: '主角小雞', score: this.player.score, isPlayer: true, isDead: this.isGameOver },
       { name: this.aiBots[0].botName, score: this.aiBots[0].score, isPlayer: false, isDead: this.aiBots[0].isDead },
@@ -260,30 +336,17 @@ class Game {
     ];
     this.uiManager.updateLeaderboard(runnersData);
 
-    // 6. 超感時空減速倍率 (0.35x)
+    // 7. 超感時空減速倍率 (0.35x)
     const speedMultiplier = this.player.isReflexHyper ? 0.35 : 1.0;
 
-    // 7. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
+    // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 8. 畫面動態推進機制 (修復畫面自動推進)
-    if (this.isGameStarted && !this.isGameOver) {
-      this.cameraAutoScrollZ += 0.55 * deltaTime * CONFIG.GRID_SIZE;
-      
-      const effectiveTargetZ = Math.max(this.cameraAutoScrollZ, this.player.position.z);
-      this.sceneSetup.updateCamera({ x: this.player.position.x, z: effectiveTargetZ });
+    // 9. 正版相機平滑跟隨 (不自主無腦前飄)
+    this.sceneSetup.updateCamera(this.player.position);
 
-      // 檢查主角是否落後被捲出視角外
-      const maxDistanceBehind = 5.0 * CONFIG.GRID_SIZE;
-      if (this.player.position.z < this.cameraAutoScrollZ - maxDistanceBehind && !this.player.isRespawning) {
-        this.gameOver('已被推離視角外淘汰！(地形已被回收無法復活)', false);
-      }
-    } else {
-      this.sceneSetup.updateCamera(this.player.position);
-    }
-
-    // 9. 主角碰撞與落水判定
-    if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning) {
+    // 10. 主角碰撞與落水判定
+    if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning && !this.isEagleAttacking) {
       // 車輛 / 火車撞擊判定
       const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
       if (hitObstacle && !this.player.isShielded) {
@@ -310,7 +373,7 @@ class Game {
       }
     }
 
-    // 10. 更新 AI 對手的撞車、河流漂木隨波流動與落水淘汰判定
+    // 11. 更新 AI 對手的撞車、河流漂木隨波流動與落水淘汰判定
     if (this.isGameStarted && !this.isGameOver) {
       this.aiBots.forEach((bot) => {
         if (bot.isDead || bot.isRespawning) return;
@@ -345,7 +408,7 @@ class Game {
       });
     }
 
-    // 11. 渲染 Three.js 畫面
+    // 12. 渲染 Three.js 畫面
     this.sceneSetup.render();
   }
 }
