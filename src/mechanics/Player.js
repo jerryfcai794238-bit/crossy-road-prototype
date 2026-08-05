@@ -34,6 +34,10 @@ export class Player {
     this.isReflexHyper = false;
     this.isRespawning = false;
 
+    // 輸入緩衝佇列 (Input Buffer - 預存連點指令)
+    this.inputBuffer = [];
+    this.onBufferedMoveRequested = null;
+
     // 事件監聽 (例如火箭跳躍 touchdown 觸地)
     this.onRocketLand = null;
   }
@@ -69,6 +73,24 @@ export class Player {
   rocketJump() {
     this.isRocketJumping = true;
     this.move('UP', 3);
+  }
+
+  /**
+   * 佇列與連點緩衝處理
+   */
+  queueInput(direction, distance = 1) {
+    if (this.isRespawning || this.isDead) return false;
+
+    if (this.isJumping) {
+      // 在空中時，將連點指令暫存於緩衝佇列 (最多預存 2 次)
+      if (this.inputBuffer.length < 2) {
+        this.inputBuffer.push({ direction, distance });
+        return true;
+      }
+      return false;
+    }
+
+    return this.move(direction, distance);
   }
 
   move(direction, distance = 1) {
@@ -168,6 +190,12 @@ export class Player {
             this.onRocketLand(this.targetGridX, this.targetGridZ);
           }
         }
+
+        // 觸地 0ms 檢查緩衝佇列發動連續無縫跳躍 (0ms 零卡頓)
+        if (this.onBufferedMoveRequested && this.inputBuffer.length > 0) {
+          const next = this.inputBuffer.shift();
+          this.onBufferedMoveRequested(next.direction, next.distance);
+        }
       } else {
         this.position.x = THREE.MathUtils.lerp(
           this.startPosition.x,
@@ -191,6 +219,7 @@ export class Player {
 
   triggerFlattenAnimation() {
     this.isDead = true;
+    this.inputBuffer = [];
     if (this.mesh) {
       this.mesh.scale.set(1.4, 0.1, 1.4);
       this.mesh.position.y = 0.05;
@@ -199,6 +228,7 @@ export class Player {
 
   triggerDrownAnimation() {
     this.isDead = true;
+    this.inputBuffer = [];
     if (this.mesh) {
       this.mesh.scale.set(0.2, 0.2, 0.2);
       this.mesh.position.y = -0.4;
@@ -208,6 +238,7 @@ export class Player {
   respawn(safeX = 0, safeZ = 0) {
     this.isDead = false;
     this.isRespawning = true;
+    this.inputBuffer = [];
     this.gridX = safeX;
     this.gridZ = safeZ;
     this.targetGridX = safeX;
@@ -254,6 +285,7 @@ export class Player {
     this.isShielded = false;
     this.isRocketJumping = false;
     this.isReflexHyper = false;
+    this.inputBuffer = [];
 
     this.position.set(0, 0, 0);
     this.startPosition.set(0, 0, 0);

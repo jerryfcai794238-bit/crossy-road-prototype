@@ -39,6 +39,11 @@ class Game {
     this.scene.add(this.chickenMesh);
     this.player = new Player(this.chickenMesh);
 
+    // 綁定觸地 0ms 佇列連跳處理
+    this.player.onBufferedMoveRequested = (direction, distance) => {
+      this.handlePlayerMove(direction, distance);
+    };
+
     // 2. 建立 3 隻不同動物造型的 AI 競速機器人 (Duck, Frog, Shiba)
     this.duckMesh = createDuck();
     this.frogMesh = createFrog();
@@ -88,22 +93,22 @@ class Game {
         case 'ArrowUp':
         case 'w':
         case 'W':
-          this.handlePlayerMove('UP');
+          this.handlePlayerInput('UP');
           break;
         case 'ArrowDown':
         case 's':
         case 'S':
-          this.handlePlayerMove('DOWN');
+          this.handlePlayerInput('DOWN');
           break;
         case 'ArrowLeft':
         case 'a':
         case 'A':
-          this.handlePlayerMove('LEFT');
+          this.handlePlayerInput('LEFT');
           break;
         case 'ArrowRight':
         case 'd':
         case 'D':
-          this.handlePlayerMove('RIGHT');
+          this.handlePlayerInput('RIGHT');
           break;
         case '1':
           this.triggerSkill(ITEM_TYPES.SHIELD);
@@ -118,17 +123,52 @@ class Game {
     });
 
     // 虛擬 D-Pad
-    document.getElementById('btn-up')?.addEventListener('click', () => this.handlePlayerMove('UP'));
-    document.getElementById('btn-down')?.addEventListener('click', () => this.handlePlayerMove('DOWN'));
-    document.getElementById('btn-left')?.addEventListener('click', () => this.handlePlayerMove('LEFT'));
-    document.getElementById('btn-right')?.addEventListener('click', () => this.handlePlayerMove('RIGHT'));
+    document.getElementById('btn-up')?.addEventListener('click', () => this.handlePlayerInput('UP'));
+    document.getElementById('btn-down')?.addEventListener('click', () => this.handlePlayerInput('DOWN'));
+    document.getElementById('btn-left')?.addEventListener('click', () => this.handlePlayerInput('LEFT'));
+    document.getElementById('btn-right')?.addEventListener('click', () => this.handlePlayerInput('RIGHT'));
 
     // 螢幕 Touch / Click 往前跳
     this.container.addEventListener('pointerdown', (e) => {
       if (e.target.closest('#hud') || e.target.closest('#skill-bar') || e.target.closest('#leaderboard') || e.target.closest('#mobile-controls') || e.target.closest('.overlay')) return;
       if (!this.isGameStarted || this.isGameOver) return;
-      this.handlePlayerMove('UP');
+      this.handlePlayerInput('UP');
     });
+  }
+
+  handlePlayerInput(direction, distance = 1) {
+    if (!this.isGameStarted || this.isGameOver) return;
+
+    if (this.player.isJumping) {
+      // 空中連點：放入佇列緩衝
+      this.player.queueInput(direction, distance);
+      return;
+    }
+
+    this.handlePlayerMove(direction, distance);
+  }
+
+  handlePlayerMove(direction, distance = 1) {
+    if (!this.isGameStarted || this.isGameOver) return;
+
+    const targetPos = this.player.getTargetGridPosition(direction, distance);
+
+    if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) {
+      this.player.setFacingDirection(direction);
+      this.player.inputBuffer = []; // 撞樹清空佇列
+      return;
+    }
+
+    const moved = this.player.move(direction, distance);
+    if (moved) {
+      // 玩家向前跳躍時，底邊界自動同步向前補進對齊 (-3.15格)
+      const catchupZ = (this.player.maxReachedZ - 3.15) * CONFIG.GRID_SIZE;
+      this.cameraAutoScrollZ = Math.max(this.cameraAutoScrollZ, catchupZ);
+      this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
+
+      this.mapGenerator.update(this.player.gridZ);
+      this.uiManager.updateScore(this.player.score);
+    }
   }
 
   triggerSkill(skillType) {
@@ -140,28 +180,6 @@ class Game {
     }
 
     this.itemSystem.useItem(skillType);
-  }
-
-  handlePlayerMove(direction) {
-    if (!this.isGameStarted || this.isGameOver) return;
-
-    const targetPos = this.player.getTargetGridPosition(direction);
-
-    if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) {
-      this.player.setFacingDirection(direction);
-      return;
-    }
-
-    const moved = this.player.move(direction);
-    if (moved) {
-      // 玩家向前跳躍時，底邊界自動同步向前補進對齊 (-3.15格)
-      const catchupZ = (this.player.maxReachedZ - 3.15) * CONFIG.GRID_SIZE;
-      this.cameraAutoScrollZ = Math.max(this.cameraAutoScrollZ, catchupZ);
-      this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
-
-      this.mapGenerator.update(this.player.gridZ);
-      this.uiManager.updateScore(this.player.score);
-    }
   }
 
   startGame() {
@@ -324,7 +342,7 @@ class Game {
     const elapsedTime = this.clock.getElapsedTime();
     const activeRows = this.mapGenerator.getActiveRows();
 
-    // 1. 更新主角狀態與跳躍
+    // 1. 更新主角狀態與跳躍 (觸地自動觸發緩衝佇列連跳)
     this.player.update(deltaTime);
 
     // 2. 底邊界以 0.45 格/秒 穩定向前平滑推進
@@ -373,7 +391,7 @@ class Game {
     // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 9. 精準視口相機跟隨 (相機焦點前移 +1.6 格對齊圖 1 競品構圖，0 秒起同步 +4.75 即刻平滑推進)
+    // 9. 精準視口相機跟隨
     const targetCameraZ = Math.max(
       this.player.position.z + 1.6 * CONFIG.GRID_SIZE,
       this.cameraAutoScrollZ + 4.75 * CONFIG.GRID_SIZE
