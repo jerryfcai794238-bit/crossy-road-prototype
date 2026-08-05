@@ -185,7 +185,7 @@ class Game {
     this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
     this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
 
-    // 0 延遲重置相機
+    // 0 延遲重置相機 (以玩家為中心)
     this.sceneSetup.resetCamera();
     this.itemSystem.reset();
     this.clock.start();
@@ -374,10 +374,10 @@ class Game {
     // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 9. 精準視口相機跟隨 (底邊剛好卡在 cameraAutoScrollZ，開局後方不留多餘草地)
+    // 9. 精準視口相機跟隨 (100% 以玩家角色為中心，0 秒起即刻平滑推進)
     const targetCameraZ = Math.max(
-      this.cameraAutoScrollZ + 2.0 * CONFIG.GRID_SIZE,
-      this.player.position.z + 0.8 * CONFIG.GRID_SIZE
+      this.player.position.z,
+      this.cameraAutoScrollZ + 3.15 * CONFIG.GRID_SIZE
     );
     this.sceneSetup.updateCamera({ x: this.player.position.x, z: targetCameraZ });
 
