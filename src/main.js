@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { SceneSetup } from './graphics/SceneSetup.js';
-import { createChicken, createDuck, createFrog, createShiba, createEagle, createBackBoundaryWall } from './graphics/VoxelModels.js';
+import { createChicken, createDuck, createFrog, createShiba, createEagle } from './graphics/VoxelModels.js';
 import { Player } from './mechanics/Player.js';
 import { AIBot } from './mechanics/AIBot.js';
 import { MapGenerator } from './mechanics/MapGenerator.js';
@@ -22,9 +22,6 @@ class Game {
     this.isGameStarted = false;
     this.isGameOver = false;
 
-    // 單向前進相機鎖定 Z 座標 (正版 Crossy Road 相機跟隨)
-    this.maxCameraZ = 0;
-
     // 靜止發呆發動老鷹攻擊計時器
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
@@ -36,12 +33,7 @@ class Game {
     this.scene.add(this.chickenMesh);
     this.player = new Player(this.chickenMesh);
 
-    // 2. 建立 3D 實體身後動態警示邊界牆 (Back Boundary Wall)
-    this.backBoundaryMesh = createBackBoundaryWall();
-    this.backBoundaryMesh.position.set(0, 0, -2.5 * CONFIG.GRID_SIZE);
-    this.scene.add(this.backBoundaryMesh);
-
-    // 3. 建立 3 隻不同動物造型的 AI 競速機器人 (Duck, Frog, Shiba)
+    // 2. 建立 3 隻不同動物造型的 AI 競速機器人 (Duck, Frog, Shiba)
     this.duckMesh = createDuck();
     this.frogMesh = createFrog();
     this.shibaMesh = createShiba();
@@ -164,7 +156,6 @@ class Game {
   startGame() {
     this.isGameStarted = true;
     this.isGameOver = false;
-    this.maxCameraZ = 0;
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
     this.isEagleAttacking = false;
@@ -172,7 +163,6 @@ class Game {
       this.scene.remove(this.eagleMesh);
       this.eagleMesh = null;
     }
-    this.backBoundaryMesh.position.set(0, 0, -2.5 * CONFIG.GRID_SIZE);
     this.itemSystem.reset();
     this.resetAllRunners();
     this.clock.start();
@@ -182,7 +172,6 @@ class Game {
     this.mapGenerator.initMap();
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
-    this.maxCameraZ = 0;
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
     this.isEagleAttacking = false;
@@ -190,7 +179,6 @@ class Game {
       this.scene.remove(this.eagleMesh);
       this.eagleMesh = null;
     }
-    this.backBoundaryMesh.position.set(0, 0, -2.5 * CONFIG.GRID_SIZE);
     this.isGameOver = false;
     this.isGameStarted = true;
     this.resetAllRunners();
@@ -238,7 +226,6 @@ class Game {
 
     this.idleTimer = 0;
     this.player.respawn(safeX, safeZ);
-    this.maxCameraZ = Math.max(this.maxCameraZ, safeZ * CONFIG.GRID_SIZE);
     this.isGameOver = false;
     this.isGameStarted = true;
     this.clock.start();
@@ -304,20 +291,7 @@ class Game {
     // 1. 更新主角狀態與跳躍
     this.player.update(deltaTime);
 
-    // 2. 實時平滑推擠「身後 3D 實體邊界牆」
-    const targetWallZ = (this.player.minAllowedZ - 1.2) * CONFIG.GRID_SIZE;
-    this.backBoundaryMesh.position.z = THREE.MathUtils.lerp(
-      this.backBoundaryMesh.position.z,
-      targetWallZ,
-      deltaTime * 10
-    );
-    this.backBoundaryMesh.position.x = THREE.MathUtils.lerp(
-      this.backBoundaryMesh.position.x,
-      this.player.position.x * 0.3,
-      deltaTime * 10
-    );
-
-    // 3. 正版發呆 5 秒老鷹俯衝檢測
+    // 2. 正版發呆 5 秒老鷹俯衝檢測
     if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning && !this.isEagleAttacking) {
       if (this.player.gridZ > this.lastPlayerZ) {
         this.lastPlayerZ = this.player.gridZ;
@@ -330,7 +304,7 @@ class Game {
       }
     }
 
-    // 4. 更新 3 隻 AI 動物決策與跳躍
+    // 3. 更新 3 隻 AI 動物決策與跳躍
     if (this.isGameStarted && !this.isGameOver) {
       this.aiBots.forEach((bot) => {
         if (!bot.isDead && !bot.isRespawning) {
@@ -340,17 +314,17 @@ class Game {
       });
     }
 
-    // 5. 處理 4 人 1x1 網格 Bump 推擠碰撞
+    // 4. 處理 4 人 1x1 網格 Bump 推擠碰撞
     this.physics.resolveGridBump(this.allRunners);
 
-    // 6. 更新 3 大技能獨立 CD 與 UI
+    // 5. 更新 3 大技能獨立 CD 與 UI
     this.itemSystem.update(deltaTime);
     this.uiManager.updateIndependentCooldowns(
       this.itemSystem.getCooldownRatios(),
       this.itemSystem.cooldowns
     );
 
-    // 7. 實時刷新右上角 4 人競速排行榜
+    // 6. 實時刷新右上角 4 人競速排行榜
     const runnersData = [
       { name: '主角小雞', score: this.player.score, isPlayer: true, isDead: this.isGameOver },
       { name: this.aiBots[0].botName, score: this.aiBots[0].score, isPlayer: false, isDead: this.aiBots[0].isDead },
@@ -359,17 +333,17 @@ class Game {
     ];
     this.uiManager.updateLeaderboard(runnersData);
 
-    // 8. 超感時空減速倍率 (0.35x)
+    // 7. 超感時空減速倍率 (0.35x)
     const speedMultiplier = this.player.isReflexHyper ? 0.35 : 1.0;
 
-    // 9. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
+    // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 10. 正版相機單向前進鎖定
-    this.maxCameraZ = Math.max(this.maxCameraZ, this.player.position.z);
-    this.sceneSetup.updateCamera({ x: this.player.position.x, z: this.maxCameraZ });
+    // 9. 正版相機視口精準推進 (直接追蹤最高目標 Z 軸，消除雙重延遲)
+    const targetCameraZ = this.player.maxReachedZ * CONFIG.GRID_SIZE;
+    this.sceneSetup.updateCamera({ x: this.player.position.x, z: targetCameraZ });
 
-    // 11. 主角碰撞與落水判定
+    // 10. 主角碰撞與落水判定
     if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning && !this.isEagleAttacking) {
       // 車輛 / 火車撞擊判定
       const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
@@ -397,7 +371,7 @@ class Game {
       }
     }
 
-    // 12. 更新 AI 對手的撞車、河流漂木隨波流動與落水淘汰判定
+    // 11. 更新 AI 對手的撞車、河流漂木隨波流動與落水淘汰判定
     if (this.isGameStarted && !this.isGameOver) {
       this.aiBots.forEach((bot) => {
         if (bot.isDead || bot.isRespawning) return;
@@ -432,7 +406,7 @@ class Game {
       });
     }
 
-    // 13. 渲染 Three.js 畫面
+    // 12. 渲染 Three.js 畫面
     this.sceneSetup.render();
   }
 }

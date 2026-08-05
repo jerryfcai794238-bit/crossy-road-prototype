@@ -79,8 +79,8 @@ export class SceneSetup {
       targetPosition.z
     );
 
-    // 提高相機追蹤平滑係數 (0.14) 使前進反應更敏捷
-    this.cameraTarget.lerp(desiredTarget, 0.14);
+    // 高響應速率 (0.28) 取消雙重延遲，使玩家按 [W] 前進時相機視口極速推進
+    this.cameraTarget.lerp(desiredTarget, 0.28);
 
     // 更新相機與平行光位置
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
