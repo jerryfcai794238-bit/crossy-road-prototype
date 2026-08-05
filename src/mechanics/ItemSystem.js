@@ -12,7 +12,7 @@ export class ItemSystem {
     this.scene = scene;
     this.player = player;
 
-    // 各道具獨立 CD (剩餘秒數) 與 CD 總長度
+    // 各技能獨立 CD (剩餘秒數) 與 CD 總長度
     this.cooldowns = {
       shield: 0,
       rocket: 0,
@@ -25,7 +25,7 @@ export class ItemSystem {
       time_slow: 6.0
     };
 
-    // 各道具作用持續時間
+    // 各技能作用持續時間
     this.activeTimers = {
       shield: 0,
       time_slow: 0
@@ -84,17 +84,19 @@ export class ItemSystem {
   activateRocket() {
     this.player.rocketJump();
     this.rocketMesh.visible = true;
+
+    // 對齊小雞雙腳觸地的落地瞬間 (~380ms) 爆發 3x3 落地光環與火焰
     setTimeout(() => {
       this.rocketMesh.visible = false;
 
-      // 落地產生 3x3 爆破光環 VFX
       const blast = createRocketBlastRing();
       blast.position.copy(this.player.position);
       this.scene.add(blast);
+
       setTimeout(() => {
         this.scene.remove(blast);
-      }, 450);
-    }, 450);
+      }, 400);
+    }, 380);
   }
 
   activateTimeSlow() {
@@ -116,7 +118,7 @@ export class ItemSystem {
   }
 
   update(deltaTime) {
-    // 獨立更新各道具 CD
+    // 獨立更新各技能 CD
     for (const key in this.cooldowns) {
       if (this.cooldowns[key] > 0) {
         this.cooldowns[key] -= deltaTime;
@@ -132,7 +134,7 @@ export class ItemSystem {
       }
     }
 
-    // 更新時空減速作用倒數與波紋擴散
+    // 更新超感技能作用倒數與波紋擴散
     if (this.activeTimers.time_slow > 0) {
       this.activeTimers.time_slow -= deltaTime;
       if (this.timeWaveMesh && this.timeWaveMesh.visible) {
