@@ -14,7 +14,7 @@ class Game {
     this.container = document.getElementById('canvas-container');
     this.uiManager = new UIManager();
 
-    // 初始化 3D 場景 (鏡頭距離拉至 d=5.0)
+    // 初始化 3D 場景 (鏡頭距離拉近至 d=4.0)
     this.sceneSetup = new SceneSetup(this.container);
     this.scene = this.sceneSetup.scene;
 
@@ -26,7 +26,6 @@ class Game {
     this.maxCameraZ = 0;
 
     // 身後底邊界 (0.45格/秒平滑推進，發呆7秒追上小雞)
-    // 7秒 * 0.45格/秒 = 3.15格
     this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
 
     // 老鷹與攻擊狀態
@@ -185,7 +184,7 @@ class Game {
     this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
     this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
 
-    // 0 延遲重置相機 (以玩家為中心)
+    // 0 延遲重置相機 (焦點向前推進 +1.6 格，使主角置於畫面下 25%)
     this.sceneSetup.resetCamera();
     this.itemSystem.reset();
     this.clock.start();
@@ -214,7 +213,7 @@ class Game {
     this.cameraAutoScrollZ = -3.15 * CONFIG.GRID_SIZE;
     this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
 
-    // 3. 相機焦點 0 延遲完全閃回起點 (0, 0, 0)
+    // 3. 相機焦點 0 延遲完全閃回對齊起點
     this.sceneSetup.resetCamera();
 
     this.clock.start();
@@ -374,9 +373,9 @@ class Game {
     // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 9. 精準視口相機跟隨 (100% 以玩家角色為中心，0 秒起即刻平滑推進)
+    // 9. 精準視口相機跟隨 (相機焦點前移 +1.6 格，使主角置於畫面下 25%，對齊圖 1 競品構圖)
     const targetCameraZ = Math.max(
-      this.player.position.z,
+      this.player.position.z + 1.6 * CONFIG.GRID_SIZE,
       this.cameraAutoScrollZ + 3.15 * CONFIG.GRID_SIZE
     );
     this.sceneSetup.updateCamera({ x: this.player.position.x, z: targetCameraZ });

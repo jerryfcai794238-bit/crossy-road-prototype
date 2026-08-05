@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CONFIG } from '../config.js';
 
 export class SceneSetup {
   constructor(container) {
@@ -9,9 +10,9 @@ export class SceneSetup {
     this.scene.background = new THREE.Color(0xa0d8ef); // 天藍色背景
     this.scene.fog = new THREE.FogExp2(0xa0d8ef, 0.015); // 遠景霧化效果
 
-    // 2. 正交相機 (Isometric Camera - d = 5.0)
+    // 2. 正交相機 (Isometric Camera - 鏡頭拉近至 d = 4.0)
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 5.0; // 鏡頭距離拉至 5.0
+    const d = 4.0; // 鏡頭距離拉近至 4.0 (對齊競品圖 1)
     this.camera = new THREE.OrthographicCamera(
       -d * aspect,
       d * aspect,
@@ -23,8 +24,8 @@ export class SceneSetup {
 
     // 經典左下角往右上角視角角度 (-14, 18, -14)
     this.cameraOffset = new THREE.Vector3(-14, 18, -14);
-    this.cameraTarget = new THREE.Vector3(0, 0, 0);
-    this.camera.position.copy(this.cameraOffset);
+    this.cameraTarget = new THREE.Vector3(0, 0, 1.6 * CONFIG.GRID_SIZE);
+    this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
     this.camera.lookAt(this.cameraTarget);
 
     // 3. 渲染器
@@ -71,11 +72,15 @@ export class SceneSetup {
   }
 
   resetCamera() {
-    this.cameraTarget.set(0, 0, 0);
-    this.camera.position.copy(this.cameraOffset);
+    this.cameraTarget.set(0, 0, 1.6 * CONFIG.GRID_SIZE);
+    this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
     this.camera.lookAt(this.cameraTarget);
     if (this.dirLight) {
-      this.dirLight.position.set(-20, 35, -15);
+      this.dirLight.position.set(
+        this.cameraTarget.x - 20,
+        35,
+        this.cameraTarget.z - 15
+      );
       this.dirLight.target.position.copy(this.cameraTarget);
       this.dirLight.target.updateMatrixWorld();
     }
@@ -108,7 +113,7 @@ export class SceneSetup {
 
   onWindowResize() {
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 5.0; // 保持 d = 5.0
+    const d = 4.0; // 保持 d = 4.0
     this.camera.left = -d * aspect;
     this.camera.right = d * aspect;
     this.camera.top = d;
