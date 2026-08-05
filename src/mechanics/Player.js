@@ -38,6 +38,31 @@ export class Player {
     this.onRocketLand = null;
   }
 
+  /**
+   * 計算特定方向延伸距離後的網格座標 { x, z }
+   */
+  getTargetGridPosition(direction, distance = 1) {
+    let targetX = this.targetGridX;
+    let targetZ = this.targetGridZ;
+
+    switch (direction) {
+      case 'UP':
+        targetZ += distance;
+        break;
+      case 'DOWN':
+        targetZ -= distance;
+        break;
+      case 'LEFT':
+        targetX += distance;
+        break;
+      case 'RIGHT':
+        targetX -= distance;
+        break;
+    }
+
+    return { x: targetX, z: targetZ };
+  }
+
   move(direction, distance = 1) {
     if (this.isJumping || this.isRespawning || this.isDead) return false;
 
