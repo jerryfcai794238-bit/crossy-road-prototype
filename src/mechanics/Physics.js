@@ -113,9 +113,26 @@ export class Physics {
     return { inRiver: true, onLog: false, logSpeed: 0 };
   }
 
-  // 5. 多人/AI 網格碰撞彈退機制
-  checkGridBump(player1, player2) {
-    if (!player1 || !player2) return false;
-    return player1.gridX === player2.gridX && player1.gridZ === player2.gridZ;
+  // 5. 多人/AI 網格碰撞彈退機制 (Grid Bump Physics)
+  resolveGridBump(runners) {
+    for (let i = 0; i < runners.length; i++) {
+      for (let j = i + 1; j < runners.length; j++) {
+        const r1 = runners[i];
+        const r2 = runners[j];
+
+        if (!r1 || !r2 || r1.isRespawning || r2.isRespawning) continue;
+
+        // 檢測當前或目標網格重疊 (1x1 格子)
+        const cellOverlap = r1.targetGridX === r2.targetGridX && r1.targetGridZ === r2.targetGridZ;
+        const posOverlap = Math.abs(r1.position.x - r2.position.x) < 0.6 && Math.abs(r1.position.z - r2.position.z) < 0.6;
+
+        if (cellOverlap && posOverlap) {
+          // 產生 Bump 彈退 (較遲跳躍者或 r2 被推離 1 格)
+          const targetToPush = r1.isJumping ? r2 : r1;
+          targetToPush.position.x += (Math.random() > 0.5 ? 0.3 : -0.3);
+          targetToPush.position.z -= 0.2;
+        }
+      }
+    }
   }
 }

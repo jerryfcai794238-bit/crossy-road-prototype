@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { SceneSetup } from './graphics/SceneSetup.js';
-import { createChicken } from './graphics/VoxelModels.js';
+import { createChicken, createDuck, createFrog, createShiba } from './graphics/VoxelModels.js';
 import { Player } from './mechanics/Player.js';
+import { AIBot } from './mechanics/AIBot.js';
 import { MapGenerator } from './mechanics/MapGenerator.js';
 import { Physics } from './mechanics/Physics.js';
 import { ItemSystem, ITEM_TYPES } from './mechanics/ItemSystem.js';
@@ -24,12 +25,27 @@ class Game {
     // 畫面自動慢速推進 baseline Z
     this.cameraAutoScrollZ = 0;
 
-    // 建立小雞角色模型
+    // 1. 建立主角小雞 (Chicken)
     this.chickenMesh = createChicken();
     this.scene.add(this.chickenMesh);
+    this.player = new Player(this.chickenMesh);
+
+    // 2. 建立 3 隻不同動物造型的 AI 競速機器人 (Duck, Frog, Shiba)
+    this.duckMesh = createDuck();
+    this.frogMesh = createFrog();
+    this.shibaMesh = createShiba();
+    this.scene.add(this.duckMesh, this.frogMesh, this.shibaMesh);
+
+    this.aiBots = [
+      new AIBot(this.duckMesh, '黃色小鴨', -2, 0, 0.42),
+      new AIBot(this.frogMesh, '綠色青蛙', 2, 0, 0.32),
+      new AIBot(this.shibaMesh, '體素柴犬', 4, 0, 0.38)
+    ];
+
+    // 所有 4 名參賽選手
+    this.allRunners = [this.player, ...this.aiBots];
 
     // 遊戲元件初始化
-    this.player = new Player(this.chickenMesh);
     this.mapGenerator = new MapGenerator(this.scene);
     this.physics = new Physics();
     this.itemSystem = new ItemSystem(this.scene, this.player);
@@ -109,7 +125,6 @@ class Game {
   triggerSkill(skillType) {
     if (!this.isGameStarted || this.isGameOver) return;
 
-    // 若為火箭跳躍，爆破落腳點 3x3 (九宮格) 範圍內的所有樹木，確保不會掉進死路
     if (skillType === ITEM_TYPES.ROCKET) {
       const targetPos = this.player.getTargetGridPosition('UP', 3);
       this.physics.destroyTreesInArea(targetPos, 1, this.mapGenerator.getActiveRows());
@@ -123,7 +138,6 @@ class Game {
 
     const targetPos = this.player.getTargetGridPosition(direction);
 
-    // 檢查是否有樹木阻擋
     if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) {
       this.player.setFacingDirection(direction);
       return;
@@ -141,18 +155,26 @@ class Game {
     this.isGameOver = false;
     this.cameraAutoScrollZ = 0;
     this.itemSystem.reset();
+    this.resetAllRunners();
     this.clock.start();
   }
 
   restartGame() {
-    this.player.reset();
     this.mapGenerator.initMap();
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
     this.cameraAutoScrollZ = 0;
     this.isGameOver = false;
     this.isGameStarted = true;
+    this.resetAllRunners();
     this.clock.start();
+  }
+
+  resetAllRunners() {
+    this.player.reset();
+    this.aiBots[0].resetAt(-2, 0); // 黃色小鴨
+    this.aiBots[1].resetAt(2, 0);  // 綠色青蛙
+    this.aiBots[2].resetAt(4, 0);  // 體素柴犬
   }
 
   // 3 秒快速空投復活
@@ -200,32 +222,43 @@ class Game {
 
     const deltaTime = this.clock.getDelta();
     const elapsedTime = this.clock.getElapsedTime();
+    const activeRows = this.mapGenerator.getActiveRows();
 
-    // 更新角色狀態與跳躍動畫
+    // 1. 更新主角狀態與跳躍
     this.player.update(deltaTime);
 
-    // 更新 3 大技能獨立 CD 與 UI
+    // 2. 更新 3 隻 AI 動物決策與跳躍
+    if (this.isGameStarted && !this.isGameOver) {
+      this.aiBots.forEach((bot) => {
+        bot.updateAI(deltaTime, activeRows, this.physics);
+        bot.update(deltaTime);
+      });
+    }
+
+    // 3. 處理 4 人 1x1 網格 Bump 推擠碰撞
+    this.physics.resolveGridBump(this.allRunners);
+
+    // 4. 更新 3 大技能獨立 CD 與 UI
     this.itemSystem.update(deltaTime);
     this.uiManager.updateIndependentCooldowns(
       this.itemSystem.getCooldownRatios(),
       this.itemSystem.cooldowns
     );
 
-    // 計算時空減速效果倍率 (若觸發超感時空減速，車輛與浮木速度降為 35%)
+    // 5. 超感時空減速倍率 (0.35x)
     const speedMultiplier = this.player.isReflexHyper ? 0.35 : 1.0;
 
-    // 更新馬路車輛 / 河流浮木 / 鐵路火車位置
+    // 6. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 畫面動態推進機制
+    // 7. 畫面動態推進機制
     if (this.isGameStarted && !this.isGameOver) {
-      // 鏡頭 baseline 隨時間慢速向前推進
       this.cameraAutoScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
       
       const effectiveTargetZ = Math.max(this.cameraAutoScrollZ, this.player.position.z);
       this.sceneSetup.updateCamera({ x: this.player.position.x, z: effectiveTargetZ });
 
-      // 檢查是否落後鏡頭太多被捲出視角外淘汰 (不提供 3 秒復活)
+      // 檢查主角是否落後被捲出視角外
       const maxDistanceBehind = 6.5 * CONFIG.GRID_SIZE;
       if (this.player.position.z < this.cameraAutoScrollZ - maxDistanceBehind && !this.player.isRespawning) {
         this.gameOver('已被推離視角外淘汰！(地形已被回收無法復活)', false);
@@ -234,18 +267,16 @@ class Game {
       this.sceneSetup.updateCamera(this.player.position);
     }
 
-    // 遊戲進行中的碰撞與判定
+    // 8. 遊戲進行中的碰撞與判定
     if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning) {
-      const activeRows = this.mapGenerator.getActiveRows();
-      
-      // 1. 車輛 / 火車撞擊判定
+      // 車輛 / 火車撞擊判定
       const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
       if (hitObstacle && !this.player.isShielded) {
         this.player.triggerFlattenAnimation();
         this.gameOver(hitObstacle.type === 'train' ? '慘遭高速火車輾過！' : '被車輛撞飛了！');
       }
 
-      // 2. 河流與木塊落水判定
+      // 河流與木塊落水判定
       const riverStatus = this.physics.checkRiverStatus(this.player, activeRows);
       if (riverStatus.inRiver && !this.player.isShielded) {
         if (riverStatus.onLog) {
@@ -262,9 +293,18 @@ class Game {
           this.gameOver('噗通！落水淹死了！');
         }
       }
+
+      // 9. 更新 AI 對手的河流漂木隨波流動與撞車判定
+      this.aiBots.forEach((bot) => {
+        const botRiver = this.physics.checkRiverStatus(bot, activeRows);
+        if (botRiver.inRiver && botRiver.onLog) {
+          bot.position.x += botRiver.logSpeed * speedMultiplier * deltaTime;
+          bot.gridX = Math.round(bot.position.x / CONFIG.GRID_SIZE);
+        }
+      });
     }
 
-    // 渲染 Three.js 畫面
+    // 10. 渲染 Three.js 畫面
     this.sceneSetup.render();
   }
 }

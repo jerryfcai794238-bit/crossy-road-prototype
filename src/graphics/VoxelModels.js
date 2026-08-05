@@ -48,7 +48,134 @@ export function createChicken() {
   return group;
 }
 
-// 2. 轎車模型 (Car Voxel Model)
+// 2. 黃色小鴨 (Duck Voxel Model - AI 對手 1)
+export function createDuck() {
+  const group = new THREE.Group();
+
+  // 身體 (Yellow Body)
+  const body = createCube(0.75, 0.7, 0.75, 0xfed330);
+  body.position.y = 0.55;
+  group.add(body);
+
+  // 扁平鴨嘴 (Orange Flat Beak)
+  const beak = createCube(0.38, 0.12, 0.3, 0xfa8231);
+  beak.position.set(0, 0.5, 0.48);
+  group.add(beak);
+
+  // 眼睛 (Black Eyes)
+  const eyeL = createCube(0.08, 0.12, 0.08, 0x26de81);
+  eyeL.position.set(0.39, 0.65, 0.2);
+  const eyeR = createCube(0.08, 0.12, 0.08, 0x26de81);
+  eyeR.position.set(-0.39, 0.65, 0.2);
+  group.add(eyeL, eyeR);
+
+  // 雙翅 (Wings)
+  const wingL = createCube(0.1, 0.35, 0.45, 0xf7b731);
+  wingL.position.set(0.42, 0.55, 0);
+  const wingR = createCube(0.1, 0.35, 0.45, 0xf7b731);
+  wingR.position.set(-0.42, 0.55, 0);
+  group.add(wingL, wingR);
+
+  // 腳蹼
+  const feetL = createCube(0.15, 0.12, 0.25, 0xfa8231);
+  feetL.position.set(0.2, 0.06, 0.05);
+  const feetR = createCube(0.15, 0.12, 0.25, 0xfa8231);
+  feetR.position.set(-0.2, 0.06, 0.05);
+  group.add(feetL, feetR);
+
+  group.scale.set(0.95, 0.95, 0.95);
+  return group;
+}
+
+// 3. 綠色青蛙 (Frog Voxel Model - AI 對手 2)
+export function createFrog() {
+  const group = new THREE.Group();
+
+  // 青蛙身體 (Green Body)
+  const body = createCube(0.75, 0.6, 0.75, 0x26de81);
+  body.position.y = 0.5;
+  group.add(body);
+
+  // 白色肚子 (White Belly)
+  const belly = createCube(0.55, 0.45, 0.1, 0xffffff);
+  belly.position.set(0, 0.45, 0.35);
+  group.add(belly);
+
+  // 突出的大眼睛 (Big Protruding Eyes)
+  const eyeLGroup = createCube(0.22, 0.22, 0.22, 0x20bf6b);
+  eyeLGroup.position.set(0.25, 0.88, 0.2);
+  const eyePupilL = createCube(0.1, 0.12, 0.1, 0x000000);
+  eyePupilL.position.set(0.25, 0.88, 0.3);
+
+  const eyeRGroup = createCube(0.22, 0.22, 0.22, 0x20bf6b);
+  eyeRGroup.position.set(-0.25, 0.88, 0.2);
+  const eyePupilR = createCube(0.1, 0.12, 0.1, 0x000000);
+  eyePupilR.position.set(-0.25, 0.88, 0.3);
+
+  group.add(eyeLGroup, eyePupilL, eyeRGroup, eyePupilR);
+
+  // 蛙腿 (Frog Legs)
+  const legL = createCube(0.2, 0.2, 0.45, 0x20bf6b);
+  legL.position.set(0.42, 0.22, -0.05);
+  const legR = createCube(0.2, 0.2, 0.45, 0x20bf6b);
+  legR.position.set(-0.42, 0.22, -0.05);
+  group.add(legL, legR);
+
+  group.scale.set(0.95, 0.95, 0.95);
+  return group;
+}
+
+// 4. 體素柴犬 (Shiba Voxel Model - AI 對手 3)
+export function createShiba() {
+  const group = new THREE.Group();
+
+  // 柴犬身體 (Orange-Brown Fur)
+  const body = createCube(0.7, 0.7, 0.8, 0xe1b12c);
+  body.position.y = 0.55;
+  group.add(body);
+
+  // 白色口鼻 (White Snout & Muzzle)
+  const snout = createCube(0.35, 0.25, 0.25, 0xf5f6fa);
+  snout.position.set(0, 0.48, 0.45);
+  const nose = createCube(0.12, 0.1, 0.1, 0x2f3640);
+  nose.position.set(0, 0.52, 0.56);
+  group.add(snout, nose);
+
+  // 三角耳 (Triangular Ears)
+  const earL = createCube(0.18, 0.22, 0.15, 0xcd840f);
+  earL.position.set(0.25, 0.98, 0.15);
+  const earR = createCube(0.18, 0.22, 0.15, 0xcd840f);
+  earR.position.set(-0.25, 0.98, 0.15);
+  group.add(earL, earR);
+
+  // 眼睛 (Black Eyes)
+  const eyeL = createCube(0.08, 0.12, 0.08, 0x2f3640);
+  eyeL.position.set(0.32, 0.65, 0.35);
+  const eyeR = createCube(0.08, 0.12, 0.08, 0x2f3640);
+  eyeR.position.set(-0.32, 0.65, 0.35);
+  group.add(eyeL, eyeR);
+
+  // 捲尾巴 (Curly Tail)
+  const tail = createCube(0.18, 0.3, 0.18, 0xf5f6fa);
+  tail.position.set(0, 0.8, -0.42);
+  group.add(tail);
+
+  // 四腳 (Paws)
+  const legPositions = [
+    [0.22, 0.12, 0.25], [-0.22, 0.12, 0.25],
+    [0.22, 0.12, -0.25], [-0.22, 0.12, -0.25]
+  ];
+  legPositions.forEach(([x, y, z]) => {
+    const leg = createCube(0.15, 0.25, 0.15, 0xf5f6fa);
+    leg.position.set(x, y, z);
+    group.add(leg);
+  });
+
+  group.scale.set(0.95, 0.95, 0.95);
+  return group;
+}
+
+// 5. 轎車模型 (Car Voxel Model)
 export function createCar(colorHex = 0xff4757) {
   const group = new THREE.Group();
 
@@ -85,7 +212,7 @@ export function createCar(colorHex = 0xff4757) {
   return group;
 }
 
-// 3. 卡車/貨車模型 (Truck Voxel Model)
+// 6. 卡車/貨車模型 (Truck Voxel Model)
 export function createTruck(colorHex = 0x57606f) {
   const group = new THREE.Group();
 
@@ -112,7 +239,7 @@ export function createTruck(colorHex = 0x57606f) {
   return group;
 }
 
-// 4. 樹木模型 (Tree Voxel Model)
+// 7. 樹木模型 (Tree Voxel Model)
 export function createTree(type = 0) {
   const group = new THREE.Group();
 
@@ -133,7 +260,7 @@ export function createTree(type = 0) {
   return group;
 }
 
-// 5. 河流漂木模型 (Log Voxel Model)
+// 8. 河流漂木模型 (Log Voxel Model)
 export function createLog(lengthInGrids = 2.5) {
   const group = new THREE.Group();
   const width = lengthInGrids * CONFIG.GRID_SIZE * 0.85;
@@ -151,7 +278,7 @@ export function createLog(lengthInGrids = 2.5) {
   return group;
 }
 
-// 6. 高速火車頭與車廂模型 (Train Voxel Model)
+// 9. 高速火車頭與車廂模型 (Train Voxel Model)
 export function createTrain() {
   const group = new THREE.Group();
 
@@ -170,7 +297,7 @@ export function createTrain() {
   return group;
 }
 
-// 7. 鐵路號誌燈 (Signal Pole)
+// 10. 鐵路號誌燈 (Signal Pole)
 export function createSignal() {
   const group = new THREE.Group();
 
@@ -192,7 +319,7 @@ export function createSignal() {
   return group;
 }
 
-// 8. 道具 VFX 特效模型
+// 11. 道具 VFX 特效模型
 export function createShieldMesh() {
   const geometry = new THREE.SphereGeometry(0.85, 16, 16);
   const material = new THREE.MeshBasicMaterial({
