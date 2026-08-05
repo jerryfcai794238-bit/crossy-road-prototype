@@ -147,7 +147,7 @@ class Game {
 
   restartGame() {
     this.player.reset();
-    this.mapGenerator.initMap(); // 重新產生起點與地圖
+    this.mapGenerator.initMap();
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
     this.isGameOver = false;
@@ -155,10 +155,37 @@ class Game {
     this.clock.start();
   }
 
-  // 3 秒快速空投復活
+  // 3 秒快速空投復活（保證降落在後方安全的草地與無樹木格子）
   fastRespawn() {
-    const safeZ = Math.max(0, this.player.gridZ - 2);
-    this.player.respawn(safeZ);
+    const activeRows = this.mapGenerator.getActiveRows();
+    let safeZ = Math.max(0, this.player.gridZ - 1);
+    
+    // 往後尋找最近的草地 (GRASS)
+    while (safeZ > 0) {
+      const row = activeRows.get(safeZ);
+      if (row && row.type === CONFIG.ROW_TYPES.GRASS) {
+        break;
+      }
+      safeZ--;
+    }
+
+    // 尋找無樹木阻擋的 X 座標
+    const row = activeRows.get(safeZ);
+    let safeX = 0;
+    if (row && Array.isArray(row.trees)) {
+      for (let x = 0; x <= CONFIG.MAP_BOUNDS_X; x++) {
+        if (!row.trees.some((t) => t.gridX === x)) {
+          safeX = x;
+          break;
+        }
+        if (!row.trees.some((t) => t.gridX === -x)) {
+          safeX = -x;
+          break;
+        }
+      }
+    }
+
+    this.player.respawn(safeX, safeZ);
     this.isGameOver = false;
     this.isGameStarted = true;
     this.clock.start();

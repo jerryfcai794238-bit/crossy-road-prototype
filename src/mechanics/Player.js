@@ -138,27 +138,32 @@ export class Player {
     return this.move('UP', 3);
   }
 
-  // 3 秒空投復活
-  respawn(safeGridZ = Math.max(0, this.gridZ - 2)) {
+  // 3 秒空投復活 (重置目標 Grid 與 X 軸座標)
+  respawn(safeGridX = 0, safeGridZ = 0) {
     this.isRespawning = true;
-    this.isJumping = false;
-    this.gridX = 0;
-    this.gridZ = safeGridZ;
-
-    this.startPosition.set(0, 10, safeGridZ * CONFIG.GRID_SIZE); // 10 單位高空降落
-    this.targetPosition.set(0, 0, safeGridZ * CONFIG.GRID_SIZE);
-    this.position.copy(this.startPosition);
-
-    if (this.mesh) {
-      this.mesh.scale.set(1, 1, 1);
-      this.mesh.position.copy(this.position);
-      this.mesh.visible = true;
-    }
-
     this.isJumping = true;
     this.jumpProgress = 0;
     this.jumpDuration = 3.0; // 3 秒降落過程
     this.jumpHeight = 0;
+
+    this.gridX = safeGridX;
+    this.gridZ = safeGridZ;
+    this.targetGridX = safeGridX;
+    this.targetGridZ = safeGridZ;
+
+    const posX = safeGridX * CONFIG.GRID_SIZE;
+    const posZ = safeGridZ * CONFIG.GRID_SIZE;
+
+    this.startPosition.set(posX, 10, posZ); // 10 單位高空降落
+    this.targetPosition.set(posX, 0, posZ);
+    this.position.copy(this.startPosition);
+
+    if (this.mesh) {
+      this.mesh.scale.set(1, 1, 1);
+      this.mesh.rotation.y = 0;
+      this.mesh.position.copy(this.position);
+      this.mesh.visible = true;
+    }
   }
 
   update(deltaTime) {

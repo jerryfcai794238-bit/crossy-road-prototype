@@ -9,7 +9,7 @@ export class SceneSetup {
     this.scene.background = new THREE.Color(0xa0d8ef); // 天藍色背景
     this.scene.fog = new THREE.FogExp2(0xa0d8ef, 0.015); // 遠景霧化效果
 
-    // 2. 正交相機 (Isometric Camera 經典 45 度視角)
+    // 2. 正交相機 (Isometric Camera - 左下至右上 45 度視角)
     const aspect = window.innerWidth / window.innerHeight;
     const d = 14;
     this.camera = new THREE.OrthographicCamera(
@@ -21,8 +21,8 @@ export class SceneSetup {
       1000
     );
 
-    // 設定初始視角方向
-    this.cameraOffset = new THREE.Vector3(14, 18, -14);
+    // 設定視角方向：相機位於 (-14, 18, -14)，使 +Z 前進方向呈現「左下角往右上角」
+    this.cameraOffset = new THREE.Vector3(-14, 18, -14);
     this.cameraTarget = new THREE.Vector3(0, 0, 0);
     this.camera.position.copy(this.cameraOffset);
     this.camera.lookAt(this.cameraTarget);
@@ -47,14 +47,14 @@ export class SceneSetup {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
     this.scene.add(ambientLight);
 
-    // 半球光 (天空中和地面顏色層次)
+    // 半球光 (天空與地面層次光)
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.35);
     hemiLight.position.set(0, 50, 0);
     this.scene.add(hemiLight);
 
-    // 主平行日光 + 陰影
+    // 主平行日光 + 動態陰影
     this.dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
-    this.dirLight.position.set(20, 35, -15);
+    this.dirLight.position.set(-20, 35, -15);
     this.dirLight.castShadow = true;
 
     // 陰影圖層與品質設定
@@ -72,24 +72,23 @@ export class SceneSetup {
   }
 
   /**
-   * 鏡頭平滑跟隨玩家 Z 軸移動
+   * 鏡頭平滑跟隨玩家移動 (左下至右上動態追蹤)
    */
   updateCamera(targetPosition) {
     if (!targetPosition) return;
 
-    // 目標位置平滑插值 (Lerp)
     const desiredTarget = new THREE.Vector3(
-      targetPosition.x * 0.4, // X 軸僅小幅跟隨，避免鏡頭晃動
+      targetPosition.x * 0.4,
       0,
       targetPosition.z
     );
 
     this.cameraTarget.lerp(desiredTarget, 0.08);
 
-    // 更新相機與平行光陰影追蹤位置
+    // 更新相機與平行光位置
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
     this.dirLight.position.set(
-      this.cameraTarget.x + 20,
+      this.cameraTarget.x - 20,
       35,
       this.cameraTarget.z - 15
     );
