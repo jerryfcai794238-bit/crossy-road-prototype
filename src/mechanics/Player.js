@@ -81,13 +81,16 @@ export class Player {
 
     this.hp = Math.max(0, this.hp - amount);
     this.combo = 0; // BAD 斷 Combo 重置為 0
+    this.isJumping = false; // 強制中斷空中跳躍狀態，防止空中插值回舊座標
+    this.jumpProgress = 0;
+    this.inputBuffer = []; // 清空連點佇列
 
     if (this.hp <= 0) {
       this.isDead = true;
       return true; // 死亡
     }
 
-    // 100% 彈回身後安全草地，並重置最高點與分數對齊 safeZ (防止相機死鎖在遠方)
+    // 100% 彈回身後安全草地，重置座標與最高分數對齊 safeZ
     this.gridZ = safeZ;
     this.targetGridZ = safeZ;
     this.gridX = safeX;
@@ -102,6 +105,8 @@ export class Player {
 
     if (this.mesh) {
       this.mesh.position.copy(this.position);
+      this.mesh.scale.set(0.95, 0.95, 0.95);
+      this.mesh.visible = true;
     }
 
     return false; // 存活
@@ -270,6 +275,7 @@ export class Player {
 
   triggerFlattenAnimation() {
     this.isDead = true;
+    this.isJumping = false;
     this.inputBuffer = [];
     if (this.mesh) {
       this.mesh.scale.set(1.4, 0.1, 1.4);
@@ -279,6 +285,7 @@ export class Player {
 
   triggerDrownAnimation() {
     this.isDead = true;
+    this.isJumping = false;
     this.inputBuffer = [];
     if (this.mesh) {
       this.mesh.scale.set(0.2, 0.2, 0.2);
@@ -289,6 +296,7 @@ export class Player {
   respawn(safeX = 0, safeZ = 0) {
     this.isDead = false;
     this.isRespawning = true;
+    this.isJumping = false;
     this.inputBuffer = [];
     this.hp = this.maxHp;
     this.combo = 0;

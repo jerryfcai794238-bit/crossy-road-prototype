@@ -10,9 +10,9 @@ export class SceneSetup {
     this.scene.background = new THREE.Color(0xa0d8ef); // 天藍色背景
     this.scene.fog = new THREE.FogExp2(0xa0d8ef, 0.015); // 遠景霧化效果
 
-    // 2. 正交相機 (Isometric Camera - 鏡頭拉近至 d = 4.0)
+    // 2. 正交相機 (Isometric Camera - 鏡頭距離 d = 4.0)
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 4.0; // 鏡頭距離拉近至 4.0 (對齊競品圖 1)
+    const d = 4.0; // 鏡頭距離拉近至 4.0
     this.camera = new THREE.OrthographicCamera(
       -d * aspect,
       d * aspect,
@@ -101,8 +101,8 @@ export class SceneSetup {
       targetPosition.z
     );
 
-    // 22% 敏捷 Smoothing Lerp 追蹤
-    this.cameraTarget.lerp(desiredTarget, 0.22);
+    // 🔥 直接全速平滑追蹤 (0.35 敏捷響應)，100% 緊貼主角每一步前進
+    this.cameraTarget.lerp(desiredTarget, 0.35);
 
     // 更新相機與平行光位置
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
