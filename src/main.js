@@ -373,10 +373,10 @@ class Game {
     // 8. 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 9. 精準視口相機跟隨 (相機焦點前移 +1.6 格，使主角置於畫面下 25%，對齊圖 1 競品構圖)
+    // 9. 精準視口相機跟隨 (相機焦點前移 +1.6 格對齊圖 1 競品構圖，0 秒起同步 +4.75 即刻平滑推進)
     const targetCameraZ = Math.max(
       this.player.position.z + 1.6 * CONFIG.GRID_SIZE,
-      this.cameraAutoScrollZ + 3.15 * CONFIG.GRID_SIZE
+      this.cameraAutoScrollZ + 4.75 * CONFIG.GRID_SIZE
     );
     this.sceneSetup.updateCamera({ x: this.player.position.x, z: targetCameraZ });
 
