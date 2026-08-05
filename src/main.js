@@ -155,7 +155,7 @@ class Game {
     this.clock.start();
   }
 
-  // 3 秒快速空投復活（保證降落在後方安全的草地與無樹木格子）
+  // 3 秒快速空投復活
   fastRespawn() {
     const activeRows = this.mapGenerator.getActiveRows();
     let safeZ = Math.max(0, this.player.gridZ - 1);
@@ -230,14 +230,16 @@ class Game {
         this.gameOver(hitObstacle.type === 'train' ? '慘遭高速火車輾過！' : '被車輛撞飛了！');
       }
 
-      // 2. 河流與木塊落水判定
+      // 2. 河流與木塊落水判定 (邊界調整至視覺邊緣綠線位置)
       const riverStatus = this.physics.checkRiverStatus(this.player, activeRows);
       if (riverStatus.inRiver && !this.player.isShielded) {
         if (riverStatus.onLog) {
           this.player.position.x += riverStatus.logSpeed * deltaTime;
           this.player.gridX = Math.round(this.player.position.x / CONFIG.GRID_SIZE);
           
-          if (Math.abs(this.player.position.x) > CONFIG.MAP_BOUNDS_X * CONFIG.GRID_SIZE) {
+          // 修正：飄移邊界判定對齊可視地圖邊緣（綠線位置：CONFIG.MAP_BOUNDS_X + 3.8）
+          const drownBoundaryX = (CONFIG.MAP_BOUNDS_X + 3.8) * CONFIG.GRID_SIZE;
+          if (Math.abs(this.player.position.x) > drownBoundaryX) {
             this.player.triggerDrownAnimation();
             this.gameOver('漂流過遠，掉出邊界外！');
           }
