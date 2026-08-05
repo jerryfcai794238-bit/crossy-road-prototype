@@ -94,10 +94,15 @@ export class UIManager {
     }, 300);
   }
 
-  showGameOver(finalScore, reason = '撞車了！') {
+  showGameOver(finalScore, reason = '撞車了！', allowRespawn = true) {
     this.finalScoreElement.textContent = finalScore;
     this.modalHighScoreElement.textContent = this.highScore;
     this.deathReasonElement.textContent = reason;
+
+    // 控制是否提供 3 秒原地復活 (若被推離視角外/沒路了，隱藏復活鈕)
+    if (this.btnRespawn) {
+      this.btnRespawn.style.display = allowRespawn ? 'block' : 'none';
+    }
 
     this.gameoverOverlay.classList.remove('hidden');
     void this.gameoverOverlay.offsetWidth;

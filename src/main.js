@@ -21,6 +21,9 @@ class Game {
     this.isGameStarted = false;
     this.isGameOver = false;
 
+    // 畫面自動慢速推進 baseline Z
+    this.cameraAutoScrollZ = 0;
+
     // 建立小雞角色模型
     this.chickenMesh = createChicken();
     this.scene.add(this.chickenMesh);
@@ -106,10 +109,10 @@ class Game {
   triggerSkill(skillType) {
     if (!this.isGameStarted || this.isGameOver) return;
 
-    // 若為火箭跳躍，先檢測並爆破落腳點處的樹木，避免塞在樹幹內
+    // 若為火箭跳躍，爆破落腳點 3x3 (九宮格) 範圍內的所有樹木，確保不會掉進死路
     if (skillType === ITEM_TYPES.ROCKET) {
       const targetPos = this.player.getTargetGridPosition('UP', 3);
-      this.physics.destroyTreeAt(targetPos, this.mapGenerator.getActiveRows());
+      this.physics.destroyTreesInArea(targetPos, 1, this.mapGenerator.getActiveRows());
     }
 
     this.itemSystem.useItem(skillType);
@@ -136,6 +139,7 @@ class Game {
   startGame() {
     this.isGameStarted = true;
     this.isGameOver = false;
+    this.cameraAutoScrollZ = 0;
     this.itemSystem.reset();
     this.clock.start();
   }
@@ -145,6 +149,7 @@ class Game {
     this.mapGenerator.initMap();
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
+    this.cameraAutoScrollZ = 0;
     this.isGameOver = false;
     this.isGameStarted = true;
     this.clock.start();
@@ -184,10 +189,10 @@ class Game {
     this.clock.start();
   }
 
-  gameOver(reason) {
+  gameOver(reason, allowRespawn = true) {
     if (this.isGameOver) return;
     this.isGameOver = true;
-    this.uiManager.showGameOver(this.player.score, reason);
+    this.uiManager.showGameOver(this.player.score, reason, allowRespawn);
   }
 
   animate() {
@@ -209,11 +214,25 @@ class Game {
     // 計算時空減速效果倍率 (若觸發超感時空減速，車輛與浮木速度降為 35%)
     const speedMultiplier = this.player.isReflexHyper ? 0.35 : 1.0;
 
-    // 更新馬路車輛 / 河流浮木 / 鐵路火車位置 (全場減速)
+    // 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime, speedMultiplier);
 
-    // 鏡頭平滑跟隨小雞
-    this.sceneSetup.updateCamera(this.player.position);
+    // 畫面動態推進機制
+    if (this.isGameStarted && !this.isGameOver) {
+      // 鏡頭 baseline 隨時間慢速向前推進
+      this.cameraAutoScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
+      
+      const effectiveTargetZ = Math.max(this.cameraAutoScrollZ, this.player.position.z);
+      this.sceneSetup.updateCamera({ x: this.player.position.x, z: effectiveTargetZ });
+
+      // 檢查是否落後鏡頭太多被捲出視角外淘汰 (不提供 3 秒復活)
+      const maxDistanceBehind = 6.5 * CONFIG.GRID_SIZE;
+      if (this.player.position.z < this.cameraAutoScrollZ - maxDistanceBehind && !this.player.isRespawning) {
+        this.gameOver('已被推離視角外淘汰！(地形已被回收無法復活)', false);
+      }
+    } else {
+      this.sceneSetup.updateCamera(this.player.position);
+    }
 
     // 遊戲進行中的碰撞與判定
     if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning) {

@@ -15,24 +15,34 @@ export class Physics {
     return false;
   }
 
-  // 2. 摧毀落腳點處的樹木 (火箭跳躍爆破清除)
-  destroyTreeAt(targetGridPos, activeRows) {
-    const row = activeRows.get(targetGridPos.z);
-    if (!row || row.type !== CONFIG.ROW_TYPES.GRASS || !Array.isArray(row.trees)) return false;
+  // 2. 爆破清理以中心點為首的 3x3 (九宮格) 範圍內所有樹木 (火箭跳躍落地爆破)
+  destroyTreesInArea(centerGridPos, radius = 1, activeRows) {
+    let destroyedCount = 0;
 
-    const treeIndex = row.trees.findIndex((t) => t.gridX === targetGridPos.x);
-    if (treeIndex !== -1) {
-      const tree = row.trees[treeIndex];
-      if (tree.mesh && tree.mesh.parent) {
-        tree.mesh.parent.remove(tree.mesh);
-        tree.mesh.traverse((child) => {
-          if (child.geometry) child.geometry.dispose();
-        });
+    for (let zOffset = -radius; zOffset <= radius; zOffset++) {
+      const targetZ = centerGridPos.z + zOffset;
+      const row = activeRows.get(targetZ);
+      if (!row || row.type !== CONFIG.ROW_TYPES.GRASS || !Array.isArray(row.trees)) continue;
+
+      for (let xOffset = -radius; xOffset <= radius; xOffset++) {
+        const targetX = centerGridPos.x + xOffset;
+        const treeIndex = row.trees.findIndex((t) => t.gridX === targetX);
+
+        if (treeIndex !== -1) {
+          const tree = row.trees[treeIndex];
+          if (tree.mesh && tree.mesh.parent) {
+            tree.mesh.parent.remove(tree.mesh);
+            tree.mesh.traverse((child) => {
+              if (child.geometry) child.geometry.dispose();
+            });
+          }
+          row.trees.splice(treeIndex, 1);
+          destroyedCount++;
+        }
       }
-      row.trees.splice(treeIndex, 1);
-      return true;
     }
-    return false;
+
+    return destroyedCount;
   }
 
   // 3. 檢查車輛與火車碰撞
