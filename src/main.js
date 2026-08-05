@@ -147,7 +147,7 @@ class Game {
 
   restartGame() {
     this.player.reset();
-    this.mapGenerator.reset();
+    this.mapGenerator.initMap(); // 重新產生起點與地圖
     this.itemSystem.reset();
     this.uiManager.updateScore(0);
     this.isGameOver = false;
