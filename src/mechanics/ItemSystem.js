@@ -82,11 +82,10 @@ export class ItemSystem {
   }
 
   activateRocket() {
-    this.player.rocketJump();
     this.rocketMesh.visible = true;
 
-    // 對齊小雞雙腳觸地的落地瞬間 (~380ms) 爆發 3x3 落地光環與火焰
-    setTimeout(() => {
+    // 綁定小雞雙腳觸地的精準事件 (第 0.00 秒零延遲爆發光環)
+    this.player.onRocketLand = () => {
       this.rocketMesh.visible = false;
 
       const blast = createRocketBlastRing();
@@ -96,7 +95,11 @@ export class ItemSystem {
       setTimeout(() => {
         this.scene.remove(blast);
       }, 400);
-    }, 380);
+
+      this.player.onRocketLand = null;
+    };
+
+    this.player.rocketJump();
   }
 
   activateTimeSlow() {

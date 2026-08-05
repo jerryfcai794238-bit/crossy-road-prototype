@@ -26,6 +26,8 @@ export class Player {
     this.isShielded = false;
     this.isReflexHyper = false;
     this.isRespawning = false;
+    this.isRocketJumping = false;
+    this.onRocketLand = null;
 
     this.reset();
   }
@@ -52,6 +54,8 @@ export class Player {
     this.isShielded = false;
     this.isReflexHyper = false;
     this.isRespawning = false;
+    this.isRocketJumping = false;
+    this.onRocketLand = null;
 
     if (this.mesh) {
       this.mesh.position.set(0, 0, 0);
@@ -135,15 +139,16 @@ export class Player {
   }
 
   rocketJump() {
+    this.isRocketJumping = true;
     return this.move('UP', 3);
   }
 
-  // 3 秒空投復活 (重置目標 Grid 與 X 軸座標)
+  // 3 秒空投復活
   respawn(safeGridX = 0, safeGridZ = 0) {
     this.isRespawning = true;
     this.isJumping = true;
     this.jumpProgress = 0;
-    this.jumpDuration = 3.0; // 3 秒降落過程
+    this.jumpDuration = 3.0;
     this.jumpHeight = 0;
 
     this.gridX = safeGridX;
@@ -154,7 +159,7 @@ export class Player {
     const posX = safeGridX * CONFIG.GRID_SIZE;
     const posZ = safeGridZ * CONFIG.GRID_SIZE;
 
-    this.startPosition.set(posX, 10, posZ); // 10 單位高空降落
+    this.startPosition.set(posX, 10, posZ);
     this.targetPosition.set(posX, 0, posZ);
     this.position.copy(this.startPosition);
 
@@ -179,6 +184,14 @@ export class Player {
         this.gridX = this.targetGridX;
         this.gridZ = this.targetGridZ;
         this.position.copy(this.targetPosition);
+
+        // 火箭跳躍著地瞬間 (第 0.00 秒) 觸發事件
+        if (this.isRocketJumping) {
+          this.isRocketJumping = false;
+          if (typeof this.onRocketLand === 'function') {
+            this.onRocketLand();
+          }
+        }
       } else {
         this.position.x = THREE.MathUtils.lerp(this.startPosition.x, this.targetPosition.x, this.jumpProgress);
         this.position.z = THREE.MathUtils.lerp(this.startPosition.z, this.targetPosition.z, this.jumpProgress);
