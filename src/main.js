@@ -243,37 +243,39 @@ class Game {
     this.uiManager.showGameOver(this.player.score, reason, allowRespawn);
   }
 
-  // 觸發正版老鷹俯衝抓走動畫
+  // 觸發正版老鷹極速 0.4 秒俯衝抓走動畫 (修復時機詭異問題)
   triggerEagleAttack() {
     if (this.isEagleAttacking) return;
     this.isEagleAttacking = true;
 
     this.eagleMesh = createEagle();
     const startX = this.player.position.x;
-    const startZ = this.player.position.z - 12 * CONFIG.GRID_SIZE;
-    this.eagleMesh.position.set(startX, 14, startZ);
+    const startZ = this.player.position.z - 5.5 * CONFIG.GRID_SIZE;
+    this.eagleMesh.position.set(startX, 8.0, startZ);
     this.scene.add(this.eagleMesh);
 
     let progress = 0;
     const playerTarget = this.player.position.clone();
 
     const animateEagle = () => {
-      progress += 0.04;
+      progress += 0.08; // 快如閃電
       if (progress < 0.5) {
+        // 0.2 秒精準由頂端空中俯衝抓住小雞
         const t = progress / 0.5;
         this.eagleMesh.position.x = THREE.MathUtils.lerp(startX, playerTarget.x, t);
         this.eagleMesh.position.z = THREE.MathUtils.lerp(startZ, playerTarget.z, t);
-        this.eagleMesh.position.y = THREE.MathUtils.lerp(14, 0.5, t);
+        this.eagleMesh.position.y = THREE.MathUtils.lerp(8.0, 0.4, t);
         requestAnimationFrame(animateEagle);
       } else if (progress < 1.0) {
+        // 0.2 秒極速爪子抓起小雞飛往高空
         const t = (progress - 0.5) / 0.5;
-        this.eagleMesh.position.x = THREE.MathUtils.lerp(playerTarget.x, playerTarget.x + 5, t);
-        this.eagleMesh.position.z = THREE.MathUtils.lerp(playerTarget.z, playerTarget.z + 15, t);
-        this.eagleMesh.position.y = THREE.MathUtils.lerp(0.5, 20, t);
+        this.eagleMesh.position.x = THREE.MathUtils.lerp(playerTarget.x, playerTarget.x + 3, t);
+        this.eagleMesh.position.z = THREE.MathUtils.lerp(playerTarget.z, playerTarget.z + 10, t);
+        this.eagleMesh.position.y = THREE.MathUtils.lerp(0.4, 16.0, t);
 
         if (this.player.mesh) {
           this.player.mesh.position.copy(this.eagleMesh.position);
-          this.player.mesh.position.y -= 0.6;
+          this.player.mesh.position.y -= 0.5;
         }
 
         requestAnimationFrame(animateEagle);
