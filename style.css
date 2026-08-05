@@ -80,6 +80,97 @@ body, html {
   color: var(--primary-color);
 }
 
+/* 道具快捷 HUD */
+#item-hud {
+  position: absolute;
+  bottom: 28px;
+  left: 28px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.item-selector {
+  display: flex;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.item-select-btn {
+  background: transparent;
+  border: none;
+  color: #a0aec0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.item-select-btn.active {
+  background: rgba(255, 204, 0, 0.25);
+  color: #ffcc00;
+  border: 1px solid rgba(255, 204, 0, 0.4);
+}
+
+.item-trigger-btn {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.15s ease;
+}
+
+.item-trigger-btn:active {
+  transform: scale(0.92);
+}
+
+#item-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+#item-cooldown-text {
+  font-size: 10px;
+  font-weight: 900;
+  color: #ffffff;
+  margin-top: 2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+#cooldown-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 0%;
+  background: rgba(0, 0, 0, 0.65);
+  transition: height 0.1s linear;
+}
+
+.item-key-hint {
+  font-size: 11px;
+  color: #cbd5e1;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+
 /* Modal Overlay 彈窗通用 */
 .overlay {
   position: absolute;
@@ -155,6 +246,7 @@ body, html {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .key {
@@ -198,6 +290,32 @@ body, html {
 
 .btn-primary:active {
   transform: translateY(1px);
+}
+
+.gameover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 14px;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 900;
+  color: #ffffff;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #34d399, #10b981);
 }
 
 /* Game Over 專屬樣式 */
@@ -255,7 +373,7 @@ body, html {
 
 @media (min-width: 768px) {
   #mobile-controls {
-    display: none; /* 電腦版隱藏 */
+    display: none;
   }
 }
 

@@ -1,159 +1,91 @@
-import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
 export class Physics {
-  /**
-   * 輔助函式：取得指定 Z 軸列資料
-   */
-  getRow(activeRows, z) {
-    if (!activeRows) return null;
-    if (activeRows instanceof Map) {
-      return activeRows.get(z);
-    }
-    return activeRows[z];
+  // 1. 檢查樹木與地圖邊界碰撞
+  checkTreeCollision(targetGridPos, activeRows) {
+    const row = activeRows.get(targetGridPos.z);
+    if (!row || row.type !== CONFIG.ROW_TYPES.GRASS) return false;
+    return row.trees.has(targetGridPos.x);
   }
 
-  /**
-   * 1. 樹木與地圖邊界阻擋判定
-   * @param {Object} targetPos { x: gridX, z: gridZ }
-   * @param {Map|Object} activeRows
-   * @returns {boolean} 是否被樹木或邊界阻擋
-   */
-  checkTreeCollision(targetPos, activeRows) {
-    // 檢查左右網格邊界
-    if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X) {
-      return true;
-    }
-
-    const row = this.getRow(activeRows, targetPos.z);
-    if (!row) return false;
-
-    // 如果該列是草地，檢查目標 X 位置是否有樹木
-    if (row.type === CONFIG.ROW_TYPES.GRASS && row.trees) {
-      return row.trees.some((tree) => tree.gridX === targetPos.x);
-    }
-
-    return false;
-  }
-
-  /**
-   * 2. 車輛與火車碰撞判定 (AABB 盒碰撞)
-   * @param {Player} player
-   * @param {Map|Object} activeRows
-   * @returns {Object|null} 碰撞資訊 { type: 'car'|'train', obstacle } 或 null
-   */
+  // 2. 檢查車輛與火車碰撞
   checkObstacleCollision(player, activeRows) {
-    if (!player || player.isDead) return null;
+    // 護盾開啟時：抵擋撞擊，無敵不死亡！
+    if (player.isShielded) {
+      return null;
+    }
+
+    const row = activeRows.get(player.gridZ);
+    if (!row) return null;
 
     const playerX = player.position.x;
-    const playerZ = player.position.z;
-    const playerRadius = CONFIG.PLAYER.COLLISION_RADIUS;
+    const playerRadius = 0.35 * CONFIG.GRID_SIZE;
 
-    // 檢查玩家目前的 Z 軸與前後臨近列 (避免跳躍過程中沒撞到)
-    const checkZList = [
-      Math.floor((playerZ + CONFIG.GRID_SIZE * 0.4) / CONFIG.GRID_SIZE),
-      Math.floor((playerZ - CONFIG.GRID_SIZE * 0.4) / CONFIG.GRID_SIZE),
-      player.gridZ
-    ];
+    // 車輛碰撞
+    if (row.type === CONFIG.ROW_TYPES.ROAD) {
+      for (const obs of row.obstacles) {
+        const obsX = obs.mesh.position.x;
+        const halfWidth = obs.width / 2;
 
-    const uniqueZList = [...new Set(checkZList)];
-
-    for (const z of uniqueZList) {
-      const row = this.getRow(activeRows, z);
-      if (!row) continue;
-
-      const rowWorldZ = row.z * CONFIG.GRID_SIZE;
-
-      // 判定 A: 馬路車輛 (ROAD)
-      if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
-        for (const veh of row.vehicles) {
-          const vehWorldX = veh.position.x;
-          const halfW = veh.width / 2;
-          const halfD = veh.depth / 2;
-
-          const distX = Math.abs(playerX - vehWorldX);
-          const distZ = Math.abs(playerZ - rowWorldZ);
-
-          if (distX < (halfW + playerRadius * 0.75) && distZ < (halfD + playerRadius * 0.75)) {
-            return { type: 'car', vehicle: veh };
-          }
+        if (Math.abs(playerX - obsX) < halfWidth + playerRadius) {
+          return { type: 'car' };
         }
       }
+    }
 
-      // 判定 B: 鐵路火車 (RAILROAD)
-      else if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.train) {
-        if (row.trainState === 'TRAIN_PASSING') {
-          const trainWorldX = row.train.position.x;
-          const halfW = row.train.length / 2;
-          const halfD = 0.55;
+    // 火車碰撞
+    if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.trainState === 'CROSSING') {
+      const trainX = row.trainMesh.position.x;
+      const halfWidth = 1.8;
 
-          const distX = Math.abs(playerX - trainWorldX);
-          const distZ = Math.abs(playerZ - rowWorldZ);
-
-          if (distX < (halfW + playerRadius * 0.75) && distZ < (halfD + playerRadius * 0.75)) {
-            return { type: 'train', train: row.train };
-          }
-        }
+      if (Math.abs(playerX - trainX) < halfWidth + playerRadius) {
+        return { type: 'train' };
       }
     }
 
     return null;
   }
 
-  /**
-   * 3. 河流落水與浮木踩踏檢測
-   * @param {Player} player
-   * @param {Map|Object} activeRows
-   * @returns {Object} { inRiver: boolean, onLog: boolean, logSpeed: number }
-   */
+  // 3. 檢查河流與浮木狀態
   checkRiverStatus(player, activeRows) {
-    if (!player) {
-      return { inRiver: false, onLog: false, logSpeed: 0 };
-    }
-
-    // 當玩家處於高空跳躍狀態時，不會落水
-    if (player.isJumping && player.position.y > 0.25) {
-      return { inRiver: false, onLog: false, logSpeed: 0 };
-    }
-
-    // 依據主角目前實體 Z 座標定位最近的河流列
-    const currentZ = Math.round(player.position.z / CONFIG.GRID_SIZE);
-    const row = this.getRow(activeRows, currentZ);
-
+    const row = activeRows.get(player.gridZ);
     if (!row || row.type !== CONFIG.ROW_TYPES.RIVER) {
       return { inRiver: false, onLog: false, logSpeed: 0 };
     }
 
+    // 跳躍途中或護盾無敵防護中
+    if (player.isJumping || player.isShielded) {
+      return { inRiver: true, onLog: true, logSpeed: 0 };
+    }
+
     const playerX = player.position.x;
+    const playerRadius = 0.25;
 
-    // 檢查是否踩在該列的任何一塊浮木上
-    if (row.logs) {
-      for (const log of row.logs) {
-        const logWorldX = log.position.x;
-        const logTotalWidth = log.length * CONFIG.GRID_SIZE;
-        const halfWidth = logTotalWidth / 2;
+    for (const obs of row.obstacles) {
+      const logX = obs.mesh.position.x;
+      const halfWidth = obs.width / 2;
 
-        // 浮木前後端允許一點點的安全容錯範圍
-        const safetyMargin = CONFIG.GRID_SIZE * 0.25;
-
-        if (
-          playerX >= (logWorldX - halfWidth + safetyMargin) &&
-          playerX <= (logWorldX + halfWidth - safetyMargin)
-        ) {
-          return {
-            inRiver: true,
-            onLog: true,
-            logSpeed: log.direction * log.speed
-          };
-        }
+      if (playerX >= logX - halfWidth - playerRadius && playerX <= logX + halfWidth + playerRadius) {
+        return {
+          inRiver: true,
+          onLog: true,
+          logSpeed: row.direction * row.speed
+        };
       }
     }
 
-    // 在河流列但沒踩在浮木上 => 落水
-    return {
-      inRiver: true,
-      onLog: false,
-      logSpeed: 0
-    };
+    // 無護盾且踩空：落水死亡
+    return { inRiver: true, onLog: false, logSpeed: 0 };
+  }
+
+  // 4. 多人/AI 網格碰撞彈退機制 (Grid Bump)
+  checkGridBump(player1, player2) {
+    if (!player1 || !player2) return false;
+    
+    if (player1.gridX === player2.gridX && player1.gridZ === player2.gridZ) {
+      // 兩角色在同一格，觸發碰撞彈退
+      return true;
+    }
+    return false;
   }
 }

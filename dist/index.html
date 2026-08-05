@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Crossy Road Prototype - 天天過馬路 3D</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet">
+
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" crossorigin src="/assets/index-CuEZlXhG.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CspRvW7C.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 3D Canvas 容器 -->
+    <div id="canvas-container"></div>
+
+    <!-- 遊戲 HUD UI -->
+    <div id="hud">
+      <div class="score-card">
+        <span class="score-label">SCORE</span>
+        <span id="current-score">0</span>
+      </div>
+      <div class="high-score-card">
+        <span class="score-label">BEST</span>
+        <span id="high-score">0</span>
+      </div>
+    </div>
+
+    <!-- 開始與控制提示 -->
+    <div id="start-overlay" class="overlay active">
+      <div class="modal-card">
+        <h1 class="game-title">CROSSY ROAD</h1>
+        <p class="game-subtitle">3D 體素過馬路原型</p>
+        <div class="instructions">
+          <div class="key-hint">
+            <span class="key">W</span> / <span class="key">▲</span> 前進
+          </div>
+          <div class="key-hint">
+            <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> / <span class="key">◄</span> <span class="key">▼</span> <span class="key">►</span> 轉向與移動
+          </div>
+          <div class="touch-hint">手機可直接點擊 / 滑動螢幕控制</div>
+        </div>
+        <button id="btn-start" class="btn-primary">開始遊戲</button>
+      </div>
+    </div>
+
+    <!-- Game Over 彈窗 -->
+    <div id="gameover-overlay" class="overlay hidden">
+      <div class="modal-card gameover-card">
+        <h2 class="gameover-title">GAME OVER</h2>
+        <p id="death-reason" class="death-reason">被車撞飛了！</p>
+        <div class="final-score-box">
+          <div class="score-item">
+            <span>最終得分</span>
+            <strong id="final-score">0</strong>
+          </div>
+          <div class="score-item">
+            <span>最高紀錄</span>
+            <strong id="modal-high-score">0</strong>
+          </div>
+        </div>
+        <button id="btn-restart" class="btn-primary">再玩一次</button>
+      </div>
+    </div>
+
+    <!-- 行動裝置虛擬方向鍵 -->
+    <div id="mobile-controls">
+      <button id="btn-up" class="dpad-btn up">▲</button>
+      <div class="dpad-middle">
+        <button id="btn-left" class="dpad-btn left">◄</button>
+        <button id="btn-down" class="dpad-btn down">▼</button>
+        <button id="btn-right" class="dpad-btn right">►</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

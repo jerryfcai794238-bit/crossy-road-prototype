@@ -5,6 +5,7 @@ import { createChicken } from './graphics/VoxelModels.js';
 import { Player } from './mechanics/Player.js';
 import { MapGenerator } from './mechanics/MapGenerator.js';
 import { Physics } from './mechanics/Physics.js';
+import { ItemSystem } from './mechanics/ItemSystem.js';
 import { UIManager } from './ui/UIManager.js';
 
 class Game {
@@ -28,13 +29,17 @@ class Game {
     this.player = new Player(this.chickenMesh);
     this.mapGenerator = new MapGenerator(this.scene);
     this.physics = new Physics();
+    this.itemSystem = new ItemSystem(this.scene, this.player);
 
     this.clock = new THREE.Clock();
 
     // 綁定 UI 與 控制器
     this.uiManager.init(
       () => this.startGame(),
-      () => this.restartGame()
+      () => this.restartGame(),
+      () => this.fastRespawn(),
+      () => this.useItem(),
+      (itemType) => this.itemSystem.selectItem(itemType)
     );
 
     this.setupInputListeners();
@@ -48,7 +53,7 @@ class Game {
   }
 
   setupInputListeners() {
-    // 鍵盤控制
+    // 鍵盤控制 (含道具快捷鍵)
     window.addEventListener('keydown', (e) => {
       if (!this.isGameStarted || this.isGameOver) return;
 
@@ -73,6 +78,11 @@ class Game {
         case 'D':
           this.handlePlayerMove('RIGHT');
           break;
+        case ' ':
+        case 'e':
+        case 'E':
+          this.useItem();
+          break;
       }
     });
 
@@ -82,33 +92,33 @@ class Game {
     document.getElementById('btn-left')?.addEventListener('click', () => this.handlePlayerMove('LEFT'));
     document.getElementById('btn-right')?.addEventListener('click', () => this.handlePlayerMove('RIGHT'));
 
-    // 螢幕 Touch / Click 簡單往前跳
+    // 螢幕 Touch / Click 往前跳
     this.container.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#hud') || e.target.closest('#mobile-controls') || e.target.closest('.overlay')) return;
+      if (e.target.closest('#hud') || e.target.closest('#item-hud') || e.target.closest('#mobile-controls') || e.target.closest('.overlay')) return;
       if (!this.isGameStarted || this.isGameOver) return;
       this.handlePlayerMove('UP');
     });
   }
 
+  useItem() {
+    if (!this.isGameStarted || this.isGameOver) return;
+    this.itemSystem.useItem();
+  }
+
   handlePlayerMove(direction) {
     if (!this.isGameStarted || this.isGameOver) return;
 
-    // 計算目標 Grid 位置
     const targetPos = this.player.getTargetGridPosition(direction);
 
     // 檢查是否有樹木阻擋
     if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) {
-      // 被樹阻擋，無法移動，但可改變朝向
       this.player.setFacingDirection(direction);
       return;
     }
 
-    // 執行移動跳躍
     const moved = this.player.move(direction);
     if (moved) {
-      // 根據玩家位置更新無限地圖生成
       this.mapGenerator.update(this.player.gridZ);
-      // 更新得分
       this.uiManager.updateScore(this.player.score);
     }
   }
@@ -116,19 +126,24 @@ class Game {
   startGame() {
     this.isGameStarted = true;
     this.isGameOver = false;
+    this.itemSystem.reset();
     this.clock.start();
   }
 
   restartGame() {
-    // 重置小雞
     this.player.reset();
-    
-    // 重置地圖
     this.mapGenerator.reset();
-
-    // 重置分數 UI
+    this.itemSystem.reset();
     this.uiManager.updateScore(0);
+    this.isGameOver = false;
+    this.isGameStarted = true;
+    this.clock.start();
+  }
 
+  // 1 秒快速空投重生
+  fastRespawn() {
+    const safeZ = Math.max(0, this.player.gridZ - 2);
+    this.player.respawn(safeZ);
     this.isGameOver = false;
     this.isGameStarted = true;
     this.clock.start();
@@ -146,8 +161,15 @@ class Game {
     const deltaTime = this.clock.getDelta();
     const elapsedTime = this.clock.getElapsedTime();
 
-    // 更新角色跳躍動畫
+    // 更新角色狀態與跳躍動畫
     this.player.update(deltaTime);
+
+    // 更新道具系統 CD 與 VFX
+    this.itemSystem.update(deltaTime);
+    this.uiManager.updateItemCooldown(
+      this.itemSystem.getCooldownRatio(),
+      this.itemSystem.cooldownTimer
+    );
 
     // 更新馬路車輛 / 河流浮木 / 鐵路火車位置
     this.mapGenerator.animateObstacles(deltaTime, elapsedTime);
@@ -156,31 +178,28 @@ class Game {
     this.sceneSetup.updateCamera(this.player.position);
 
     // 遊戲進行中的碰撞與判定
-    if (this.isGameStarted && !this.isGameOver) {
+    if (this.isGameStarted && !this.isGameOver && !this.player.isRespawning) {
       const activeRows = this.mapGenerator.getActiveRows();
       
-      // 1. 車輛 / 火車撞擊判定
+      // 1. 車輛 / 火車撞擊判定 (已整合護盾無敵穿透)
       const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
-      if (hitObstacle) {
+      if (hitObstacle && !this.player.isShielded) {
         this.player.triggerFlattenAnimation();
         this.gameOver(hitObstacle.type === 'train' ? '慘遭高速火車輾過！' : '被車輛撞飛了！');
       }
 
-      // 2. 河流與木塊落水判定
+      // 2. 河流與木塊落水判定 (已整合護盾防護)
       const riverStatus = this.physics.checkRiverStatus(this.player, activeRows);
-      if (riverStatus.inRiver) {
+      if (riverStatus.inRiver && !this.player.isShielded) {
         if (riverStatus.onLog) {
-          // 踩在浮木上：跟隨浮木 X 軸位移
           this.player.position.x += riverStatus.logSpeed * deltaTime;
           this.player.gridX = Math.round(this.player.position.x / CONFIG.GRID_SIZE);
           
-          // 若被浮木載出邊界外：死亡
           if (Math.abs(this.player.position.x) > CONFIG.MAP_BOUNDS_X * CONFIG.GRID_SIZE) {
             this.player.triggerDrownAnimation();
             this.gameOver('漂流過遠，掉出邊界外！');
           }
         } else {
-          // 落水溺死
           this.player.triggerDrownAnimation();
           this.gameOver('噗通！落水淹死了！');
         }

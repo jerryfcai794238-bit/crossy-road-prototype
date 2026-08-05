@@ -1,233 +1,120 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
-/**
- * 建立體素小雞玩家模型
- */
+// 輔助函式：建立開啓陰影的方塊網格
+function createCube(width, height, depth, colorHex) {
+  const geometry = new THREE.BoxGeometry(width, height, depth);
+  const material = new THREE.MeshLambertMaterial({ color: colorHex });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+// 1. 小雞體素模型 (Chicken Voxel Model)
 export function createChicken() {
   const group = new THREE.Group();
 
-  // 1. 身體 (Body) - 白色主要方塊
-  const bodyGeo = new THREE.BoxGeometry(0.7, 0.75, 0.7);
-  const bodyMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  // 身體 (White Body)
+  const body = createCube(0.7, 0.7, 0.7, CONFIG.COLORS.CHICKEN);
   body.position.y = 0.55;
-  body.castShadow = true;
-  body.receiveShadow = true;
   group.add(body);
 
-  // 2. 雞冠 (Comb) - 紅色頂冠
-  const combGeo = new THREE.BoxGeometry(0.18, 0.25, 0.35);
-  const combMat = new THREE.MeshLambertMaterial({ color: 0xe74c3c });
-  const comb = new THREE.Mesh(combGeo, combMat);
-  comb.position.set(0, 0.98, 0.05);
-  comb.castShadow = true;
+  // 雞冠 (Red Comb)
+  const comb = createCube(0.15, 0.25, 0.35, CONFIG.COLORS.COMB);
+  comb.position.set(0, 0.95, 0.05);
   group.add(comb);
 
-  // 3. 嘴巴 (Beak) - 黃色鳥喙
-  const beakGeo = new THREE.BoxGeometry(0.24, 0.16, 0.26);
-  const beakMat = new THREE.MeshLambertMaterial({ color: 0xf39c12 });
-  const beak = new THREE.Mesh(beakGeo, beakMat);
-  beak.position.set(0, 0.55, 0.42);
-  beak.castShadow = true;
+  // 嘴巴 (Orange Beak)
+  const beak = createCube(0.25, 0.15, 0.25, CONFIG.COLORS.BEAK);
+  beak.position.set(0, 0.55, 0.45);
   group.add(beak);
 
-  // 4. 肉垂 (Wattle) - 嘴下紅肉垂
-  const wattleGeo = new THREE.BoxGeometry(0.14, 0.16, 0.14);
-  const wattleMat = new THREE.MeshLambertMaterial({ color: 0xc0392b });
-  const wattle = new THREE.Mesh(wattleGeo, wattleMat);
-  wattle.position.set(0, 0.42, 0.4);
-  group.add(wattle);
-
-  // 5. 眼睛 (Eyes) - 雙側黑眼珠
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-  const eyeGeo = new THREE.BoxGeometry(0.08, 0.12, 0.08);
-
-  const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+  // 眼睛 (Black Eyes)
+  const leftEye = createCube(0.08, 0.12, 0.08, 0x1e293b);
   leftEye.position.set(0.36, 0.65, 0.2);
-  group.add(leftEye);
-
-  const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+  const rightEye = createCube(0.08, 0.12, 0.08, 0x1e293b);
   rightEye.position.set(-0.36, 0.65, 0.2);
-  group.add(rightEye);
+  group.add(leftEye, rightEye);
 
-  // 6. 翅膀 (Wings) - 兩側白翅膀
-  const wingGeo = new THREE.BoxGeometry(0.12, 0.35, 0.45);
-  const wingMat = new THREE.MeshLambertMaterial({ color: 0xf0f0f0 });
+  // 雙腳 (Yellow Legs/Feet)
+  const leftLeg = createCube(0.12, 0.25, 0.12, CONFIG.COLORS.BEAK);
+  leftLeg.position.set(0.2, 0.12, 0);
+  const rightLeg = createCube(0.12, 0.25, 0.12, CONFIG.COLORS.BEAK);
+  rightLeg.position.set(-0.2, 0.12, 0);
+  group.add(leftLeg, rightLeg);
 
-  const leftWing = new THREE.Mesh(wingGeo, wingMat);
-  leftWing.position.set(0.38, 0.52, -0.05);
-  group.add(leftWing);
-
-  const rightWing = new THREE.Mesh(wingGeo, wingMat);
-  rightWing.position.set(-0.38, 0.52, -0.05);
-  group.add(rightWing);
-
-  // 7. 腳 (Legs & Feet) - 橘黃色雙腳
-  const legMat = new THREE.MeshLambertMaterial({ color: 0xe67e22 });
-  const legGeo = new THREE.BoxGeometry(0.1, 0.25, 0.1);
-  const footGeo = new THREE.BoxGeometry(0.18, 0.06, 0.24);
-
-  const leftLegGroup = new THREE.Group();
-  const leftLeg = new THREE.Mesh(legGeo, legMat);
-  leftLeg.position.y = 0.125;
-  const leftFoot = new THREE.Mesh(footGeo, legMat);
-  leftFoot.position.set(0, 0.03, 0.05);
-  leftLegGroup.add(leftLeg, leftFoot);
-  leftLegGroup.position.set(0.18, 0, 0);
-
-  const rightLegGroup = new THREE.Group();
-  const rightLeg = new THREE.Mesh(legGeo, legMat);
-  rightLeg.position.y = 0.125;
-  const rightFoot = new THREE.Mesh(footGeo, legMat);
-  rightFoot.position.set(0, 0.03, 0.05);
-  rightLegGroup.add(rightLeg, rightFoot);
-  rightLegGroup.position.set(-0.18, 0, 0);
-
-  group.add(leftLegGroup, rightLegGroup);
-
-  group.scale.set(1, 1, 1);
+  group.scale.set(0.95, 0.95, 0.95);
   return group;
 }
 
-/**
- * 建立樹木模型
- */
-export function createTreeMesh(type = 0) {
+// 2. 轎車模型 (Car Voxel Model)
+export function createCar(colorHex = 0xff4757) {
   const group = new THREE.Group();
-  const size = CONFIG.GRID_SIZE;
 
-  // 樹幹
-  const trunkGeo = new THREE.BoxGeometry(size * 0.3, size * 0.5, size * 0.3);
-  const trunkMat = new THREE.MeshLambertMaterial({ color: CONFIG.COLORS.TREE_TRUNK });
-  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-  trunk.position.y = size * 0.25;
-  trunk.castShadow = true;
-  trunk.receiveShadow = true;
-  group.add(trunk);
-
-  // 樹葉
-  const leafColor = CONFIG.COLORS.TREE_LEAVES[type % CONFIG.COLORS.TREE_LEAVES.length];
-  const leafMat = new THREE.MeshLambertMaterial({ color: leafColor });
-
-  if (type % 2 === 0) {
-    // 松樹 / 松塔造型 (雙層體素金字塔)
-    const layer1 = new THREE.Mesh(new THREE.BoxGeometry(size * 0.85, size * 0.5, size * 0.85), leafMat);
-    layer1.position.y = size * 0.65;
-    layer1.castShadow = true;
-    layer1.receiveShadow = true;
-
-    const layer2 = new THREE.Mesh(new THREE.BoxGeometry(size * 0.6, size * 0.5, size * 0.6), leafMat);
-    layer2.position.y = size * 1.0;
-    layer2.castShadow = true;
-
-    const layer3 = new THREE.Mesh(new THREE.BoxGeometry(size * 0.35, size * 0.4, size * 0.35), leafMat);
-    layer3.position.y = size * 1.3;
-    layer3.castShadow = true;
-
-    group.add(layer1, layer2, layer3);
-  } else {
-    // 圓頂體素樹造型
-    const canopy = new THREE.Mesh(new THREE.BoxGeometry(size * 0.8, size * 0.9, size * 0.8), leafMat);
-    canopy.position.y = size * 0.85;
-    canopy.castShadow = true;
-    canopy.receiveShadow = true;
-    group.add(canopy);
-  }
-
-  return group;
-}
-
-/**
- * 建立車輛模型 (汽車)
- */
-export function createCarMesh(colorHex) {
-  const group = new THREE.Group();
-  const width = CONFIG.OBSTACLES.CAR.WIDTH;
-  const depth = CONFIG.OBSTACLES.CAR.DEPTH;
-
-  // 車身底座
-  const bodyGeo = new THREE.BoxGeometry(width, 0.45, depth);
-  const bodyMat = new THREE.MeshLambertMaterial({ color: colorHex });
-  const body = new THREE.Mesh(bodyGeo, bodyMat);
-  body.position.y = 0.32;
-  body.castShadow = true;
-  body.receiveShadow = true;
+  // 車身底盤 (Chassis)
+  const body = createCube(1.4, 0.45, 0.95, colorHex);
+  body.position.y = 0.35;
   group.add(body);
 
-  // 車頂座
-  const roofGeo = new THREE.BoxGeometry(width * 0.55, 0.38, depth * 0.85);
-  const roofMat = new THREE.MeshLambertMaterial({ color: colorHex });
-  const roof = new THREE.Mesh(roofGeo, roofMat);
-  roof.position.set(0, 0.65, 0);
-  roof.castShadow = true;
-  group.add(roof);
+  // 車頂駕駛艙 (Cabin)
+  const cabin = createCube(0.85, 0.4, 0.85, 0xffffff);
+  cabin.position.set(-0.1, 0.75, 0);
+  group.add(cabin);
 
-  // 車窗 (前/後/側)
-  const windowGeo = new THREE.BoxGeometry(width * 0.57, 0.28, depth * 0.88);
-  const windowMat = new THREE.MeshLambertMaterial({ color: 0xaed6f1 });
-  const windows = new THREE.Mesh(windowGeo, windowMat);
-  windows.position.set(0, 0.65, 0);
-  group.add(windows);
+  // 車窗 (Windows)
+  const windowGlass = createCube(0.8, 0.32, 0.87, 0x2f3542);
+  windowGlass.position.set(-0.1, 0.75, 0);
+  group.add(windowGlass);
 
-  // 車輪 (4個黑輪)
-  const wheelGeo = new THREE.BoxGeometry(0.3, 0.25, 0.15);
-  const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
-  const offsets = [
-    [-width * 0.3, 0.15, depth * 0.45],
-    [width * 0.3, 0.15, depth * 0.45],
-    [-width * 0.3, 0.15, -depth * 0.45],
-    [width * 0.3, 0.15, -depth * 0.45]
-  ];
-
-  offsets.forEach(([x, y, z]) => {
-    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-    wheel.position.set(x, y, z);
-    group.add(wheel);
-  });
-
-  return group;
-}
-
-/**
- * 建立卡車模型
- */
-export function createTruckMesh(colorHex) {
-  const group = new THREE.Group();
-  const width = CONFIG.OBSTACLES.TRUCK.WIDTH;
-  const depth = CONFIG.OBSTACLES.TRUCK.DEPTH;
-
-  // 車頭 (Cab)
-  const cabGeo = new THREE.BoxGeometry(0.8, 0.7, depth * 0.9);
-  const cabMat = new THREE.MeshLambertMaterial({ color: colorHex });
-  const cab = new THREE.Mesh(cabGeo, cabMat);
-  cab.position.set(width * 0.35, 0.45, 0);
-  cab.castShadow = true;
-  group.add(cab);
-
-  // 貨廂 (Container)
-  const boxGeo = new THREE.BoxGeometry(width * 0.65, 0.95, depth * 0.95);
-  const boxMat = new THREE.MeshLambertMaterial({ color: 0xecf0f1 });
-  const box = new THREE.Mesh(boxGeo, boxMat);
-  box.position.set(-width * 0.18, 0.58, 0);
-  box.castShadow = true;
-  box.receiveShadow = true;
-  group.add(box);
-
-  // 車輪 (6個黑輪)
-  const wheelGeo = new THREE.BoxGeometry(0.3, 0.28, 0.15);
-  const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  // 四個輪胎 (Wheels)
+  const wheelColor = 0x222222;
   const wheelPositions = [
-    [width * 0.35, 0.15, depth * 0.48],
-    [width * 0.35, 0.15, -depth * 0.48],
-    [-width * 0.1, 0.15, depth * 0.48],
-    [-width * 0.1, 0.15, -depth * 0.48],
-    [-width * 0.38, 0.15, depth * 0.48],
-    [-width * 0.38, 0.15, -depth * 0.48]
+    [0.45, 0.15, 0.48],
+    [0.45, 0.15, -0.48],
+    [-0.45, 0.15, 0.48],
+    [-0.45, 0.15, -0.48]
   ];
 
   wheelPositions.forEach(([x, y, z]) => {
-    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+    const wheel = createCube(0.35, 0.3, 0.15, wheelColor);
+    wheel.position.set(x, y, z);
+    group.add(wheel);
+  });
+
+  // 車燈 (Headlights)
+  const lightL = createCube(0.08, 0.12, 0.18, 0xfffa65);
+  lightL.position.set(0.71, 0.38, 0.3);
+  const lightR = createCube(0.08, 0.12, 0.18, 0xfffa65);
+  lightR.position.set(0.71, 0.38, -0.3);
+  group.add(lightL, lightR);
+
+  return group;
+}
+
+// 3. 卡車/貨車模型 (Truck Voxel Model)
+export function createTruck() {
+  const group = new THREE.Group();
+
+  // 車頭 (Cabin Front)
+  const cabin = createCube(0.7, 0.75, 0.95, 0xff6b6b);
+  cabin.position.set(0.65, 0.5, 0);
+  group.add(cabin);
+
+  // 後方貨斗 (Cargo Box)
+  const cargo = createCube(1.4, 0.9, 1.0, 0xf1f2f6);
+  cargo.position.set(-0.4, 0.6, 0);
+  group.add(cargo);
+
+  // 輪胎
+  const wheelPositions = [
+    [0.65, 0.18, 0.48], [0.65, 0.18, -0.48],
+    [-0.2, 0.18, 0.48], [-0.2, 0.18, -0.48],
+    [-0.75, 0.18, 0.48], [-0.75, 0.18, -0.48]
+  ];
+
+  wheelPositions.forEach(([x, y, z]) => {
+    const wheel = createCube(0.38, 0.32, 0.15, 0x1e272e);
     wheel.position.set(x, y, z);
     group.add(wheel);
   });
@@ -235,103 +122,123 @@ export function createTruckMesh(colorHex) {
   return group;
 }
 
-/**
- * 建立浮木模型 (River Log)
- */
-export function createLogMesh(segmentCount = 3) {
+// 4. 樹木模型 (Tree Voxel Model)
+export function createTree() {
   const group = new THREE.Group();
-  const logWidth = segmentCount * CONFIG.GRID_SIZE;
-  const depth = 0.85;
 
-  // 木頭主體
-  const logGeo = new THREE.BoxGeometry(logWidth, 0.35, depth);
-  const logMat = new THREE.MeshLambertMaterial({ color: CONFIG.COLORS.LOG });
-  const log = new THREE.Mesh(logGeo, logMat);
-  log.position.y = 0.12;
-  log.castShadow = true;
-  log.receiveShadow = true;
-  group.add(log);
+  // 樹幹 (Trunk)
+  const trunk = createCube(0.35, 0.6, 0.35, CONFIG.COLORS.TREE_TRUNK);
+  trunk.position.y = 0.3;
+  group.add(trunk);
 
-  // 木頭截面 (兩端淡色木輪紋顏色)
-  const endGeo = new THREE.BoxGeometry(0.06, 0.31, depth * 0.9);
-  const endMat = new THREE.MeshLambertMaterial({ color: CONFIG.COLORS.LOG_END });
+  // 階梯狀樹葉 (Tiered Leaves)
+  const leafColor = CONFIG.COLORS.TREE_LEAVES[Math.floor(Math.random() * CONFIG.COLORS.TREE_LEAVES.length)];
 
-  const leftEnd = new THREE.Mesh(endGeo, endMat);
-  leftEnd.position.set(-logWidth / 2 + 0.02, 0.12, 0);
+  const tier1 = createCube(1.0, 0.45, 1.0, leafColor);
+  tier1.position.y = 0.8;
+  const tier2 = createCube(0.75, 0.45, 0.75, leafColor);
+  tier2.position.y = 1.25;
+  const tier3 = createCube(0.5, 0.4, 0.5, leafColor);
+  tier3.position.y = 1.65;
 
-  const rightEnd = new THREE.Mesh(endGeo, endMat);
-  rightEnd.position.set(logWidth / 2 - 0.02, 0.12, 0);
+  group.add(tier1, tier2, tier3);
+  return group;
+}
 
-  group.add(leftEnd, rightEnd);
+// 5. 河流漂木模型 (Log Voxel Model)
+export function createLog(lengthInGrids = 2.5) {
+  const group = new THREE.Group();
+  const width = lengthInGrids * CONFIG.GRID_SIZE * 0.85;
+
+  const logBody = createCube(width, 0.3, 0.75, CONFIG.COLORS.LOG);
+  logBody.position.y = 0.15;
+  group.add(logBody);
+
+  // 年輪細節
+  const ring1 = createCube(0.05, 0.22, 0.55, 0xd2b48c);
+  ring1.position.set(width / 2 + 0.01, 0.15, 0);
+  const ring2 = createCube(0.05, 0.22, 0.55, 0xd2b48c);
+  ring2.position.set(-width / 2 - 0.01, 0.15, 0);
+  group.add(ring1, ring2);
 
   return group;
 }
 
-/**
- * 建立高速火車模型
- */
-export function createTrainMesh() {
+// 6. 高速火車頭與車廂模型 (Train Voxel Model)
+export function createTrain() {
   const group = new THREE.Group();
-  const length = CONFIG.OBSTACLES.TRAIN.LENGTH;
 
-  // 車廂本體
-  const bodyGeo = new THREE.BoxGeometry(length, 1.3, 1.0);
-  const bodyMat = new THREE.MeshLambertMaterial({ color: CONFIG.COLORS.TRAIN });
-  const body = new THREE.Mesh(bodyGeo, bodyMat);
-  body.position.y = 0.75;
-  body.castShadow = true;
-  group.add(body);
+  // 車頭 (Engine Body)
+  const engine = createCube(3.2, 1.1, 0.95, CONFIG.COLORS.TRAIN);
+  engine.position.y = 0.65;
+  group.add(engine);
 
-  // 車頂黃線條裝飾
-  const stripeGeo = new THREE.BoxGeometry(length, 0.15, 1.02);
-  const stripeMat = new THREE.MeshLambertMaterial({ color: 0xf1c40f });
-  const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-  stripe.position.y = 0.85;
-  group.add(stripe);
+  // 車頭車窗
+  const windowFront = createCube(0.4, 0.4, 0.96, 0xffd32a);
+  windowFront.position.set(1.2, 0.8, 0);
+  group.add(windowFront);
 
-  // 車燈 (兩端頭燈)
-  const lightGeo = new THREE.BoxGeometry(0.1, 0.3, 0.3);
-  const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-  const frontLight = new THREE.Mesh(lightGeo, lightMat);
-  frontLight.position.set(length / 2 + 0.01, 0.7, 0);
-
-  const backLight = new THREE.Mesh(lightGeo, lightMat);
-  backLight.position.set(-length / 2 - 0.01, 0.7, 0);
-
-  group.add(frontLight, backLight);
+  // 警示燈 (Red Light)
+  const warningLight = createCube(0.2, 0.2, 0.2, 0xff4d4d);
+  warningLight.position.set(1.5, 1.25, 0);
+  group.add(warningLight);
 
   return group;
 }
 
-/**
- * 建立鐵路警示燈模型
- */
-export function createSignalMesh() {
+// === 新增：道具特效 mesh 生成器 (Item VFX Creators) ===
+
+// 7. 金剛護盾 Mesh (Shield Aura)
+export function createShieldMesh() {
+  const geometry = new THREE.SphereGeometry(0.85, 16, 16);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xf5cd79,
+    transparent: true,
+    opacity: 0.45,
+    wireframe: false
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.y = 0.55;
+
+  // 內層微光
+  const innerGeo = new THREE.SphereGeometry(0.72, 12, 12);
+  const innerMat = new THREE.MeshBasicMaterial({
+    color: 0xfffa65,
+    transparent: true,
+    opacity: 0.25
+  });
+  const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+  mesh.add(innerMesh);
+
+  return mesh;
+}
+
+// 8. 火箭跳尾焰粒子群 (Rocket Exhaust Voxel Group)
+export function createRocketExhaust() {
   const group = new THREE.Group();
-
-  // 立柱
-  const postGeo = new THREE.BoxGeometry(0.12, 1.6, 0.12);
-  const postMat = new THREE.MeshLambertMaterial({ color: 0x444444 });
-  const post = new THREE.Mesh(postGeo, postMat);
-  post.position.y = 0.8;
-  post.castShadow = true;
-  group.add(post);
-
-  // 號誌燈箱
-  const boxGeo = new THREE.BoxGeometry(0.35, 0.55, 0.3);
-  const boxMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-  const box = new THREE.Mesh(boxGeo, boxMat);
-  box.position.set(0, 1.35, 0);
-  group.add(box);
-
-  // 發光燈泡
-  const bulbGeo = new THREE.BoxGeometry(0.18, 0.18, 0.32);
-  const bulbMat = new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.SIGNAL_OFF });
-  const bulb = new THREE.Mesh(bulbGeo, bulbMat);
-  bulb.position.set(0, 1.35, 0);
-  group.add(bulb);
-
-  group.userData = { bulbMesh: bulb, bulbMat: bulbMat };
+  for (let i = 0; i < 8; i++) {
+    const p = createCube(0.18, 0.18, 0.18, Math.random() < 0.6 ? 0xff4757 : 0xffa502);
+    p.position.set(
+      (Math.random() - 0.5) * 0.4,
+      -0.2 - Math.random() * 0.4,
+      -0.3 - Math.random() * 0.3
+    );
+    group.add(p);
+  }
   return group;
+}
+
+// 9. 超感時間時鐘波紋 (Clock Wave Ring)
+export function createTimeWave() {
+  const geometry = new THREE.RingGeometry(0.2, 2.5, 32);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x00d2d3,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.6
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.y = 0.05;
+  return mesh;
 }

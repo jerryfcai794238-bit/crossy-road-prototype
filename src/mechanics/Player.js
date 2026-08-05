@@ -4,237 +4,210 @@ import { CONFIG } from '../config.js';
 export class Player {
   constructor(mesh) {
     this.mesh = mesh;
-
-    // 網格座標 (整數)
     this.gridX = 0;
     this.gridZ = 0;
 
-    // 實體世界座標
+    this.targetGridX = 0;
+    this.targetGridZ = 0;
+
     this.position = new THREE.Vector3(0, 0, 0);
-
-    // 累計最高分數 (向前步數)
-    this.score = 0;
-
-    // 跳躍狀態與動畫變數
-    this.isJumping = false;
-    this.jumpTimer = 0;
     this.startPosition = new THREE.Vector3(0, 0, 0);
     this.targetPosition = new THREE.Vector3(0, 0, 0);
 
-    // 朝向角度
-    this.currentRotationY = 0;
-    this.targetRotationY = 0;
-
-    // 死亡狀態標籤
-    this.isDead = false;
-    this.isDrowning = false;
-    this.isFlattened = false;
-
-    // 初始化模型位置
-    this.syncMesh();
-  }
-
-  /**
-   * 根據輸入方向計算目標網格位置，不改變目前狀態
-   */
-  getTargetGridPosition(direction) {
-    let targetX = this.gridX;
-    let targetZ = this.gridZ;
-
-    switch (direction) {
-      case 'UP':
-        targetZ += 1;
-        break;
-      case 'DOWN':
-        targetZ -= 1;
-        break;
-      case 'LEFT':
-        targetX -= 1;
-        break;
-      case 'RIGHT':
-        targetX += 1;
-        break;
-    }
-
-    return { x: targetX, z: targetZ };
-  }
-
-  /**
-   * 當前方被樹木阻擋時，只更新朝向而不移動
-   */
-  setFacingDirection(direction) {
-    this.targetRotationY = this.getRotationAngleForDirection(direction);
-  }
-
-  /**
-   * 計算方向對應的弧度角度
-   */
-  getRotationAngleForDirection(direction) {
-    switch (direction) {
-      case 'UP':
-        return 0; // 預設朝向 +Z
-      case 'DOWN':
-        return Math.PI;
-      case 'LEFT':
-        return Math.PI / 2;
-      case 'RIGHT':
-        return -Math.PI / 2;
-      default:
-        return this.targetRotationY;
-    }
-  }
-
-  /**
-   * 執行跳躍移動
-   */
-  move(direction) {
-    if (this.isDead) return false;
-
-    const targetGrid = this.getTargetGridPosition(direction);
-    this.setFacingDirection(direction);
-
-    // 如果目前正在跳躍，立刻完成上一階段並開啟新跳躍
-    if (this.isJumping) {
-      this.position.copy(this.targetPosition);
-    }
-
-    // 更新網格位置
-    this.gridX = targetGrid.x;
-    this.gridZ = targetGrid.z;
-
-    // 更新累積最高遠度得分
-    if (this.gridZ > this.score) {
-      this.score = this.gridZ;
-    }
-
-    // 設定起點與終點世界座標
-    this.startPosition.copy(this.position);
-    this.targetPosition.set(
-      this.gridX * CONFIG.GRID_SIZE,
-      0,
-      this.gridZ * CONFIG.GRID_SIZE
-    );
-
-    // 啟動跳躍動畫
-    this.isJumping = true;
-    this.jumpTimer = 0;
-
-    return true;
-  }
-
-  /**
-   * 每幀更新動畫狀態
-   */
-  update(deltaTime) {
-    if (!this.mesh) return;
-
-    // 1. 跳躍弧形動畫 (Jump Arc & Bounce effect)
-    if (this.isJumping) {
-      this.jumpTimer += deltaTime;
-      const progress = Math.min(this.jumpTimer / CONFIG.PLAYER.JUMP_DURATION, 1.0);
-
-      // X/Z 軸線性插值
-      this.position.x = THREE.MathUtils.lerp(
-        this.startPosition.x,
-        this.targetPosition.x,
-        progress
-      );
-      this.position.z = THREE.MathUtils.lerp(
-        this.startPosition.z,
-        this.targetPosition.z,
-        progress
-      );
-
-      // Y 軸正弦波弧線跳躍
-      const jumpArc = Math.sin(progress * Math.PI);
-      this.position.y = jumpArc * CONFIG.PLAYER.JUMP_HEIGHT;
-
-      // 跳躍過程中的體素擠壓伸展 (Squash and Stretch)
-      const scaleY = 1.0 + jumpArc * 0.3;
-      const scaleXZ = 1.0 - jumpArc * 0.15;
-      this.mesh.scale.set(scaleXZ, scaleY, scaleXZ);
-
-      if (progress >= 1.0) {
-        this.isJumping = false;
-        this.position.copy(this.targetPosition);
-        this.position.y = 0;
-        this.mesh.scale.set(1.0, 1.0, 1.0);
-      }
-    }
-
-    // 2. 朝向轉向平滑插值
-    this.currentRotationY = THREE.MathUtils.lerp(
-      this.currentRotationY,
-      this.targetRotationY,
-      Math.min(deltaTime * 20, 1.0)
-    );
-    this.mesh.rotation.y = this.currentRotationY;
-
-    // 3. 特殊死亡動畫 (淹死 drowning / 扁掉 squished)
-    if (this.isDrowning) {
-      this.position.y -= deltaTime * 3.0;
-      const scale = Math.max(0, this.mesh.scale.x - deltaTime * 3.0);
-      this.mesh.scale.set(scale, scale, scale);
-    } else if (this.isFlattened) {
-      this.mesh.scale.set(1.4, 0.05, 1.4);
-    }
-
-    // 同步 3D 模型實體位置
-    this.syncMesh();
-  }
-
-  /**
-   * 同步模型 Mesh 世界座標
-   */
-  syncMesh() {
-    if (this.mesh) {
-      this.mesh.position.copy(this.position);
-    }
-  }
-
-  /**
-   * 觸發被車/火車壓扁死亡動畫
-   */
-  triggerFlattenAnimation() {
-    this.isDead = true;
-    this.isFlattened = true;
     this.isJumping = false;
-    this.position.y = 0.02;
+    this.jumpProgress = 0;
+    this.jumpDuration = CONFIG.JUMP_DURATION;
+    this.jumpHeight = CONFIG.JUMP_HEIGHT;
+
+    this.score = 0;
+    this.maxReachedZ = 0;
+    this.facingAngle = 0;
+
+    // 狀態標籤
+    this.isShielded = false;
+    this.isReflexHyper = false;
+    this.isRespawning = false;
+
+    this.reset();
   }
 
-  /**
-   * 觸發落水淹死動畫
-   */
-  triggerDrownAnimation() {
-    this.isDead = true;
-    this.isDrowning = true;
-    this.isJumping = false;
-  }
-
-  /**
-   * 重置主角狀態
-   */
   reset() {
     this.gridX = 0;
     this.gridZ = 0;
-    this.score = 0;
-    this.isJumping = false;
-    this.jumpTimer = 0;
-    this.isDead = false;
-    this.isDrowning = false;
-    this.isFlattened = false;
+    this.targetGridX = 0;
+    this.targetGridZ = 0;
 
     this.position.set(0, 0, 0);
     this.startPosition.set(0, 0, 0);
     this.targetPosition.set(0, 0, 0);
 
-    this.currentRotationY = 0;
-    this.targetRotationY = 0;
+    this.isJumping = false;
+    this.jumpProgress = 0;
+    this.jumpDuration = CONFIG.JUMP_DURATION;
+    this.jumpHeight = CONFIG.JUMP_HEIGHT;
+
+    this.score = 0;
+    this.maxReachedZ = 0;
+    this.facingAngle = 0;
+
+    this.isShielded = false;
+    this.isReflexHyper = false;
+    this.isRespawning = false;
 
     if (this.mesh) {
       this.mesh.position.set(0, 0, 0);
-      this.mesh.rotation.set(0, 0, 0);
+      this.mesh.rotation.y = 0;
       this.mesh.scale.set(1, 1, 1);
+      this.mesh.visible = true;
+    }
+  }
+
+  getTargetGridPosition(direction, distance = 1) {
+    let nextX = this.gridX;
+    let nextZ = this.gridZ;
+
+    switch (direction) {
+      case 'UP':
+        nextZ += distance;
+        break;
+      case 'DOWN':
+        nextZ -= distance;
+        break;
+      case 'LEFT':
+        nextX += distance;
+        break;
+      case 'RIGHT':
+        nextX -= distance;
+        break;
+    }
+
+    nextX = Math.max(-CONFIG.MAP_BOUNDS_X, Math.min(CONFIG.MAP_BOUNDS_X, nextX));
+    return { x: nextX, z: nextZ };
+  }
+
+  setFacingDirection(direction) {
+    switch (direction) {
+      case 'UP':
+        this.facingAngle = 0;
+        break;
+      case 'DOWN':
+        this.facingAngle = Math.PI;
+        break;
+      case 'LEFT':
+        this.facingAngle = Math.PI / 2;
+        break;
+      case 'RIGHT':
+        this.facingAngle = -Math.PI / 2;
+        break;
+    }
+    if (this.mesh) {
+      this.mesh.rotation.y = this.facingAngle;
+    }
+  }
+
+  move(direction, customDistance = 1) {
+    if (this.isJumping || this.isRespawning) return false;
+
+    const targetGrid = this.getTargetGridPosition(direction, customDistance);
+    this.setFacingDirection(direction);
+
+    this.startPosition.copy(this.position);
+    this.targetGridX = targetGrid.x;
+    this.targetGridZ = targetGrid.z;
+
+    this.targetPosition.set(
+      this.targetGridX * CONFIG.GRID_SIZE,
+      0,
+      this.targetGridZ * CONFIG.GRID_SIZE
+    );
+
+    this.isJumping = true;
+    this.jumpProgress = 0;
+
+    // 超感時間狀態下跳躍速度減半（動作快 2 倍）
+    this.jumpDuration = this.isReflexHyper ? CONFIG.JUMP_DURATION * 0.5 : CONFIG.JUMP_DURATION;
+    this.jumpHeight = customDistance > 1 ? CONFIG.JUMP_HEIGHT * 2.2 : CONFIG.JUMP_HEIGHT;
+
+    if (this.targetGridZ > this.maxReachedZ) {
+      this.maxReachedZ = this.targetGridZ;
+      this.score = this.maxReachedZ;
+    }
+
+    return true;
+  }
+
+  // 火箭爆衝 3 格跳躍
+  rocketJump() {
+    return this.move('UP', 3);
+  }
+
+  // 1 秒快速空投重生
+  respawn(safeGridZ = Math.max(0, this.gridZ - 2)) {
+    this.isRespawning = true;
+    this.isJumping = false;
+    this.gridX = 0;
+    this.gridZ = safeGridZ;
+
+    this.startPosition.set(0, 8, safeGridZ * CONFIG.GRID_SIZE); // 空中 8 單位高空降落
+    this.targetPosition.set(0, 0, safeGridZ * CONFIG.GRID_SIZE);
+    this.position.copy(this.startPosition);
+
+    if (this.mesh) {
+      this.mesh.scale.set(1, 1, 1);
+      this.mesh.position.copy(this.position);
+      this.mesh.visible = true;
+    }
+
+    this.isJumping = true;
+    this.jumpProgress = 0;
+    this.jumpDuration = 0.8; // 0.8 秒空投降落
+    this.jumpHeight = 0;
+  }
+
+  update(deltaTime) {
+    if (!this.mesh) return;
+
+    if (this.isJumping) {
+      this.jumpProgress += deltaTime / this.jumpDuration;
+      if (this.jumpProgress >= 1.0) {
+        this.jumpProgress = 1.0;
+        this.isJumping = false;
+        this.isRespawning = false;
+
+        this.gridX = this.targetGridX;
+        this.gridZ = this.targetGridZ;
+        this.position.copy(this.targetPosition);
+      } else {
+        this.position.x = THREE.MathUtils.lerp(this.startPosition.x, this.targetPosition.x, this.jumpProgress);
+        this.position.z = THREE.MathUtils.lerp(this.startPosition.z, this.targetPosition.z, this.jumpProgress);
+
+        if (this.isRespawning) {
+          // 下降降落傘動畫
+          this.position.y = THREE.MathUtils.lerp(this.startPosition.y, 0, this.jumpProgress);
+        } else {
+          // 抛物線跳躍
+          const jumpY = Math.sin(this.jumpProgress * Math.PI) * this.jumpHeight;
+          this.position.y = jumpY;
+        }
+      }
+
+      this.mesh.position.copy(this.position);
+    } else {
+      this.mesh.position.copy(this.position);
+    }
+  }
+
+  triggerFlattenAnimation() {
+    if (this.mesh && !this.isShielded) {
+      this.mesh.scale.set(1.4, 0.1, 1.4);
+      this.mesh.position.y = 0.05;
+    }
+  }
+
+  triggerDrownAnimation() {
+    if (this.mesh && !this.isShielded) {
+      this.mesh.scale.set(0.2, 0.2, 0.2);
+      this.mesh.position.y = -0.3;
     }
   }
 }

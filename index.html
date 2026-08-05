@@ -35,19 +35,34 @@
       </div>
     </div>
 
+    <!-- 道具快捷選單與點擊按鈕 -->
+    <div id="item-hud">
+      <div class="item-selector">
+        <button class="item-select-btn active" data-item="shield">🛡️ 護盾</button>
+        <button class="item-select-btn" data-item="rocket">🚀 火箭</button>
+        <button class="item-select-btn" data-item="time_slow">⏳ 超感</button>
+      </div>
+      <button id="btn-use-item" class="item-trigger-btn">
+        <span id="item-icon">🛡️</span>
+        <span id="item-cooldown-text">READY</span>
+        <div id="cooldown-overlay"></div>
+      </button>
+      <div class="item-key-hint">(按 [空白鍵] 或 [E] 使用)</div>
+    </div>
+
     <!-- 開始與控制提示 -->
     <div id="start-overlay" class="overlay active">
       <div class="modal-card">
         <h1 class="game-title">CROSSY ROAD</h1>
-        <p class="game-subtitle">3D 體素過馬路原型</p>
+        <p class="game-subtitle">3D 體素過馬路原型 (道具版)</p>
         <div class="instructions">
           <div class="key-hint">
-            <span class="key">W</span> / <span class="key">▲</span> 前進
+            <span class="key">W</span> / <span class="key">▲</span> 前進，<span class="key">A</span> <span class="key">S</span> <span class="key">D</span> 轉向
           </div>
           <div class="key-hint">
-            <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> / <span class="key">◄</span> <span class="key">▼</span> <span class="key">►</span> 轉向與移動
+            <span class="key">Space</span> / <span class="key">E</span> 使用局內道具 (護盾/火箭/超感)
           </div>
-          <div class="touch-hint">手機可直接點擊 / 滑動螢幕控制</div>
+          <div class="touch-hint">手機可直接點擊 / 滑動螢幕與道具鈕控制</div>
         </div>
         <button id="btn-start" class="btn-primary">開始遊戲</button>
       </div>
@@ -68,7 +83,10 @@
             <strong id="modal-high-score">0</strong>
           </div>
         </div>
-        <button id="btn-restart" class="btn-primary">再玩一次</button>
+        <div class="gameover-actions">
+          <button id="btn-respawn" class="btn-secondary">⚡ 1秒快速重生</button>
+          <button id="btn-restart" class="btn-primary">重新開局</button>
+        </div>
       </div>
     </div>
 
