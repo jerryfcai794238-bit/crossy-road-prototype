@@ -195,13 +195,19 @@ class Game {
       // 1. 主角動態更新
       this.player.update(deltaTime);
 
-      // 🎥 經典 Crossy Road 競品 1:1 相機自主恆速推進系統
+      // 安全消耗連續跳躍緩衝隊列 (100% 通過 checkTreeCollision 嚴格碰撞檢測，徹底根除穿樹 Bug)
+      if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
+        const nextInput = this.player.inputBuffer.shift();
+        this.handlePlayerMove(nextInput.direction, nextInput.distance);
+      }
+
+      // 🎥 經典 Crossy Road 競品 1:1 相機自主恆速推進系統 (對齊競品 7~8 秒老鷹抓走時間)
       const pZ = Number.isFinite(this.player.position.z) ? this.player.position.z : (this.player.gridZ * CONFIG.GRID_SIZE);
       const pX = Number.isFinite(this.player.position.x) ? this.player.position.x : (this.player.gridX * CONFIG.GRID_SIZE);
 
       if (this.isGameStarted && !this.isGameOver) {
-        // 1. 相機無間斷自主向前推進 (每秒 0.8 格)
-        this.cameraScrollZ += 0.8 * deltaTime * CONFIG.GRID_SIZE;
+        // 1. 相機無間斷自主向前推進 (對齊競品 7.5 秒發呆時間)
+        this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
 
         // 2. 主角跳躍超越相機時，相機順暢跟進
         if (pZ > this.cameraScrollZ) {
@@ -211,11 +217,11 @@ class Game {
         // 3. 無縫地圖生成與身後保護
         const playerGridZ = Math.max(this.player.gridZ, Math.floor(this.cameraScrollZ / CONFIG.GRID_SIZE));
         this.mapGenerator.update(playerGridZ);
-        this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 2.8 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
+        this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 3.4 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
 
-        // 4. 當主角停下腳步發呆，畫面地圖持續下滑，主角 4.5 秒內滑出螢幕最下邊界 -> 觸發老鷹俯衝抓走
+        // 4. 當主角停下腳步發呆，畫面地圖持續下滑，主角 7.5 秒內滑出螢幕最下邊界 -> 觸發老鷹俯衝抓走
         const distanceBehind = this.cameraScrollZ - pZ;
-        if (distanceBehind >= 2.8 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
+        if (distanceBehind >= 3.4 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
           this.triggerEagleAttack();
         }
       }

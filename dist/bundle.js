@@ -19596,10 +19596,6 @@
           this.gridX = this.targetGridX;
           this.gridZ = this.targetGridZ;
           this.position.copy(this.targetPosition);
-          if (this.inputBuffer.length > 0) {
-            const next = this.inputBuffer.shift();
-            this.move(next.direction, next.distance);
-          }
         } else {
           this.position.x = MathUtils.lerp(this.startPosition.x, this.targetPosition.x, this.jumpProgress);
           this.position.z = MathUtils.lerp(this.startPosition.z, this.targetPosition.z, this.jumpProgress);
@@ -19804,11 +19800,18 @@
         line.position.set(x * CONFIG.GRID_SIZE, 0.21, 0);
         rowGroup.add(line);
       }
-      const isTruck = Math.random() < 0.35;
-      rowData.speed = 3.5 + Math.random() * 3.5;
+      this.lastRiverDirection = void 0;
+      this.lastRiverSpeed = void 0;
+      const zProgress = Math.min(1, Math.max(0, (rowData.z || 0) / 220));
+      const minSpeed = MathUtils.lerp(2, 4.2, zProgress);
+      const speedRange = MathUtils.lerp(1.2, 2.3, zProgress);
+      rowData.speed = minSpeed + Math.random() * speedRange;
+      const isTruck = Math.random() < 0.15 + zProgress * 0.2;
       const vehicleWidth = isTruck ? 2.3 : 1.8;
-      const spacing = vehicleWidth + CONFIG.GRID_SIZE * (3 + Math.random() * 2.5);
-      const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 8) * CONFIG.GRID_SIZE;
+      const minGapGrids = MathUtils.lerp(7.5, 4.5, zProgress);
+      const gapRangeGrids = MathUtils.lerp(4, 2.5, zProgress);
+      const spacing = vehicleWidth + CONFIG.GRID_SIZE * (minGapGrids + Math.random() * gapRangeGrids);
+      const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
       const count = Math.floor(totalSpan / spacing);
       const colors = CONFIG.COLORS.CAR_COLORS;
       for (let i = 0; i < count; i++) {
@@ -19829,10 +19832,21 @@
       const lane = new Mesh(this.laneGeo, this.riverMat);
       lane.position.y = -0.05;
       rowGroup.add(lane);
-      rowData.speed = 2 + Math.random() * 2;
-      const logLength = Math.floor(Math.random() * 2) + 3;
-      const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (2.5 + Math.random() * 2);
-      const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 10) * CONFIG.GRID_SIZE;
+      const zProgress = Math.min(1, Math.max(0, (rowData.z || 0) / 220));
+      if (this.lastRiverDirection !== void 0) {
+        rowData.direction = -this.lastRiverDirection;
+      }
+      this.lastRiverDirection = rowData.direction;
+      let speed = MathUtils.lerp(1.5, 3.2, zProgress) + Math.random() * 1;
+      if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1) {
+        speed += 1.2;
+      }
+      rowData.speed = speed;
+      this.lastRiverSpeed = rowData.speed;
+      const logLength = zProgress < 0.5 ? Math.floor(Math.random() * 2) + 3 : Math.floor(Math.random() * 2) + 2;
+      const minLogGap = MathUtils.lerp(1.2, 2.2, zProgress);
+      const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + Math.random() * 1.2);
+      const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
       const count = Math.floor(totalSpan / logSpan);
       for (let i = 0; i < count; i++) {
         const mesh = createLogMesh(logLength);
@@ -19859,10 +19873,10 @@
         rowGroup.add(tie);
       }
       const signalLeft = createSignalMesh();
-      signalLeft.position.set((-CONFIG.MAP_BOUNDS_X - 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
+      signalLeft.position.set(-2.2 * CONFIG.GRID_SIZE, 0.2, 0);
       signalLeft.rotation.y = Math.PI;
       const signalRight = createSignalMesh();
-      signalRight.position.set((CONFIG.MAP_BOUNDS_X + 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
+      signalRight.position.set(2.2 * CONFIG.GRID_SIZE, 0.2, 0);
       signalRight.rotation.y = Math.PI;
       rowGroup.add(signalLeft, signalRight);
       rowData.signals = [signalLeft, signalRight];
@@ -20042,6 +20056,8 @@
         savedHighScore = parseInt(localStorage.getItem("crossy_highscore") || "0", 10);
       } catch (e) {
       }
+      this.highScore = isNaN(savedHighScore) ? 0 : savedHighScore;
+      if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
       this.selectedMode = "casual";
       this.setupModeSelection();
     }
@@ -20082,12 +20098,12 @@
       if (this.currentScoreEl) this.currentScoreEl.innerText = score;
       if (score > this.highScore) {
         this.highScore = score;
-        if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
         try {
           localStorage.setItem("crossy_highscore", this.highScore.toString());
         } catch (e) {
         }
       }
+      if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
     }
     showGameOver(score, reason = "\u88AB\u8ECA\u649E\u98DB\u4E86\uFF01") {
       if (this.finalScoreEl) this.finalScoreEl.innerText = score;
@@ -20240,18 +20256,22 @@
         const deltaTime = Number.isFinite(rawDelta) && rawDelta > 0 ? Math.min(rawDelta, 0.1) : 0.016;
         const activeRows = this.mapGenerator.getActiveRows();
         this.player.update(deltaTime);
+        if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
+          const nextInput = this.player.inputBuffer.shift();
+          this.handlePlayerMove(nextInput.direction, nextInput.distance);
+        }
         const pZ = Number.isFinite(this.player.position.z) ? this.player.position.z : this.player.gridZ * CONFIG.GRID_SIZE;
         const pX = Number.isFinite(this.player.position.x) ? this.player.position.x : this.player.gridX * CONFIG.GRID_SIZE;
         if (this.isGameStarted && !this.isGameOver) {
-          this.cameraScrollZ += 0.8 * deltaTime * CONFIG.GRID_SIZE;
+          this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
           if (pZ > this.cameraScrollZ) {
             this.cameraScrollZ = MathUtils.lerp(this.cameraScrollZ, pZ, 0.18);
           }
           const playerGridZ = Math.max(this.player.gridZ, Math.floor(this.cameraScrollZ / CONFIG.GRID_SIZE));
           this.mapGenerator.update(playerGridZ);
-          this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 2.8 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
+          this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 3.4 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
           const distanceBehind = this.cameraScrollZ - pZ;
-          if (distanceBehind >= 2.8 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
+          if (distanceBehind >= 3.4 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
             this.triggerEagleAttack();
           }
         }

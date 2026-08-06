@@ -164,12 +164,6 @@ export class Player {
         this.gridX = this.targetGridX;
         this.gridZ = this.targetGridZ;
         this.position.copy(this.targetPosition);
-
-        // 連續跳躍緩衝
-        if (this.inputBuffer.length > 0) {
-          const next = this.inputBuffer.shift();
-          this.move(next.direction, next.distance);
-        }
       } else {
         this.position.x = THREE.MathUtils.lerp(this.startPosition.x, this.targetPosition.x, this.jumpProgress);
         this.position.z = THREE.MathUtils.lerp(this.startPosition.z, this.targetPosition.z, this.jumpProgress);

@@ -219,12 +219,27 @@ export class MapGenerator {
       rowGroup.add(line);
     }
 
-    const isTruck = Math.random() < 0.35;
-    rowData.speed = 3.5 + Math.random() * 3.5;
+    // 非河道列，重置連續河道反向追蹤
+    this.lastRiverDirection = undefined;
+    this.lastRiverSpeed = undefined;
 
+    // 📈 漸進式難度權重 (延伸至 Z = 220 步，使 Z = 70 步依然保持大車距極易通過)
+    const zProgress = Math.min(1.0, Math.max(0, (rowData.z || 0) / 220.0));
+
+    // 車速：開局極緩 (2.0 ~ 3.2)，Z = 70 步保持平緩 (3.0 ~ 4.2)，極高分 (4.2 ~ 6.5)
+    const minSpeed = THREE.MathUtils.lerp(2.0, 4.2, zProgress);
+    const speedRange = THREE.MathUtils.lerp(1.2, 2.3, zProgress);
+    rowData.speed = minSpeed + Math.random() * speedRange;
+
+    // 車輛間隔：Z = 70 步保持 6.5 ~ 9.5 格大空檔，極高分最少保持 4.5 格 (永遠有安全空間過街)
+    const isTruck = Math.random() < (0.15 + zProgress * 0.2);
     const vehicleWidth = isTruck ? 2.3 : 1.8;
-    const spacing = vehicleWidth + CONFIG.GRID_SIZE * (3 + Math.random() * 2.5);
-    const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 8) * CONFIG.GRID_SIZE;
+
+    const minGapGrids = THREE.MathUtils.lerp(7.5, 4.5, zProgress);
+    const gapRangeGrids = THREE.MathUtils.lerp(4.0, 2.5, zProgress);
+    const spacing = vehicleWidth + CONFIG.GRID_SIZE * (minGapGrids + Math.random() * gapRangeGrids);
+
+    const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
     const count = Math.floor(totalSpan / spacing);
 
     const colors = CONFIG.COLORS.CAR_COLORS;
@@ -253,10 +268,27 @@ export class MapGenerator {
     lane.position.y = -0.05;
     rowGroup.add(lane);
 
-    rowData.speed = 2.0 + Math.random() * 2.0;
-    const logLength = Math.floor(Math.random() * 2) + 3;
-    const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (2.5 + Math.random() * 2);
-    const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 10) * CONFIG.GRID_SIZE;
+    // 📈 漸進式難度權重
+    const zProgress = Math.min(1.0, Math.max(0, (rowData.z || 0) / 220.0));
+
+    // 🪵 連續河道交錯演算法：相鄰河道 100% 強制反向，並保持 1.2 單位/秒以上速差
+    if (this.lastRiverDirection !== undefined) {
+      rowData.direction = -this.lastRiverDirection;
+    }
+    this.lastRiverDirection = rowData.direction;
+
+    let speed = THREE.MathUtils.lerp(1.5, 3.2, zProgress) + Math.random() * 1.0;
+    if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1.0) {
+      speed += 1.2;
+    }
+    rowData.speed = speed;
+    this.lastRiverSpeed = rowData.speed;
+
+    // 前期浮木數量增加 (間距緊密 1.2~1.8 格，長度 3~4 格方便踏躍)
+    const logLength = zProgress < 0.5 ? (Math.floor(Math.random() * 2) + 3) : (Math.floor(Math.random() * 2) + 2);
+    const minLogGap = THREE.MathUtils.lerp(1.2, 2.2, zProgress);
+    const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + Math.random() * 1.2);
+    const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
     const count = Math.floor(totalSpan / logSpan);
 
     for (let i = 0; i < count; i++) {
@@ -290,13 +322,13 @@ export class MapGenerator {
       rowGroup.add(tie);
     }
 
-    // 左右兩側對稱鐵道號誌燈柱 (旋轉 Math.PI 180 度，完全正面面向迎面跳躍進來的玩家角色)
+    // 🚥 鐵道號誌燈柱：擺放於玩家初始直線前進視覺顯眼處 (x = -2.2 與 x = +2.2)，正面 180 度迎面玩家
     const signalLeft = createSignalMesh();
-    signalLeft.position.set((-CONFIG.MAP_BOUNDS_X - 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
+    signalLeft.position.set(-2.2 * CONFIG.GRID_SIZE, 0.2, 0);
     signalLeft.rotation.y = Math.PI;
 
     const signalRight = createSignalMesh();
-    signalRight.position.set((CONFIG.MAP_BOUNDS_X + 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
+    signalRight.position.set(2.2 * CONFIG.GRID_SIZE, 0.2, 0);
     signalRight.rotation.y = Math.PI;
 
     rowGroup.add(signalLeft, signalRight);

@@ -19,6 +19,9 @@ export class UIManager {
     } catch (e) {
       // file:/// 安全處理
     }
+    this.highScore = isNaN(savedHighScore) ? 0 : savedHighScore;
+    if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
+
     this.selectedMode = 'casual'; // 預設第一順位：休閒模式
     this.setupModeSelection();
   }
@@ -64,13 +67,13 @@ export class UIManager {
     if (this.currentScoreEl) this.currentScoreEl.innerText = score;
     if (score > this.highScore) {
       this.highScore = score;
-      if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
       try {
         localStorage.setItem('crossy_highscore', this.highScore.toString());
       } catch (e) {
         // file:/// 安全處理
       }
     }
+    if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
   }
 
   showGameOver(score, reason = '被車撞飛了！') {
