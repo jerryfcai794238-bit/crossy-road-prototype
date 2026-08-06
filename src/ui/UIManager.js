@@ -28,6 +28,11 @@ export class UIManager {
 
   setupModeSelection() {
     const modeCards = document.querySelectorAll('.mode-card');
+    const initialSelectedCard = document.querySelector('.mode-card.selected');
+    if (initialSelectedCard) {
+      this.selectedMode = initialSelectedCard.getAttribute('data-mode') || 'casual';
+    }
+
     modeCards.forEach((card) => {
       card.addEventListener('click', () => {
         modeCards.forEach((c) => c.classList.remove('selected'));
@@ -47,9 +52,11 @@ export class UIManager {
     if (this.startOverlay) {
       this.startOverlay.classList.remove('hidden');
       this.startOverlay.classList.add('active');
+      this.startOverlay.style.display = 'flex';
     }
     if (this.gameoverOverlay) {
       this.gameoverOverlay.classList.add('hidden');
+      this.gameoverOverlay.style.display = 'none';
     }
   }
 
@@ -57,9 +64,11 @@ export class UIManager {
     if (this.startOverlay) {
       this.startOverlay.classList.add('hidden');
       this.startOverlay.classList.remove('active');
+      this.startOverlay.style.display = 'none';
     }
     if (this.gameoverOverlay) {
       this.gameoverOverlay.classList.add('hidden');
+      this.gameoverOverlay.style.display = 'none';
     }
   }
 
@@ -83,6 +92,7 @@ export class UIManager {
 
     if (this.gameoverOverlay) {
       this.gameoverOverlay.classList.remove('hidden');
+      this.gameoverOverlay.style.display = 'flex';
     }
   }
 }

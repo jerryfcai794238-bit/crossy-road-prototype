@@ -39,11 +39,11 @@ class Game {
 
     this.clock = new THREE.Clock();
 
-    // 5. 初始化輸入與地圖
+    // 5. 初始化輸入與地圖 (修復模式參數 mode 傳遞)
     this.setupInputListeners();
     this.uiManager.init(
-      () => this.startGame(),
-      () => this.restartGame(),
+      (mode) => this.startGame(mode),
+      (mode) => this.restartGame(mode),
       () => this.returnLobby()
     );
 
@@ -116,7 +116,8 @@ class Game {
   startGame(mode = 'casual') {
     this.uiManager.hideOverlays();
 
-    this.currentMode = mode;
+    this.currentMode = mode || 'casual';
+    this.uiManager.selectedMode = this.currentMode;
     this.isGameStarted = true;
     this.isGameOver = false;
 
@@ -206,23 +207,29 @@ class Game {
       const pX = Number.isFinite(this.player.position.x) ? this.player.position.x : (this.player.gridX * CONFIG.GRID_SIZE);
 
       if (this.isGameStarted && !this.isGameOver) {
-        // 1. 相機無間斷自主向前推進 (對齊競品 7.5 秒發呆時間)
-        this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
+        if (this.currentMode === 'challenge') {
+          // 🏆 挑戰模式：相機無間斷自主向前推進 (0.45格/秒) 與 7.5 秒發呆老鷹抓走淘汰
+          this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
 
-        // 2. 主角跳躍超越相機時，相機順暢跟進
-        if (pZ > this.cameraScrollZ) {
-          this.cameraScrollZ = THREE.MathUtils.lerp(this.cameraScrollZ, pZ, 0.18);
-        }
+          // 主角跳躍超越相機時，相機順暢跟進
+          if (pZ > this.cameraScrollZ) {
+            this.cameraScrollZ = THREE.MathUtils.lerp(this.cameraScrollZ, pZ, 0.18);
+          }
 
-        // 3. 無縫地圖生成與身後保護
-        const playerGridZ = Math.max(this.player.gridZ, Math.floor(this.cameraScrollZ / CONFIG.GRID_SIZE));
-        this.mapGenerator.update(playerGridZ);
-        this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 3.4 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
+          // 當主角發呆 7.5 秒滑出螢幕底邊界 -> 觸發老鷹俯衝抓走淘汰
+          const distanceBehind = this.cameraScrollZ - pZ;
+          if (distanceBehind >= 3.4 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
+            this.triggerEagleAttack();
+          }
 
-        // 4. 當主角停下腳步發呆，畫面地圖持續下滑，主角 7.5 秒內滑出螢幕最下邊界 -> 觸發老鷹俯衝抓走
-        const distanceBehind = this.cameraScrollZ - pZ;
-        if (distanceBehind >= 3.4 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
-          this.triggerEagleAttack();
+          const playerGridZ = Math.max(this.player.gridZ, Math.floor(this.cameraScrollZ / CONFIG.GRID_SIZE));
+          this.mapGenerator.update(playerGridZ);
+          this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 3.4 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
+        } else {
+          // 🍃 休閒模式：相機平滑跟隨主角 (剔除後方邊界推進，剔除發呆老鷹抓走)
+          this.cameraScrollZ = THREE.MathUtils.lerp(this.cameraScrollZ, pZ, 0.12);
+          this.mapGenerator.update(this.player.gridZ);
+          this.player.minAllowedZ = this.player.gridZ - 15;
         }
       }
 

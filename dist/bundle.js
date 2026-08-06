@@ -20063,6 +20063,10 @@
     }
     setupModeSelection() {
       const modeCards = document.querySelectorAll(".mode-card");
+      const initialSelectedCard = document.querySelector(".mode-card.selected");
+      if (initialSelectedCard) {
+        this.selectedMode = initialSelectedCard.getAttribute("data-mode") || "casual";
+      }
       modeCards.forEach((card) => {
         card.addEventListener("click", () => {
           modeCards.forEach((c) => c.classList.remove("selected"));
@@ -20080,18 +20084,22 @@
       if (this.startOverlay) {
         this.startOverlay.classList.remove("hidden");
         this.startOverlay.classList.add("active");
+        this.startOverlay.style.display = "flex";
       }
       if (this.gameoverOverlay) {
         this.gameoverOverlay.classList.add("hidden");
+        this.gameoverOverlay.style.display = "none";
       }
     }
     hideOverlays() {
       if (this.startOverlay) {
         this.startOverlay.classList.add("hidden");
         this.startOverlay.classList.remove("active");
+        this.startOverlay.style.display = "none";
       }
       if (this.gameoverOverlay) {
         this.gameoverOverlay.classList.add("hidden");
+        this.gameoverOverlay.style.display = "none";
       }
     }
     updateScore(score) {
@@ -20111,6 +20119,7 @@
       if (this.deathReasonEl) this.deathReasonEl.innerText = reason;
       if (this.gameoverOverlay) {
         this.gameoverOverlay.classList.remove("hidden");
+        this.gameoverOverlay.style.display = "flex";
       }
     }
   };
@@ -20137,8 +20146,8 @@
       this.clock = new Clock();
       this.setupInputListeners();
       this.uiManager.init(
-        () => this.startGame(),
-        () => this.restartGame(),
+        (mode) => this.startGame(mode),
+        (mode) => this.restartGame(mode),
         () => this.returnLobby()
       );
       this.mapGenerator.initMap();
@@ -20192,7 +20201,8 @@
     }
     startGame(mode = "casual") {
       this.uiManager.hideOverlays();
-      this.currentMode = mode;
+      this.currentMode = mode || "casual";
+      this.uiManager.selectedMode = this.currentMode;
       this.isGameStarted = true;
       this.isGameOver = false;
       this.cameraScrollZ = 0;
@@ -20263,16 +20273,22 @@
         const pZ = Number.isFinite(this.player.position.z) ? this.player.position.z : this.player.gridZ * CONFIG.GRID_SIZE;
         const pX = Number.isFinite(this.player.position.x) ? this.player.position.x : this.player.gridX * CONFIG.GRID_SIZE;
         if (this.isGameStarted && !this.isGameOver) {
-          this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
-          if (pZ > this.cameraScrollZ) {
-            this.cameraScrollZ = MathUtils.lerp(this.cameraScrollZ, pZ, 0.18);
-          }
-          const playerGridZ = Math.max(this.player.gridZ, Math.floor(this.cameraScrollZ / CONFIG.GRID_SIZE));
-          this.mapGenerator.update(playerGridZ);
-          this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 3.4 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
-          const distanceBehind = this.cameraScrollZ - pZ;
-          if (distanceBehind >= 3.4 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
-            this.triggerEagleAttack();
+          if (this.currentMode === "challenge") {
+            this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
+            if (pZ > this.cameraScrollZ) {
+              this.cameraScrollZ = MathUtils.lerp(this.cameraScrollZ, pZ, 0.18);
+            }
+            const distanceBehind = this.cameraScrollZ - pZ;
+            if (distanceBehind >= 3.4 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
+              this.triggerEagleAttack();
+            }
+            const playerGridZ = Math.max(this.player.gridZ, Math.floor(this.cameraScrollZ / CONFIG.GRID_SIZE));
+            this.mapGenerator.update(playerGridZ);
+            this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 3.4 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
+          } else {
+            this.cameraScrollZ = MathUtils.lerp(this.cameraScrollZ, pZ, 0.12);
+            this.mapGenerator.update(this.player.gridZ);
+            this.player.minAllowedZ = this.player.gridZ - 15;
           }
         }
         this.mapGenerator.animateObstacles(deltaTime);
