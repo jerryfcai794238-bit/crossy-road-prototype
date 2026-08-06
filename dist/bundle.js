@@ -19766,13 +19766,20 @@
       const lane = new Mesh(this.laneGeo, mat);
       lane.receiveShadow = true;
       rowGroup.add(lane);
+      const playableRange = CONFIG.MAP_BOUNDS_X - 1;
+      const guaranteedOpenCount = Math.floor(Math.random() * 2) + 3;
+      const openXs = /* @__PURE__ */ new Set();
+      while (openXs.size < guaranteedOpenCount) {
+        const randomX = Math.floor(Math.random() * (playableRange * 2 + 1)) - playableRange;
+        openXs.add(randomX);
+      }
       for (let x = -CONFIG.MAP_BOUNDS_X - 2; x <= CONFIG.MAP_BOUNDS_X + 2; x++) {
         const isEdge = Math.abs(x) >= CONFIG.MAP_BOUNDS_X;
         let placeTree = false;
         if (isEdge) {
           placeTree = true;
-        } else if (!isInitialSafe) {
-          placeTree = Math.random() < 0.22;
+        } else if (!isInitialSafe && !openXs.has(x)) {
+          placeTree = Math.random() < 0.28;
         }
         if (isInitialSafe && rowData.z >= -3 && rowData.z <= 3 && Math.abs(x) <= 1) {
           placeTree = false;
@@ -19853,6 +19860,7 @@
       }
       const signalLeft = createSignalMesh();
       signalLeft.position.set((-CONFIG.MAP_BOUNDS_X - 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
+      signalLeft.rotation.y = Math.PI;
       const signalRight = createSignalMesh();
       signalRight.position.set((CONFIG.MAP_BOUNDS_X + 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
       signalRight.rotation.y = Math.PI;
