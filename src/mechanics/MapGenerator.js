@@ -18,13 +18,13 @@ export class MapGenerator {
     this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
 
     this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
-    this.clusterRemaining = CONFIG.INITIAL_SAFE_ROWS;
+    this.clusterRemaining = 5;
 
     this.initGeometriesAndMaterials();
   }
 
   initGeometriesAndMaterials() {
-    const laneWidth = (CONFIG.MAP_BOUNDS_X * 2 + 8) * CONFIG.GRID_SIZE;
+    const laneWidth = (CONFIG.MAP_BOUNDS_X * 2 + 10) * CONFIG.GRID_SIZE;
     const laneDepth = CONFIG.GRID_SIZE;
 
     this.laneGeo = new THREE.BoxGeometry(laneWidth, 0.4, laneDepth);
@@ -44,22 +44,30 @@ export class MapGenerator {
 
     this.tieGeo = new THREE.BoxGeometry(0.18, 0.05, laneDepth * 0.85);
     this.tieMat = new THREE.MeshLambertMaterial({ color: CONFIG.COLORS.RAILROAD_TIE });
-
-    // 火車預警紅色雷射光帶幾何體與材質
-    this.warningStripeGeo = new THREE.BoxGeometry(laneWidth, 0.02, laneDepth * 0.9);
   }
 
   initMap() {
     this.reset();
 
-    for (let z = -CONFIG.DESPAWN_BEHIND; z <= CONFIG.INITIAL_SAFE_ROWS; z++) {
+    for (let z = -CONFIG.DESPAWN_BEHIND; z <= 15; z++) {
       this.generateRow(z, CONFIG.ROW_TYPES.GRASS, true);
     }
 
-    this.highestZGenerated = CONFIG.INITIAL_SAFE_ROWS;
+    this.highestZGenerated = 15;
     this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
 
     this.update(0);
+  }
+
+  reset() {
+    for (const [z, row] of this.activeRows.entries()) {
+      this.removeRow(z, row);
+    }
+    this.activeRows.clear();
+    this.highestZGenerated = -CONFIG.DESPAWN_BEHIND;
+    this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
+    this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
+    this.clusterRemaining = 5;
   }
 
   update(playerZ) {
@@ -71,6 +79,7 @@ export class MapGenerator {
       this.generateRow(this.highestZGenerated, nextType);
     }
 
+    // 身後 25 格以上才安全銷毀，絕不銷毀腳下與退路
     const minKeepZ = playerZ - CONFIG.DESPAWN_BEHIND;
     for (const [z, row] of this.activeRows.entries()) {
       if (z < minKeepZ) {
@@ -79,9 +88,6 @@ export class MapGenerator {
     }
   }
 
-  /**
-   * 前期平緩遞增難度演算法 (z < 25 時單線道且間距大)
-   */
   getNextRowType(targetZ = 0) {
     if (this.clusterRemaining > 0) {
       this.clusterRemaining--;
@@ -101,12 +107,6 @@ export class MapGenerator {
     }
 
     this.currentClusterType = nextType;
-
-    // 前期 (z < 25) 限制為單列，避免多重連續車道
-    if (targetZ < 25) {
-      this.clusterRemaining = 1;
-      return this.currentClusterType;
-    }
 
     switch (nextType) {
       case CONFIG.ROW_TYPES.GRASS:
@@ -139,10 +139,8 @@ export class MapGenerator {
       logs: [],
       train: null,
       signal: null,
-      warningStripe: null,
       trainState: 'IDLE',
       idleTimer: Math.random() * 4 + 3.0,
-      warningTimer: 0,
       direction: Math.random() > 0.5 ? 1 : -1,
       speed: 0
     };
@@ -182,7 +180,7 @@ export class MapGenerator {
         placeTree = Math.random() < 0.22;
       }
 
-      if (isInitialSafe && rowData.z >= 0 && rowData.z <= 3 && Math.abs(x) <= 1) {
+      if (isInitialSafe && rowData.z >= -3 && rowData.z <= 3 && Math.abs(x) <= 1) {
         placeTree = false;
       }
 
@@ -192,10 +190,7 @@ export class MapGenerator {
         treeMesh.position.set(x * CONFIG.GRID_SIZE, 0.2, 0);
         rowGroup.add(treeMesh);
 
-        rowData.trees.push({
-          gridX: x,
-          mesh: treeMesh
-        });
+        rowData.trees.push({ gridX: x, mesh: treeMesh });
       }
     }
   }
@@ -214,229 +209,158 @@ export class MapGenerator {
     }
 
     const isTruck = Math.random() < 0.35;
-    const speedMin = isTruck ? CONFIG.OBSTACLES.TRUCK.SPEED_MIN : CONFIG.OBSTACLES.CAR.SPEED_MIN;
-    const speedMax = isTruck ? CONFIG.OBSTACLES.TRUCK.SPEED_MAX : CONFIG.OBSTACLES.CAR.SPEED_MAX;
-    
-    // 前期 (z < 25) 車速降低
-    const isEarlyGame = rowData.z < 25;
-    const speedFactor = isEarlyGame ? 0.75 : 1.0;
-    rowData.speed = (speedMin + Math.random() * (speedMax - speedMin)) * speedFactor;
+    rowData.speed = 3.5 + Math.random() * 3.5;
 
-    const vehicleWidth = isTruck ? CONFIG.OBSTACLES.TRUCK.WIDTH : CONFIG.OBSTACLES.CAR.WIDTH;
-    const vehicleDepth = isTruck ? CONFIG.OBSTACLES.TRUCK.DEPTH : CONFIG.OBSTACLES.CAR.DEPTH;
-
-    // 前期車輛間距加大，簡單好過
-    const spacingFactor = isEarlyGame ? 1.6 : 1.0;
-    const spacing = (vehicleWidth + CONFIG.GRID_SIZE * (3 + Math.random() * 2.5)) * spacingFactor;
-    const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 6) * CONFIG.GRID_SIZE;
+    const vehicleWidth = isTruck ? 2.3 : 1.8;
+    const spacing = vehicleWidth + CONFIG.GRID_SIZE * (3 + Math.random() * 2.5);
+    const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 8) * CONFIG.GRID_SIZE;
     const count = Math.floor(totalSpan / spacing);
 
-    const colors = isTruck ? CONFIG.COLORS.TRUCK_COLORS : CONFIG.COLORS.CAR_COLORS;
+    const colors = CONFIG.COLORS.CAR_COLORS;
 
     for (let i = 0; i < count; i++) {
       const colorHex = colors[Math.floor(Math.random() * colors.length)];
-      const mesh = isTruck ? createTruckMesh(colorHex) : createCarMesh(colorHex);
+      const mesh = isTruck ? createTruckMesh() : createCarMesh(colorHex);
 
-      const startX = -totalSpan / 2 + i * spacing + (Math.random() * 1.0);
+      const startX = -totalSpan / 2 + i * spacing;
       mesh.position.set(startX, 0.2, 0);
 
-      if (rowData.direction === -1) {
-        mesh.rotation.y = Math.PI;
+      // 車頭方向對齊 X 軸 (行進方向 +X 或 -X)
+      if (rowData.direction === 1) {
+        mesh.rotation.y = Math.PI / 2;
+      } else {
+        mesh.rotation.y = -Math.PI / 2;
       }
 
       rowGroup.add(mesh);
-
-      rowData.vehicles.push({
-        mesh,
-        width: vehicleWidth,
-        depth: vehicleDepth,
-        speed: rowData.speed,
-        direction: rowData.direction,
-        position: mesh.position
-      });
+      rowData.vehicles.push({ mesh, width: vehicleWidth });
     }
   }
 
   buildRiverRow(rowData, rowGroup) {
     const lane = new THREE.Mesh(this.laneGeo, this.riverMat);
-    lane.receiveShadow = true;
     lane.position.y = -0.05;
     rowGroup.add(lane);
 
-    rowData.speed = CONFIG.OBSTACLES.LOG.SPEED_MIN +
-      Math.random() * (CONFIG.OBSTACLES.LOG.SPEED_MAX - CONFIG.OBSTACLES.LOG.SPEED_MIN);
+    rowData.speed = 2.0 + Math.random() * 2.0;
+    const logLength = Math.floor(Math.random() * 2) + 3;
+    const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (2.5 + Math.random() * 2);
+    const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 10) * CONFIG.GRID_SIZE;
+    const count = Math.floor(totalSpan / logSpan);
 
-    const span = (CONFIG.MAP_BOUNDS_X * 2 + 8) * CONFIG.GRID_SIZE;
-    let currentX = -span / 2 + Math.random() * 2;
+    for (let i = 0; i < count; i++) {
+      const mesh = createLogMesh(logLength);
+      const startX = -totalSpan / 2 + i * logSpan;
+      mesh.position.set(startX, 0.1, 0);
 
-    while (currentX < span / 2) {
-      const segLen = Math.floor(Math.random() * 3) + 2;
-      const logMesh = createLogMesh(segLen);
+      // 浮木長軸橫向平躺擺放於 X 軸河道
+      mesh.rotation.y = Math.PI / 2;
 
-      logMesh.position.set(currentX, 0.1, 0);
-      rowGroup.add(logMesh);
-
-      rowData.logs.push({
-        mesh: logMesh,
-        length: segLen,
-        speed: rowData.speed,
-        direction: rowData.direction,
-        position: logMesh.position
-      });
-
-      const gap = (segLen + 2.2 + Math.random() * 2.5) * CONFIG.GRID_SIZE;
-      currentX += gap;
+      rowGroup.add(mesh);
+      rowData.logs.push({ mesh, length: logLength });
     }
   }
 
   buildRailroadRow(rowData, rowGroup) {
-    const lane = new THREE.Mesh(this.laneGeo, this.railroadGravelMat);
-    lane.receiveShadow = true;
-    rowGroup.add(lane);
+    const gravel = new THREE.Mesh(this.laneGeo, this.railroadGravelMat);
+    gravel.receiveShadow = true;
+    rowGroup.add(gravel);
 
     const rail1 = new THREE.Mesh(this.railGeo, this.railMat);
-    rail1.position.set(0, 0.23, -0.28);
+    rail1.position.set(0, 0.22, -0.28);
     const rail2 = new THREE.Mesh(this.railGeo, this.railMat);
-    rail2.position.set(0, 0.23, 0.28);
+    rail2.position.set(0, 0.22, 0.28);
     rowGroup.add(rail1, rail2);
 
-    for (let x = -CONFIG.MAP_BOUNDS_X - 3; x <= CONFIG.MAP_BOUNDS_X + 3; x += 0.8) {
+    const laneWidth = (CONFIG.MAP_BOUNDS_X * 2 + 10) * CONFIG.GRID_SIZE;
+    for (let x = -laneWidth / 2; x <= laneWidth / 2; x += 0.7) {
       const tie = new THREE.Mesh(this.tieGeo, this.tieMat);
-      tie.position.set(x * CONFIG.GRID_SIZE, 0.21, 0);
+      tie.position.set(x, 0.2, 0);
       rowGroup.add(tie);
     }
 
-    // 火車警示紅色雷射條 (對齊正版圖 2 警示效果)
-    const stripeMat = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
-      transparent: true,
-      opacity: 0
-    });
-    const warningStripe = new THREE.Mesh(this.warningStripeGeo, stripeMat);
-    warningStripe.position.set(0, 0.24, 0);
-    rowGroup.add(warningStripe);
-    rowData.warningStripe = warningStripe;
-
     const signalMesh = createSignalMesh();
-    const signalX = (CONFIG.MAP_BOUNDS_X - 0.5) * CONFIG.GRID_SIZE;
-    signalMesh.position.set(signalX, 0.2, 0.4);
+    signalMesh.position.set((-CONFIG.MAP_BOUNDS_X - 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
     rowGroup.add(signalMesh);
     rowData.signal = signalMesh;
-
-    const trainMesh = createTrainMesh();
-    const startX = -rowData.direction * (CONFIG.MAP_BOUNDS_X + CONFIG.OBSTACLES.TRAIN.LENGTH);
-    trainMesh.position.set(startX, 0.2, 0);
-    if (rowData.direction === -1) {
-      trainMesh.rotation.y = Math.PI;
-    }
-    rowGroup.add(trainMesh);
-
-    rowData.train = {
-      mesh: trainMesh,
-      length: CONFIG.OBSTACLES.TRAIN.LENGTH,
-      speed: CONFIG.OBSTACLES.TRAIN.SPEED,
-      position: trainMesh.position
-    };
   }
 
-  animateObstacles(deltaTime, elapsedTime, speedMultiplier = 1.0) {
-    const boundMargin = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
-    const effectiveDelta = deltaTime * speedMultiplier;
+  animateObstacles(deltaTime) {
+    const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
+    const boundX = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
 
-    for (const row of this.activeRows.values()) {
-      if (row.type === CONFIG.ROW_TYPES.ROAD) {
+    for (const [z, row] of this.activeRows.entries()) {
+      if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
         row.vehicles.forEach((veh) => {
-          veh.position.x += row.direction * veh.speed * effectiveDelta;
-
-          if (row.direction === 1 && veh.position.x > boundMargin) {
-            veh.position.x = -boundMargin;
-          } else if (row.direction === -1 && veh.position.x < -boundMargin) {
-            veh.position.x = boundMargin;
+          veh.mesh.position.x += row.direction * row.speed * safeDelta;
+          if (row.direction === 1 && veh.mesh.position.x > boundX) {
+            veh.mesh.position.x = -boundX;
+          } else if (row.direction === -1 && veh.mesh.position.x < -boundX) {
+            veh.mesh.position.x = boundX;
           }
         });
       }
 
-      else if (row.type === CONFIG.ROW_TYPES.RIVER) {
+      if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
         row.logs.forEach((log) => {
-          log.position.x += row.direction * log.speed * effectiveDelta;
-
-          if (row.direction === 1 && log.position.x > boundMargin + 2) {
-            log.position.x = -boundMargin - 2;
-          } else if (row.direction === -1 && log.position.x < -boundMargin - 2) {
-            log.position.x = boundMargin + 2;
+          log.mesh.position.x += row.direction * row.speed * safeDelta;
+          if (row.direction === 1 && log.mesh.position.x > boundX) {
+            log.mesh.position.x = -boundX;
+          } else if (row.direction === -1 && log.mesh.position.x < -boundX) {
+            log.mesh.position.x = boundX;
           }
         });
       }
 
-      else if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.train) {
-        const { bulbMat } = row.signal.userData;
-        const stripeMat = row.warningStripe.material;
-
+      if (row.type === CONFIG.ROW_TYPES.RAILROAD) {
         if (row.trainState === 'IDLE') {
-          row.idleTimer -= effectiveDelta;
-          bulbMat.color.setHex(CONFIG.COLORS.SIGNAL_OFF);
-          stripeMat.opacity = 0;
-
+          row.idleTimer -= safeDelta;
           if (row.idleTimer <= 0) {
-            row.trainState = 'WARNING';
-            row.warningTimer = CONFIG.OBSTACLES.TRAIN.WARNING_TIME;
-            row.train.position.x = -row.direction * (boundMargin + row.train.length / 2);
+            row.trainState = 'SIGNAL_FLASHING';
+            row.warningTimer = 2.0;
           }
-        } else if (row.trainState === 'WARNING') {
-          row.warningTimer -= effectiveDelta;
-
-          // 號誌紅燈閃爍 + 整條軌道紅色雷射警示光束 (對齊圖 2)
-          const flash = Math.floor(elapsedTime * 10) % 2 === 0;
-          bulbMat.color.setHex(flash ? CONFIG.COLORS.SIGNAL_RED : CONFIG.COLORS.SIGNAL_OFF);
-          stripeMat.opacity = flash ? 0.45 : 0.15;
-
+        } else if (row.trainState === 'SIGNAL_FLASHING') {
+          row.warningTimer -= safeDelta;
+          if (row.signal) {
+            row.signal.rotation.y += safeDelta * 10.0;
+          }
           if (row.warningTimer <= 0) {
             row.trainState = 'TRAIN_PASSING';
-            bulbMat.color.setHex(CONFIG.COLORS.SIGNAL_RED);
-            stripeMat.opacity = 0.55;
+            const trainMesh = createTrainMesh();
+            const startX = row.direction === 1 ? -boundX * 1.5 : boundX * 1.5;
+            trainMesh.position.set(startX, 0.2, 0);
+
+            // 火車頭方向對齊 X 軸 (行進方向 +X 或 -X)
+            if (row.direction === 1) {
+              trainMesh.rotation.y = Math.PI / 2;
+            } else {
+              trainMesh.rotation.y = -Math.PI / 2;
+            }
+
+            row.mesh.add(trainMesh);
+            row.train = trainMesh;
           }
-        } else if (row.trainState === 'TRAIN_PASSING') {
-          row.train.position.x += row.direction * row.train.speed * effectiveDelta;
-          stripeMat.opacity = 0.55;
-
-          const trainPassed = row.direction === 1
-            ? row.train.position.x > boundMargin + row.train.length / 2
-            : row.train.position.x < -boundMargin - row.train.length / 2;
-
-          if (trainPassed) {
+        } else if (row.trainState === 'TRAIN_PASSING' && row.train) {
+          row.train.position.x += row.direction * 38.0 * safeDelta;
+          if (Math.abs(row.train.position.x) > boundX * 2.0) {
+            row.mesh.remove(row.train);
+            row.train = null;
             row.trainState = 'IDLE';
-            row.idleTimer = CONFIG.OBSTACLES.TRAIN.INTERVAL_MIN +
-              Math.random() * (CONFIG.OBSTACLES.TRAIN.INTERVAL_MAX - CONFIG.OBSTACLES.TRAIN.INTERVAL_MIN);
-            bulbMat.color.setHex(CONFIG.COLORS.SIGNAL_OFF);
-            stripeMat.opacity = 0;
+            row.idleTimer = Math.random() * 5 + 4.0;
           }
         }
       }
     }
+  }
+
+  removeRow(z, row) {
+    if (row && row.mesh) {
+      this.scene.remove(row.mesh);
+    }
+    this.activeRows.delete(z);
   }
 
   getActiveRows() {
     return this.activeRows;
-  }
-
-  removeRow(z, rowData) {
-    this.scene.remove(rowData.mesh);
-    rowData.mesh.traverse((child) => {
-      if (child.isMesh) {
-        if (child.geometry !== this.laneGeo && child.geometry !== this.railGeo && child.geometry !== this.tieGeo && child.geometry !== this.warningStripeGeo) {
-          child.geometry.dispose();
-        }
-      }
-    });
-    this.activeRows.delete(z);
-  }
-
-  reset() {
-    for (const [z, row] of this.activeRows.entries()) {
-      this.removeRow(z, row);
-    }
-    this.activeRows.clear();
-    this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
-    this.clusterRemaining = CONFIG.INITIAL_SAFE_ROWS;
   }
 }

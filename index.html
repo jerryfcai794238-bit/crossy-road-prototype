@@ -9,14 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet">
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-    }
-  }
-  </script>
 </head>
 <body>
   <div id="app">
@@ -81,22 +73,22 @@
 
         <!-- 模式選擇卡片區域 -->
         <div class="mode-select-container">
-          <!-- 卡片 1: 挑戰模式 -->
-          <div class="mode-card challenge-card selected" data-mode="challenge">
-            <div class="mode-badge">熱門</div>
-            <div class="mode-icon">🏆</div>
-            <h3 class="mode-title">挑戰模式</h3>
-            <p class="mode-desc">含 7 秒老鷹淘汰與 4 人競速榜！100 HP 紅色血條與 👑 皇冠搶奪。</p>
-            <div class="mode-cost">消耗 ⚡ 1</div>
-          </div>
-
-          <!-- 卡片 2: 休閒模式 -->
-          <div class="mode-card casual-card" data-mode="casual">
+          <!-- 卡片 1: 休閒模式 (第一順位 & 預設選取) -->
+          <div class="mode-card casual-card selected" data-mode="casual">
             <div class="mode-badge casual">推薦</div>
             <div class="mode-icon">🍃</div>
             <h3 class="mode-title">休閒模式</h3>
-            <p class="mode-desc">無老鷹發呆淘汰死！獨家支援 🐌 減速輔助器 (可疊加 3 次降速 45%)！</p>
-            <div class="mode-cost">消耗 ⚡ 1</div>
+            <p class="mode-desc">無老鷹發呆淘汰死！獨家支援 🐌 減速輔助器 (踩草地可按，最多降速 45%)！</p>
+            <div class="mode-cost">免費體驗</div>
+          </div>
+
+          <!-- 卡片 2: 挑戰模式 (第二順位) -->
+          <div class="mode-card challenge-card" data-mode="challenge">
+            <div class="mode-badge">熱門</div>
+            <div class="mode-icon">🏆</div>
+            <h3 class="mode-title">挑戰模式</h3>
+            <p class="mode-desc">經典考驗！含 4.5 秒相機自主推進與老鷹抓走淘汰死，考驗音速反應力！</p>
+            <div class="mode-cost">極致考驗</div>
           </div>
         </div>
 
@@ -104,7 +96,7 @@
           <div class="key-hint">
             <span class="key">W</span> 前進，<span class="key">S</span> 後退，<span class="key">A</span> 往左，<span class="key">D</span> 往右
           </div>
-          <div class="touch-hint">手機可點擊螢幕 / 虛擬 D-Pad 與減速鈕控制</div>
+          <div class="touch-hint">手機可點擊螢幕 / 虛擬 D-Pad 與 🐌 減速輔助鈕控制</div>
         </div>
 
         <button id="btn-start" class="btn-primary">進入遊戲 (消耗 1 ⚡)</button>
@@ -145,6 +137,6 @@
     </div>
   </div>
 
-  <script type="module" src="/src/main.js"></script>
+  <script src="./dist/bundle.js"></script>
 </body>
 </html>

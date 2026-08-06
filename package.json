@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "esbuild src/main.js --bundle --outfile=dist/bundle.js --format=iife --target=es2020",
     "preview": "vite preview"
   },
   "dependencies": {
     "three": "^0.160.0"
   },
   "devDependencies": {
+    "jsdom": "^30.0.1",
     "vite": "^5.0.12"
   }
 }

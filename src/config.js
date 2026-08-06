@@ -1,74 +1,40 @@
-import * as THREE from 'three';
-
 export const CONFIG = {
   GRID_SIZE: 1.2,
-  MAP_BOUNDS_X: 8, // 可移動的 X 軸邊界範圍 (-8 ~ +8)
-  INITIAL_SAFE_ROWS: 6, // 開始時安全草地區
-  GENERATION_AHEAD: 25, // 玩家前方動態生成列數
-  DESPAWN_BEHIND: 12, // 玩家後方回收列數
+  MAP_BOUNDS_X: 6,       // 可移動範圍 -6 ~ +6
+  GENERATION_AHEAD: 35,  // 前方預先生成網格數
+  DESPAWN_BEHIND: 25,    // 身後保留網格數
 
-  JUMP_DURATION: 0.18,
-  JUMP_HEIGHT: 0.65,
+  JUMP_DURATION: 0.16,   // 跳躍時間 (秒)
+  JUMP_HEIGHT: 0.5,      // 跳躍高度
 
-  // 路段類型定義
   ROW_TYPES: {
-    GRASS: 'GRASS',
-    ROAD: 'ROAD',
-    RIVER: 'RIVER',
-    RAILROAD: 'RAILROAD'
+    GRASS: 'grass',
+    ROAD: 'road',
+    RIVER: 'river',
+    RAILROAD: 'railroad'
   },
 
-  // 主題色彩設定 (明顯高對比草地雙色交錯)
   COLORS: {
-    GRASS_PRIMARY: 0x8cd64f,   // 亮草綠 (強對比 1)
-    GRASS_SECONDARY: 0x58ab2d, // 深草綠 (強對比 2)
-    ROAD: 0x333742,
-    ROAD_LINE: 0xffcc00,
-    RIVER: 0x2980b9,
-    RIVER_FOAM: 0x7ecef4,
-    RAILROAD_GRAVEL: 0x5a5a60,
-    RAILROAD_RAIL: 0xb0b0b8,
-    RAILROAD_TIE: 0x6e4726,
+    GRASS_PRIMARY: 0x5dbb63,
+    GRASS_SECONDARY: 0x52a457,
+    ROAD: 0x34495e,
+    ROAD_LINE: 0xf1c40f,
+    RIVER: 0x3498db,
+    RAILROAD_GRAVEL: 0x7f8c8d,
+    RAILROAD_TIE: 0x5d4037,
+    RAILROAD_RAIL: 0xbdc3c7,
+
+    CHICKEN: 0xffffff,
+    COMB: 0xe74c3c,
+    BEAK: 0xe67e22,
+
+    TREE_TRUNK: 0x5d4037,
     TREE_LEAVES: [0x27ae60, 0x2ecc71, 0x1e8449],
-    TREE_TRUNK: 0x795548,
-    CAR_COLORS: [0xe74c3c, 0x9b59b6, 0x34495e, 0xe67e22, 0x16a085],
-    TRUCK_COLORS: [0x2980b9, 0xd35400, 0x27ae60],
-    LOG: 0x8d5524,
-    LOG_END: 0xa06735,
-    TRAIN: 0xd32f2f,
-    SIGNAL_OFF: 0x222222,
-    SIGNAL_RED: 0xff1744
-  },
 
-  // 玩家參數
-  PLAYER: {
-    JUMP_DURATION: 0.18,
-    JUMP_HEIGHT: 0.65,
-    COLLISION_RADIUS: 0.35
-  },
-
-  // 障礙物與載面速度設定
-  OBSTACLES: {
-    CAR: {
-      SPEED_MIN: 3.0,
-      SPEED_MAX: 6.0,
-      WIDTH: 1.6,
-      DEPTH: 1.0
-    },
-    TRUCK: {
-      SPEED_MIN: 2.2,
-      SPEED_MAX: 4.2,
-      WIDTH: 2.3,
-      DEPTH: 1.1
-    },
-    LOG: {
-      SPEED_MIN: 1.8,
-      SPEED_MAX: 3.8,
-      LENGTH: [2, 3, 4]
-    },
-    TRAIN: {
-      SPEED: 18.0,
-      WARNING_TIME: 1.2
-    }
+    CAR_COLORS: [0xe74c3c, 0x3498db, 0xf1c40f, 0x9b59b6, 0x1abc9c],
+    TRUCK_CAB: 0xe67e22,
+    TRUCK_CARGO: 0xecf0f1,
+    WHEEL: 0x2c3e50,
+    LOG: 0x8d6e63
   }
 };

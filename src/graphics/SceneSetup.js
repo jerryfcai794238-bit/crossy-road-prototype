@@ -5,14 +5,14 @@ export class SceneSetup {
   constructor(container) {
     this.container = container;
 
-    // 1. 初始化 Three.js 場景
+    // 1. 三維場景與經典天藍背景 + 薄霧
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xa0d8ef); // 天藍色背景
-    this.scene.fog = new THREE.FogExp2(0xa0d8ef, 0.015); // 遠景霧化效果
+    this.scene.background = new THREE.Color(0x9bd5ed);
+    this.scene.fog = new THREE.FogExp2(0x9bd5ed, 0.012);
 
-    // 2. 正交相機 (Isometric Camera - 鏡頭距離 d = 4.0)
+    // 2. 正交相機 (Isometric Camera d = 4.2)
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 4.0; // 鏡頭距離拉近至 4.0
+    const d = 4.2;
     this.camera = new THREE.OrthographicCamera(
       -d * aspect,
       d * aspect,
@@ -22,40 +22,41 @@ export class SceneSetup {
       1000
     );
 
-    // 經典左下角往右上角視角角度 (-14, 18, -14)
-    this.cameraOffset = new THREE.Vector3(-14, 18, -14);
-    this.cameraTarget = new THREE.Vector3(0, 0, 1.6 * CONFIG.GRID_SIZE);
+    // 經典 45度俯瞰視角偏移 (Camera Offset)
+    this.cameraOffset = new THREE.Vector3(-10, 14, -10);
+    this.cameraTarget = new THREE.Vector3(0, 0, 2.2 * CONFIG.GRID_SIZE);
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
     this.camera.lookAt(this.cameraTarget);
 
-    // 3. 渲染器
+    // 3. WebGL 渲染器
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    container.appendChild(this.renderer.domElement);
 
-    // 4. 光源設定
+    if (this.container) {
+      this.container.innerHTML = '';
+      this.container.appendChild(this.renderer.domElement);
+    }
+
+    // 4. 光源
     this.setupLights();
 
-    // 5. 視窗大小改變監聽
+    // 5. 視窗 Resizing 響應
     window.addEventListener('resize', () => this.onWindowResize());
   }
 
   setupLights() {
-    // 環境光
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
     this.scene.add(ambientLight);
 
-    // 半球光
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.35);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.3);
     hemiLight.position.set(0, 50, 0);
     this.scene.add(hemiLight);
 
-    // 主平行日光 + 動態陰影
-    this.dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
-    this.dirLight.position.set(-20, 35, -15);
+    this.dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    this.dirLight.position.set(-18, 30, -12);
     this.dirLight.castShadow = true;
 
     this.dirLight.shadow.mapSize.width = 2048;
@@ -73,44 +74,26 @@ export class SceneSetup {
   }
 
   resetCamera() {
-    this.cameraTarget.set(0, 0, 1.6 * CONFIG.GRID_SIZE);
+    this.cameraTarget.set(0, 0, 2.2 * CONFIG.GRID_SIZE);
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
     this.camera.lookAt(this.cameraTarget);
-    if (this.dirLight) {
-      this.dirLight.position.set(
-        this.cameraTarget.x - 20,
-        35,
-        this.cameraTarget.z - 15
-      );
-      this.dirLight.target.position.copy(this.cameraTarget);
-      this.dirLight.target.updateMatrixWorld();
-    }
   }
 
   updateCamera(targetPosition) {
-    if (!targetPosition || !Number.isFinite(targetPosition.x) || !Number.isFinite(targetPosition.z)) return;
+    if (!targetPosition) return;
 
-    // 防止 cameraTarget 被 NaN 污染
-    if (!Number.isFinite(this.cameraTarget.x) || !Number.isFinite(this.cameraTarget.z)) {
-      this.cameraTarget.set(0, 0, 1.6 * CONFIG.GRID_SIZE);
-    }
+    const x = Number.isFinite(targetPosition.x) ? targetPosition.x : 0;
+    const z = Number.isFinite(targetPosition.z) ? targetPosition.z : 1.2 * CONFIG.GRID_SIZE;
 
-    const desiredTarget = new THREE.Vector3(
-      targetPosition.x * 0.4,
-      0,
-      targetPosition.z
-    );
-
-    // 🔥 直接全速平滑追蹤 (0.35 敏捷響應)，100% 緊貼主角每一步前進
-    this.cameraTarget.lerp(desiredTarget, 0.35);
-
-    // 更新相機與平行光位置
+    // 🔥 無延遲直連跟追，鎖定主角於視野黃金中央區域
+    this.cameraTarget.set(x * 0.4, 0, z);
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
+
     if (this.dirLight) {
       this.dirLight.position.set(
-        this.cameraTarget.x - 20,
-        35,
-        this.cameraTarget.z - 15
+        this.cameraTarget.x - 18,
+        30,
+        this.cameraTarget.z - 12
       );
       this.dirLight.target.position.copy(this.cameraTarget);
       this.dirLight.target.updateMatrixWorld();
@@ -121,7 +104,7 @@ export class SceneSetup {
 
   onWindowResize() {
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 4.0; // 保持 d = 4.0
+    const d = 4.2;
     this.camera.left = -d * aspect;
     this.camera.right = d * aspect;
     this.camera.top = d;

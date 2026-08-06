@@ -10,9 +10,15 @@ export class GameModes {
     this.maxEnergy = 5;
     this.energyRecoveryInterval = 30; // 30 秒恢復 1 點能量
 
-    // 從 localStorage 讀取或初始化能量
-    const savedEnergy = parseInt(localStorage.getItem('crossy_energy'), 10);
-    const savedTime = parseInt(localStorage.getItem('crossy_energy_timestamp'), 10);
+    let savedEnergy = NaN;
+    let savedTime = NaN;
+
+    try {
+      savedEnergy = parseInt(localStorage.getItem('crossy_energy'), 10);
+      savedTime = parseInt(localStorage.getItem('crossy_energy_timestamp'), 10);
+    } catch (e) {
+      // file:/// 本機協議安全相容
+    }
 
     this.energy = isNaN(savedEnergy) ? 5 : Math.min(5, savedEnergy);
     this.lastEnergyTime = isNaN(savedTime) ? Date.now() : savedTime;
@@ -73,8 +79,12 @@ export class GameModes {
   }
 
   saveToStorage() {
-    localStorage.setItem('crossy_energy', this.energy.toString());
-    localStorage.setItem('crossy_energy_timestamp', this.lastEnergyTime.toString());
+    try {
+      localStorage.setItem('crossy_energy', this.energy.toString());
+      localStorage.setItem('crossy_energy_timestamp', this.lastEnergyTime.toString());
+    } catch (e) {
+      // file:/// 本機協議安全相容
+    }
   }
 
   setMode(mode) {

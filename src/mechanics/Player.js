@@ -11,154 +11,73 @@ export class Player {
     this.maxReachedZ = 0;
     this.score = 0;
 
-    // 100 HP 紅色長血條機制 (HP = 100)
-    this.maxHp = 100;
-    this.hp = 100;
-    this.combo = 0;
-
-    // 20 Combo FEVER 狂熱狀態
-    this.isFever = false;
-    this.feverTimer = 0;
-
-    // 休閒模式專屬：金幣減速次數 (每區塊最多 3 次，每次-15%)
-    this.slowdownStack = 0;
-
-    // 最小可後退到的 Z 軸網格邊界
-    this.minAllowedZ = -4;
-
-    // 動畫與狀態控制
     this.isJumping = false;
     this.jumpProgress = 0;
-    this.jumpDuration = CONFIG.JUMP_DURATION || 0.18; // 跳躍時間 (秒)
-    this.jumpHeight = CONFIG.JUMP_HEIGHT || 0.65;    // 跳躍弧形高度
+    this.jumpDuration = CONFIG.JUMP_DURATION || 0.16;
+    this.jumpHeight = CONFIG.JUMP_HEIGHT || 0.5;
 
     this.position = new THREE.Vector3(0, 0, 0);
     this.startPosition = new THREE.Vector3(0, 0, 0);
     this.targetPosition = new THREE.Vector3(0, 0, 0);
 
-    // 面向角度 (0: 朝 +Z 前方, PI/2: 左, -PI/2: 右, PI: 後)
     this.targetRotationY = 0;
+    this.minAllowedZ = -4;
 
-    // 死亡與重生狀態
     this.isDead = false;
     this.isRespawning = false;
 
-    // 輸入緩衝佇列 (Input Buffer - 預存連點指令)
     this.inputBuffer = [];
-    this.onBufferedMoveRequested = null;
   }
 
-  /**
-   * 計算特定方向延伸距離後的網格座標 { x, z }
-   */
+  reset() {
+    this.gridX = 0;
+    this.gridZ = 0;
+    this.targetGridX = 0;
+    this.targetGridZ = 0;
+    this.maxReachedZ = 0;
+    this.score = 0;
+    this.minAllowedZ = -4;
+
+    this.isJumping = false;
+    this.jumpProgress = 0;
+    this.isDead = false;
+    this.isRespawning = false;
+    this.inputBuffer = [];
+
+    this.position.set(0, 0, 0);
+    this.startPosition.set(0, 0, 0);
+    this.targetPosition.set(0, 0, 0);
+    this.targetRotationY = 0;
+
+    if (this.mesh) {
+      this.mesh.position.set(0, 0, 0);
+      this.mesh.rotation.set(0, 0, 0);
+      this.mesh.scale.set(0.95, 0.95, 0.95);
+      this.mesh.visible = true;
+    }
+  }
+
   getTargetGridPosition(direction, distance = 1) {
     let targetX = Math.round(this.position.x / CONFIG.GRID_SIZE);
     let targetZ = Math.round(this.position.z / CONFIG.GRID_SIZE);
 
     switch (direction) {
-      case 'UP':
-        targetZ += distance;
-        break;
-      case 'DOWN':
-        targetZ -= distance;
-        break;
-      case 'LEFT':
-        targetX += distance;
-        break;
-      case 'RIGHT':
-        targetX -= distance;
-        break;
+      case 'UP': targetZ += distance; break;
+      case 'DOWN': targetZ -= distance; break;
+      case 'LEFT': targetX += distance; break;
+      case 'RIGHT': targetX -= distance; break;
     }
 
     return { x: targetX, z: targetZ };
   }
 
-  /**
-   * 受傷扣血並彈回身後安全草地 (BAD 斷 Combo，無無敵時間)
-   */
-  takeDamage(amount, safeZ = 0, safeX = 0) {
-    if (this.isDead || this.isRespawning) return false;
-
-    this.hp = Math.max(0, this.hp - amount);
-    this.combo = 0; // BAD 斷 Combo 重置為 0
-    this.isJumping = false; // 強制中斷空中跳躍狀態，防止空中插值回舊座標
-    this.jumpProgress = 0;
-    this.inputBuffer = []; // 清空連點佇列
-
-    if (this.hp <= 0) {
-      this.isDead = true;
-      return true; // 死亡
-    }
-
-    // 100% 彈回身後安全草地，重置座標與最高分數對齊 safeZ
-    this.gridZ = safeZ;
-    this.targetGridZ = safeZ;
-    this.gridX = safeX;
-    this.targetGridX = safeX;
-
-    this.maxReachedZ = safeZ;
-    this.score = safeZ;
-
-    this.position.set(safeX * CONFIG.GRID_SIZE, 0, safeZ * CONFIG.GRID_SIZE);
-    this.startPosition.copy(this.position);
-    this.targetPosition.copy(this.position);
-
-    if (this.mesh) {
-      this.mesh.position.copy(this.position);
-      this.mesh.scale.set(0.95, 0.95, 0.95);
-      this.mesh.visible = true;
-    }
-
-    return false; // 存活
-  }
-
-  /**
-   * 增加 Combo 與 10 Combo (+5 HP) 自動回血
-   */
-  addCombo() {
-    this.combo++;
-
-    // 10 Combo (+5 HP) 自動技術回血
-    if (this.combo % 10 === 0) {
-      this.hp = Math.min(this.maxHp, this.hp + 5);
-    }
-
-    // 20 Combo 觸發 5 秒 FEVER 狂熱時刻
-    if (this.combo >= 20 && !this.isFever) {
-      this.isFever = true;
-      this.feverTimer = 5.0;
-    }
-  }
-
-  /**
-   * 佇列與連點緩衝處理
-   */
-  queueInput(direction, distance = 1) {
-    if (this.isRespawning || this.isDead) return false;
-
-    if (this.isJumping) {
-      // 在空中時，將連點指令暫存於緩衝佇列 (最多預存 2 次)
-      if (this.inputBuffer.length < 2) {
-        this.inputBuffer.push({ direction, distance });
-        return true;
-      }
-      return false;
-    }
-
-    return this.move(direction, distance);
-  }
-
   move(direction, distance = 1) {
     if (this.isJumping || this.isRespawning || this.isDead) return false;
 
-    // 起跳前依據實時 position 重新校正基準網格
     this.gridX = Math.round(this.position.x / CONFIG.GRID_SIZE);
     this.gridZ = Math.round(this.position.z / CONFIG.GRID_SIZE);
-    this.targetGridX = this.gridX;
-    this.targetGridZ = this.gridZ;
-
-    let newGridX = this.targetGridX;
-    let newGridZ = this.targetGridZ;
+    let newGridX = this.gridX;
+    let newGridZ = this.gridZ;
 
     switch (direction) {
       case 'UP':
@@ -179,15 +98,9 @@ export class Player {
         break;
     }
 
-    // 地圖左右 X 軸邊界限制
-    if (Math.abs(newGridX) > CONFIG.MAP_BOUNDS_X) {
-      return false;
-    }
-
-    // 緊貼身後邊界限制：不允許向後超出 minAllowedZ
-    if (this.minAllowedZ !== undefined && newGridZ < this.minAllowedZ) {
-      return false;
-    }
+    // 邊界卡死保護
+    if (Math.abs(newGridX) > CONFIG.MAP_BOUNDS_X) return false;
+    if (this.minAllowedZ !== undefined && newGridZ < this.minAllowedZ) return false;
 
     this.targetGridX = newGridX;
     this.targetGridZ = newGridZ;
@@ -210,6 +123,18 @@ export class Player {
     return true;
   }
 
+  queueInput(direction, distance = 1) {
+    if (this.isRespawning || this.isDead) return false;
+    if (this.isJumping) {
+      if (this.inputBuffer.length < 2) {
+        this.inputBuffer.push({ direction, distance });
+        return true;
+      }
+      return false;
+    }
+    return this.move(direction, distance);
+  }
+
   setFacingDirection(direction) {
     switch (direction) {
       case 'UP': this.targetRotationY = 0; break;
@@ -220,25 +145,18 @@ export class Player {
   }
 
   update(deltaTime) {
-    // 更新 FEVER 狂熱計時
-    if (this.isFever) {
-      this.feverTimer -= deltaTime;
-      if (this.feverTimer <= 0) {
-        this.isFever = false;
-        this.feverTimer = 0;
-      }
-    }
+    const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
 
     if (this.mesh) {
       this.mesh.rotation.y = THREE.MathUtils.lerp(
         this.mesh.rotation.y,
         this.targetRotationY,
-        deltaTime * 20
+        safeDelta * 25
       );
     }
 
     if (this.isJumping) {
-      this.jumpProgress += deltaTime / this.jumpDuration;
+      this.jumpProgress += safeDelta / this.jumpDuration;
 
       if (this.jumpProgress >= 1.0) {
         this.jumpProgress = 1.0;
@@ -247,28 +165,24 @@ export class Player {
         this.gridZ = this.targetGridZ;
         this.position.copy(this.targetPosition);
 
-        // 觸地 0ms 檢查緩衝佇列發動連續無縫跳躍 (0ms 零卡頓)
-        if (this.onBufferedMoveRequested && this.inputBuffer.length > 0) {
+        // 連續跳躍緩衝
+        if (this.inputBuffer.length > 0) {
           const next = this.inputBuffer.shift();
-          this.onBufferedMoveRequested(next.direction, next.distance);
+          this.move(next.direction, next.distance);
         }
       } else {
-        this.position.x = THREE.MathUtils.lerp(
-          this.startPosition.x,
-          this.targetPosition.x,
-          this.jumpProgress
-        );
-        this.position.z = THREE.MathUtils.lerp(
-          this.startPosition.z,
-          this.targetPosition.z,
-          this.jumpProgress
-        );
+        this.position.x = THREE.MathUtils.lerp(this.startPosition.x, this.targetPosition.x, this.jumpProgress);
+        this.position.z = THREE.MathUtils.lerp(this.startPosition.z, this.targetPosition.z, this.jumpProgress);
         this.position.y = Math.sin(this.jumpProgress * Math.PI) * this.jumpHeight;
       }
     }
 
-    // 確保 3D Mesh 與物理座標實時保持 100% 同步
-    if (this.mesh && !this.isRespawning && !this.isDead) {
+    // 座標 NaN 安全對齊
+    if (!Number.isFinite(this.position.x)) this.position.x = this.gridX * CONFIG.GRID_SIZE;
+    if (!Number.isFinite(this.position.y)) this.position.y = 0;
+    if (!Number.isFinite(this.position.z)) this.position.z = this.gridZ * CONFIG.GRID_SIZE;
+
+    if (this.mesh && !this.isDead) {
       this.mesh.position.copy(this.position);
     }
   }
@@ -278,8 +192,8 @@ export class Player {
     this.isJumping = false;
     this.inputBuffer = [];
     if (this.mesh) {
-      this.mesh.scale.set(1.4, 0.1, 1.4);
-      this.mesh.position.y = 0.05;
+      this.mesh.scale.set(1.4, 0.08, 1.4);
+      this.mesh.position.y = 0.04;
     }
   }
 
@@ -288,80 +202,8 @@ export class Player {
     this.isJumping = false;
     this.inputBuffer = [];
     if (this.mesh) {
-      this.mesh.scale.set(0.2, 0.2, 0.2);
       this.mesh.position.y = -0.4;
-    }
-  }
-
-  respawn(safeX = 0, safeZ = 0) {
-    this.isDead = false;
-    this.isRespawning = true;
-    this.isJumping = false;
-    this.inputBuffer = [];
-    this.hp = this.maxHp;
-    this.combo = 0;
-    this.gridX = safeX;
-    this.gridZ = safeZ;
-    this.targetGridX = safeX;
-    this.targetGridZ = safeZ;
-    this.maxReachedZ = safeZ;
-    this.score = safeZ;
-
-    const targetX = safeX * CONFIG.GRID_SIZE;
-    const targetZ = safeZ * CONFIG.GRID_SIZE;
-
-    this.position.set(targetX, 0, targetZ);
-    this.startPosition.copy(this.position);
-    this.targetPosition.copy(this.position);
-
-    if (this.mesh) {
-      this.mesh.visible = true;
-      this.mesh.scale.set(0.95, 0.95, 0.95);
-      this.mesh.position.set(targetX, 10, targetZ);
-    }
-
-    let dropProgress = 0;
-    const animateDrop = () => {
-      dropProgress += 0.08;
-      if (dropProgress >= 1.0) {
-        if (this.mesh) this.mesh.position.set(targetX, 0, targetZ);
-        this.isRespawning = false;
-      } else {
-        const currentY = THREE.MathUtils.lerp(10, 0, dropProgress);
-        if (this.mesh) this.mesh.position.y = currentY;
-        requestAnimationFrame(animateDrop);
-      }
-    };
-    requestAnimationFrame(animateDrop);
-  }
-
-  reset() {
-    this.gridX = 0;
-    this.gridZ = 0;
-    this.targetGridX = 0;
-    this.targetGridZ = 0;
-    this.maxReachedZ = 0;
-    this.score = 0;
-    this.hp = 100;
-    this.combo = 0;
-    this.isFever = false;
-    this.feverTimer = 0;
-    this.slowdownStack = 0;
-    this.minAllowedZ = -4;
-    this.isJumping = false;
-    this.isDead = false;
-    this.inputBuffer = [];
-
-    this.position.set(0, 0, 0);
-    this.startPosition.set(0, 0, 0);
-    this.targetPosition.set(0, 0, 0);
-    this.targetRotationY = 0;
-
-    if (this.mesh) {
-      this.mesh.position.set(0, 0, 0);
-      this.mesh.rotation.set(0, 0, 0);
-      this.mesh.scale.set(0.95, 0.95, 0.95);
-      this.mesh.visible = true;
+      this.mesh.scale.set(0.6, 0.6, 0.6);
     }
   }
 }

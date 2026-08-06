@@ -8,9 +8,11 @@ export const ITEM_TYPES = {
 };
 
 export class ItemSystem {
-  constructor(scene, player) {
+  constructor(scene, player, physics, getActiveRows) {
     this.scene = scene;
     this.player = player;
+    this.physics = physics;
+    this.getActiveRows = getActiveRows;
 
     // 各技能獨立 CD (剩餘秒數) 與 CD 總長度
     this.cooldowns = {
@@ -54,7 +56,7 @@ export class ItemSystem {
   }
 
   useItem(type) {
-    if (!this.player || this.player.isRespawning) return false;
+    if (!this.player || this.player.isRespawning || this.player.isDead) return false;
     if (this.cooldowns[type] > 0) return false;
 
     switch (type) {
@@ -84,7 +86,7 @@ export class ItemSystem {
   activateRocket() {
     this.rocketMesh.visible = true;
 
-    // 綁定小雞雙腳觸地的精準事件 (第 0.00 秒零延遲爆發光環)
+    // 綁定小雞雙腳觸地的精準事件 (第 0.00 秒零延遲爆發光環並清除 3x3 樹木)
     this.player.onRocketLand = () => {
       this.rocketMesh.visible = false;
 
@@ -92,11 +94,15 @@ export class ItemSystem {
       blast.position.copy(this.player.position);
       this.scene.add(blast);
 
+      if (this.physics && this.getActiveRows) {
+        const activeRows = this.getActiveRows();
+        const targetPos = { x: this.player.gridX, z: this.player.gridZ };
+        this.physics.destroyTreesInArea(targetPos, 1, activeRows);
+      }
+
       setTimeout(() => {
         this.scene.remove(blast);
       }, 400);
-
-      this.player.onRocketLand = null;
     };
 
     this.player.rocketJump();
