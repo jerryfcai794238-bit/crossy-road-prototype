@@ -171,16 +171,29 @@ export function createEagle() {
 // 8. 鐵路號誌燈 (Signal)
 export function createSignalMesh() {
   const group = new THREE.Group();
-  const pole = createCube(0.15, 1.8, 0.15, 0x7f8c8d);
-  pole.position.y = 0.9;
 
-  const box = createCube(0.4, 0.7, 0.3, 0x2c3e50);
-  box.position.set(0, 1.5, 0);
+  const pole = createCube(0.15, 2.0, 0.15, 0x7f8c8d);
+  pole.position.y = 1.0;
 
-  const light = createCube(0.2, 0.2, 0.1, 0xe74c3c);
-  light.position.set(0, 1.6, 0.16);
+  const box = createCube(0.7, 0.4, 0.2, 0x1e293b);
+  box.position.set(0, 1.7, 0);
 
-  group.add(pole, box, light);
+  // 左紅燈與右紅燈獨立燈珠
+  const leftLightMat = new THREE.MeshBasicMaterial({ color: 0x440000 });
+  const leftLightGeo = new THREE.BoxGeometry(0.22, 0.22, 0.1);
+  const leftLight = new THREE.Mesh(leftLightGeo, leftLightMat);
+  leftLight.position.set(-0.2, 1.7, 0.11);
+
+  const rightLightMat = new THREE.MeshBasicMaterial({ color: 0x440000 });
+  const rightLightGeo = new THREE.BoxGeometry(0.22, 0.22, 0.1);
+  const rightLight = new THREE.Mesh(rightLightGeo, rightLightMat);
+  rightLight.position.set(0.2, 1.7, 0.11);
+
+  group.add(pole, box, leftLight, rightLight);
+
+  group.leftLightMat = leftLightMat;
+  group.rightLightMat = rightLightMat;
+
   return group;
 }
 

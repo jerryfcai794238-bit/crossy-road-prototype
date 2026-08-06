@@ -279,10 +279,15 @@ export class MapGenerator {
       rowGroup.add(tie);
     }
 
-    const signalMesh = createSignalMesh();
-    signalMesh.position.set((-CONFIG.MAP_BOUNDS_X - 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
-    rowGroup.add(signalMesh);
-    rowData.signal = signalMesh;
+    // 左右兩側對稱鐵道號誌燈柱
+    const signalLeft = createSignalMesh();
+    signalLeft.position.set((-CONFIG.MAP_BOUNDS_X - 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
+    const signalRight = createSignalMesh();
+    signalRight.position.set((CONFIG.MAP_BOUNDS_X + 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
+    signalRight.rotation.y = Math.PI;
+
+    rowGroup.add(signalLeft, signalRight);
+    rowData.signals = [signalLeft, signalRight];
   }
 
   animateObstacles(deltaTime) {
@@ -315,15 +320,29 @@ export class MapGenerator {
       if (row.type === CONFIG.ROW_TYPES.RAILROAD) {
         if (row.trainState === 'IDLE') {
           row.idleTimer -= safeDelta;
+          if (row.signals) {
+            row.signals.forEach((sig) => {
+              sig.leftLightMat.color.setHex(0x440000);
+              sig.rightLightMat.color.setHex(0x440000);
+            });
+          }
           if (row.idleTimer <= 0) {
             row.trainState = 'SIGNAL_FLASHING';
             row.warningTimer = 2.0;
+            row.flashTick = 0;
           }
         } else if (row.trainState === 'SIGNAL_FLASHING') {
           row.warningTimer -= safeDelta;
-          if (row.signal) {
-            row.signal.rotation.y += safeDelta * 10.0;
+          row.flashTick = (row.flashTick || 0) + safeDelta * 10.0;
+          const isLeftOn = Math.floor(row.flashTick) % 2 === 0;
+
+          if (row.signals) {
+            row.signals.forEach((sig) => {
+              sig.leftLightMat.color.setHex(isLeftOn ? 0xff0000 : 0x440000);
+              sig.rightLightMat.color.setHex(isLeftOn ? 0x440000 : 0xff0000);
+            });
           }
+
           if (row.warningTimer <= 0) {
             row.trainState = 'TRAIN_PASSING';
             const trainMesh = createTrainMesh();
@@ -341,12 +360,28 @@ export class MapGenerator {
             row.train = trainMesh;
           }
         } else if (row.trainState === 'TRAIN_PASSING' && row.train) {
+          row.flashTick = (row.flashTick || 0) + safeDelta * 12.0;
+          const isLeftOn = Math.floor(row.flashTick) % 2 === 0;
+
+          if (row.signals) {
+            row.signals.forEach((sig) => {
+              sig.leftLightMat.color.setHex(isLeftOn ? 0xff0000 : 0x440000);
+              sig.rightLightMat.color.setHex(isLeftOn ? 0x440000 : 0xff0000);
+            });
+          }
+
           row.train.position.x += row.direction * 38.0 * safeDelta;
           if (Math.abs(row.train.position.x) > boundX * 2.0) {
             row.mesh.remove(row.train);
             row.train = null;
             row.trainState = 'IDLE';
             row.idleTimer = Math.random() * 5 + 4.0;
+            if (row.signals) {
+              row.signals.forEach((sig) => {
+                sig.leftLightMat.color.setHex(0x440000);
+                sig.rightLightMat.color.setHex(0x440000);
+              });
+            }
           }
         }
       }

@@ -19421,13 +19421,21 @@
   }
   function createSignalMesh() {
     const group = new Group();
-    const pole = createCube(0.15, 1.8, 0.15, 8359053);
-    pole.position.y = 0.9;
-    const box = createCube(0.4, 0.7, 0.3, 2899536);
-    box.position.set(0, 1.5, 0);
-    const light = createCube(0.2, 0.2, 0.1, 15158332);
-    light.position.set(0, 1.6, 0.16);
-    group.add(pole, box, light);
+    const pole = createCube(0.15, 2, 0.15, 8359053);
+    pole.position.y = 1;
+    const box = createCube(0.7, 0.4, 0.2, 1976635);
+    box.position.set(0, 1.7, 0);
+    const leftLightMat = new MeshBasicMaterial({ color: 4456448 });
+    const leftLightGeo = new BoxGeometry(0.22, 0.22, 0.1);
+    const leftLight = new Mesh(leftLightGeo, leftLightMat);
+    leftLight.position.set(-0.2, 1.7, 0.11);
+    const rightLightMat = new MeshBasicMaterial({ color: 4456448 });
+    const rightLightGeo = new BoxGeometry(0.22, 0.22, 0.1);
+    const rightLight = new Mesh(rightLightGeo, rightLightMat);
+    rightLight.position.set(0.2, 1.7, 0.11);
+    group.add(pole, box, leftLight, rightLight);
+    group.leftLightMat = leftLightMat;
+    group.rightLightMat = rightLightMat;
     return group;
   }
   var createTreeMesh = createTree;
@@ -19843,10 +19851,13 @@
         tie.position.set(x, 0.2, 0);
         rowGroup.add(tie);
       }
-      const signalMesh = createSignalMesh();
-      signalMesh.position.set((-CONFIG.MAP_BOUNDS_X - 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
-      rowGroup.add(signalMesh);
-      rowData.signal = signalMesh;
+      const signalLeft = createSignalMesh();
+      signalLeft.position.set((-CONFIG.MAP_BOUNDS_X - 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
+      const signalRight = createSignalMesh();
+      signalRight.position.set((CONFIG.MAP_BOUNDS_X + 0.8) * CONFIG.GRID_SIZE, 0.2, 0);
+      signalRight.rotation.y = Math.PI;
+      rowGroup.add(signalLeft, signalRight);
+      rowData.signals = [signalLeft, signalRight];
     }
     animateObstacles(deltaTime) {
       const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
@@ -19875,14 +19886,26 @@
         if (row.type === CONFIG.ROW_TYPES.RAILROAD) {
           if (row.trainState === "IDLE") {
             row.idleTimer -= safeDelta;
+            if (row.signals) {
+              row.signals.forEach((sig) => {
+                sig.leftLightMat.color.setHex(4456448);
+                sig.rightLightMat.color.setHex(4456448);
+              });
+            }
             if (row.idleTimer <= 0) {
               row.trainState = "SIGNAL_FLASHING";
               row.warningTimer = 2;
+              row.flashTick = 0;
             }
           } else if (row.trainState === "SIGNAL_FLASHING") {
             row.warningTimer -= safeDelta;
-            if (row.signal) {
-              row.signal.rotation.y += safeDelta * 10;
+            row.flashTick = (row.flashTick || 0) + safeDelta * 10;
+            const isLeftOn = Math.floor(row.flashTick) % 2 === 0;
+            if (row.signals) {
+              row.signals.forEach((sig) => {
+                sig.leftLightMat.color.setHex(isLeftOn ? 16711680 : 4456448);
+                sig.rightLightMat.color.setHex(isLeftOn ? 4456448 : 16711680);
+              });
             }
             if (row.warningTimer <= 0) {
               row.trainState = "TRAIN_PASSING";
@@ -19898,12 +19921,26 @@
               row.train = trainMesh;
             }
           } else if (row.trainState === "TRAIN_PASSING" && row.train) {
+            row.flashTick = (row.flashTick || 0) + safeDelta * 12;
+            const isLeftOn = Math.floor(row.flashTick) % 2 === 0;
+            if (row.signals) {
+              row.signals.forEach((sig) => {
+                sig.leftLightMat.color.setHex(isLeftOn ? 16711680 : 4456448);
+                sig.rightLightMat.color.setHex(isLeftOn ? 4456448 : 16711680);
+              });
+            }
             row.train.position.x += row.direction * 38 * safeDelta;
             if (Math.abs(row.train.position.x) > boundX * 2) {
               row.mesh.remove(row.train);
               row.train = null;
               row.trainState = "IDLE";
               row.idleTimer = Math.random() * 5 + 4;
+              if (row.signals) {
+                row.signals.forEach((sig) => {
+                  sig.leftLightMat.color.setHex(4456448);
+                  sig.rightLightMat.color.setHex(4456448);
+                });
+              }
             }
           }
         }
