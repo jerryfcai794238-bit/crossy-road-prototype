@@ -132,6 +132,7 @@ class Game {
     }
 
     this.player.reset();
+    this.uiManager.updateHealth(this.player.hp);
     this.mapGenerator.initMap();
     this.sceneSetup.resetCamera();
     this.uiManager.updateScore(0);
@@ -243,9 +244,15 @@ class Game {
       // 5. 碰撞判定 (車輛 / 火車 / 落水)
       if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking) {
         const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
-        if (hitObstacle) {
-          this.player.triggerFlattenAnimation();
-          this.gameOver(hitObstacle.type === 'train' ? '慘遭音速火車輾過！' : '被車輛重撞飛了！');
+        if (hitObstacle && !this.player.isInvulnerable) {
+          const damage = hitObstacle.type === 'train' ? 70 : Math.min(60, Math.round(hitObstacle.speed * 8 + 10));
+          const isFatal = this.player.takeDamage(damage);
+          this.uiManager.updateHealth(this.player.hp);
+
+          if (isFatal) {
+            this.player.triggerFlattenAnimation();
+            this.gameOver(hitObstacle.type === 'train' ? '慘遭音速火車輾過！' : '被車輛重撞飛了！');
+          }
         }
 
         const riverStatus = this.physics.checkRiverStatus(this.player, activeRows);
@@ -275,5 +282,5 @@ class Game {
 
 // 啟動遊戲
 window.addEventListener('DOMContentLoaded', () => {
-  new Game();
+  window.game = new Game();
 });

@@ -6,7 +6,8 @@ import {
   createTruckMesh,
   createLogMesh,
   createTrainMesh,
-  createSignalMesh
+  createSignalMesh,
+  createLilyPadMesh
 } from '../graphics/VoxelModels.js';
 
 export class MapGenerator {
@@ -19,6 +20,8 @@ export class MapGenerator {
 
     this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
     this.clusterRemaining = 5;
+    this.currentRiverClusterSubtype = null;
+    this.lastLilyPadGridXs = null;
 
     this.initGeometriesAndMaterials();
   }
@@ -68,6 +71,8 @@ export class MapGenerator {
     this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
     this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
     this.clusterRemaining = 5;
+    this.currentRiverClusterSubtype = null;
+    this.lastLilyPadGridXs = null;
   }
 
   update(playerZ) {
@@ -111,15 +116,21 @@ export class MapGenerator {
     switch (nextType) {
       case CONFIG.ROW_TYPES.GRASS:
         this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+        this.lastLilyPadGridXs = null;
         break;
       case CONFIG.ROW_TYPES.ROAD:
         this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+        this.lastLilyPadGridXs = null;
         break;
       case CONFIG.ROW_TYPES.RIVER:
         this.clusterRemaining = Math.floor(Math.random() * 2) + 1;
+        // 以區域為單位定案當前河道區域子類型 (30% LILY_PAD, 70% LOG)
+        this.currentRiverClusterSubtype = Math.random() < 0.3 ? 'LILY_PAD' : 'LOG';
+        this.lastLilyPadGridXs = null;
         break;
       case CONFIG.ROW_TYPES.RAILROAD:
         this.clusterRemaining = 1;
+        this.lastLilyPadGridXs = null;
         break;
     }
 
@@ -231,6 +242,19 @@ export class MapGenerator {
     const speedRange = THREE.MathUtils.lerp(1.2, 2.3, zProgress);
     rowData.speed = minSpeed + Math.random() * speedRange;
 
+    // 鄰接河道與車道防同步卡死演算法 (River-Road Anti-Locking Algorithm)
+    const adjRowRoad = this.activeRows.get(rowData.z - 1) || this.activeRows.get(rowData.z + 1);
+    if (adjRowRoad && adjRowRoad.type === CONFIG.ROW_TYPES.RIVER) {
+      if (Math.random() < 0.8) {
+        rowData.direction = -adjRowRoad.direction;
+      }
+      if (rowData.direction === adjRowRoad.direction) {
+        if (Math.abs(rowData.speed - adjRowRoad.speed) < 2.2) {
+          rowData.speed = adjRowRoad.speed + 2.2;
+        }
+      }
+    }
+
     // 車輛間隔：Z = 70 步保持 6.5 ~ 9.5 格大空檔，極高分最少保持 4.5 格 (永遠有安全空間過街)
     const isTruck = Math.random() < (0.15 + zProgress * 0.2);
     const vehicleWidth = isTruck ? 2.3 : 1.8;
@@ -263,31 +287,23 @@ export class MapGenerator {
     }
   }
 
-  buildRiverRow(rowData, rowGroup) {
-    const lane = new THREE.Mesh(this.laneGeo, this.riverMat);
-    lane.position.y = -0.05;
-    rowGroup.add(lane);
-
-    // 📈 漸進式難度權重
-    const zProgress = Math.min(1.0, Math.max(0, (rowData.z || 0) / 220.0));
-
-    // 🪵 連續河道交錯演算法：相鄰河道 100% 強制反向，並保持 1.2 單位/秒以上速差
-    if (this.lastRiverDirection !== undefined) {
-      rowData.direction = -this.lastRiverDirection;
+  upgradeRiverRowLogs(targetRowData) {
+    if (!targetRowData || targetRowData.type !== CONFIG.ROW_TYPES.RIVER || targetRowData.isPureLilyPadRow) {
+      return;
     }
-    this.lastRiverDirection = rowData.direction;
 
-    let speed = THREE.MathUtils.lerp(1.5, 3.2, zProgress) + Math.random() * 1.0;
-    if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1.0) {
-      speed += 1.2;
+    if (targetRowData.logs) {
+      targetRowData.logs.forEach((log) => {
+        if (log.mesh) {
+          targetRowData.mesh.remove(log.mesh);
+        }
+      });
     }
-    rowData.speed = speed;
-    this.lastRiverSpeed = rowData.speed;
+    targetRowData.logs = [];
 
-    // 前期浮木數量增加 (間距緊密 1.2~1.8 格，長度 3~4 格方便踏躍)
-    const logLength = zProgress < 0.5 ? (Math.floor(Math.random() * 2) + 3) : (Math.floor(Math.random() * 2) + 2);
-    const minLogGap = THREE.MathUtils.lerp(1.2, 2.2, zProgress);
-    const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + Math.random() * 1.2);
+    const logLength = Math.floor(Math.random() * 2) + 3; // 3 ~ 4 格大浮木
+    const minLogGap = 1.0 + Math.random() * 0.3; // 1.0 ~ 1.3 格高密度間距
+    const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * minLogGap;
     const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
     const count = Math.floor(totalSpan / logSpan);
 
@@ -295,12 +311,134 @@ export class MapGenerator {
       const mesh = createLogMesh(logLength);
       const startX = -totalSpan / 2 + i * logSpan;
       mesh.position.set(startX, 0.1, 0);
-
-      // 浮木長軸橫向平躺擺放於 X 軸河道
       mesh.rotation.y = Math.PI / 2;
 
-      rowGroup.add(mesh);
-      rowData.logs.push({ mesh, length: logLength });
+      targetRowData.mesh.add(mesh);
+      targetRowData.logs.push({ mesh, length: logLength });
+    }
+    targetRowData.isUpgraded = true;
+  }
+
+  buildRiverRow(rowData, rowGroup) {
+    const lane = new THREE.Mesh(this.laneGeo, this.riverMat);
+    lane.position.y = -0.05;
+    rowGroup.add(lane);
+
+    // 1. 檢查前一行 z-1 是否為綠色睡蓮踏板河道 (adjRowPrevIsLilyPad)
+    const prevRow = this.activeRows.get(rowData.z - 1);
+    const adjRowPrevIsLilyPad = Boolean(
+      prevRow &&
+      prevRow.type === CONFIG.ROW_TYPES.RIVER &&
+      (prevRow.isLilyPadRow || prevRow.isPureLilyPadRow)
+    );
+
+    // 2 & 3. 判定當前列 z 是否為單列純靜態綠色平台踏板河道 (No Consecutive Lily-Pad Rows Constraint)
+    let isPureLilyPadRow = false;
+
+    if (adjRowPrevIsLilyPad) {
+      // 若 z-1 已經是綠色睡蓮踏板河道 (adjRowPrevIsLilyPad === true)：100% 強制為【動態浮木河道】，絕不允許連續兩列都是綠色平台！
+      isPureLilyPadRow = false;
+    } else {
+      // 若 z-1 不是睡蓮河道：當前列有 35% 機率為單列【純靜態綠色平台踏板河道】
+      isPureLilyPadRow = Math.random() < 0.35;
+    }
+
+    rowData.isLilyPadRow = isPureLilyPadRow;
+    rowData.isPureLilyPadRow = isPureLilyPadRow;
+
+    if (isPureLilyPadRow) {
+      // 生成 3 ~ 5 個靜態綠色睡蓮平台 (createLilyPadMesh)，定點擺放於 -4 ~ +4 步道範圍內
+      const padCount = Math.floor(Math.random() * 3) + 3; // 3 ~ 5 個
+      const playableRange = 4; // -4 ~ +4 步道範圍
+      const usedXs = new Set();
+
+      while (usedXs.size < padCount) {
+        const gridX = Math.floor(Math.random() * (playableRange * 2 + 1)) - playableRange;
+        usedXs.add(gridX);
+      }
+
+      for (const gridX of usedXs) {
+        const padMesh = createLilyPadMesh();
+        padMesh.position.set(gridX * CONFIG.GRID_SIZE, 0.1, 0);
+        rowGroup.add(padMesh);
+
+        rowData.logs.push({
+          mesh: padMesh,
+          length: 1,
+          isStationary: true,
+          speed: 0
+        });
+      }
+
+      // 同時自動將前一行 (z-1) 的動態浮木升級為 3~4 格大浮木與 1.0~1.3 格高密度間距
+      if (prevRow && prevRow.type === CONFIG.ROW_TYPES.RIVER && !prevRow.isPureLilyPadRow) {
+        this.upgradeRiverRowLogs(prevRow);
+      }
+    } else {
+      // 當前列為【動態浮木河道】 (isPureLilyPadRow = false)
+      this.lastLilyPadGridXs = null;
+
+      // 📈 漸進式難度權重
+      const zProgress = Math.min(1.0, Math.max(0, (rowData.z || 0) / 220.0));
+
+      // 🪵 連續河道交錯演算法：相鄰河道 100% 強制反向，並保持 1.2 單位/秒以上速差
+      if (this.lastRiverDirection !== undefined) {
+        rowData.direction = -this.lastRiverDirection;
+      }
+      this.lastRiverDirection = rowData.direction;
+
+      let speed = THREE.MathUtils.lerp(1.5, 3.2, zProgress) + Math.random() * 1.0;
+      if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1.0) {
+        speed += 1.2;
+      }
+      rowData.speed = speed;
+
+      // 鄰接河道與車道防同步卡死演算法 (River-Road Anti-Locking Algorithm)
+      const adjRowRoad = this.activeRows.get(rowData.z - 1) || this.activeRows.get(rowData.z + 1);
+      if (adjRowRoad && adjRowRoad.type === CONFIG.ROW_TYPES.ROAD) {
+        if (Math.random() < 0.8) {
+          rowData.direction = -adjRowRoad.direction;
+        }
+        if (rowData.direction === adjRowRoad.direction) {
+          if (Math.abs(rowData.speed - adjRowRoad.speed) < 2.2) {
+            rowData.speed = adjRowRoad.speed + 2.2;
+          }
+        }
+      }
+
+      this.lastRiverSpeed = rowData.speed;
+
+      // 檢查前一行或下一行是否為睡蓮列
+      const nextRow = this.activeRows.get(rowData.z + 1);
+      const isAdjacentToLilyPad = adjRowPrevIsLilyPad || Boolean(nextRow && nextRow.type === CONFIG.ROW_TYPES.RIVER && (nextRow.isLilyPadRow || nextRow.isPureLilyPadRow));
+
+      let logLength, minLogGap, gapRandomRange;
+      if (isAdjacentToLilyPad) {
+        // 相鄰睡蓮列升級為 3~4 格大浮木與 1.0~1.3 格高密度間距
+        logLength = Math.floor(Math.random() * 2) + 3; // 3 ~ 4 格
+        minLogGap = 1.0 + Math.random() * 0.3; // 1.0 ~ 1.3 格
+        gapRandomRange = 0;
+      } else {
+        logLength = zProgress < 0.5 ? (Math.floor(Math.random() * 2) + 3) : (Math.floor(Math.random() * 2) + 2);
+        minLogGap = THREE.MathUtils.lerp(1.2, 2.2, zProgress);
+        gapRandomRange = 1.2;
+      }
+
+      const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + Math.random() * gapRandomRange);
+      const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
+      const count = Math.floor(totalSpan / logSpan);
+
+      for (let i = 0; i < count; i++) {
+        const mesh = createLogMesh(logLength);
+        const startX = -totalSpan / 2 + i * logSpan;
+        mesh.position.set(startX, 0.1, 0);
+
+        // 浮木長軸橫向平躺擺放於 X 軸河道
+        mesh.rotation.y = Math.PI / 2;
+
+        rowGroup.add(mesh);
+        rowData.logs.push({ mesh, length: logLength });
+      }
     }
   }
 
@@ -353,6 +491,7 @@ export class MapGenerator {
 
       if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
         row.logs.forEach((log) => {
+          if (log.isStationary) return;
           log.mesh.position.x += row.direction * row.speed * safeDelta;
           if (row.direction === 1 && log.mesh.position.x > boundX) {
             log.mesh.position.x = -boundX;

@@ -28,7 +28,7 @@ export class Physics {
         const halfV = vWidth / 2;
 
         if (pX + pWidth > vX - halfV && pX - pWidth < vX + halfV) {
-          return { type: 'car' };
+          return { type: 'car', speed: Math.abs(row.speed || 0) };
         }
       }
     }
@@ -40,7 +40,7 @@ export class Physics {
       const halfT = tWidth / 2;
 
       if (pX + pWidth > tX - halfT && pX - pWidth < tX + halfT) {
-        return { type: 'train' };
+        return { type: 'train', speed: 38.0 };
       }
     }
 
@@ -60,9 +60,23 @@ export class Physics {
     const pWidth = 0.3 * CONFIG.GRID_SIZE;
 
     if (row.logs) {
+      // 1. 優先檢查靜態睡蓮踏板 (Stationary Lily Pads - 避風港優先)
       for (const log of row.logs) {
+        if (!log.isStationary) continue;
         const lX = log.mesh.position.x;
-        const lWidth = (log.length || 3) * CONFIG.GRID_SIZE * 0.95;
+        const lWidth = (log.length || 1) * CONFIG.GRID_SIZE * 1.15;
+        const halfL = lWidth / 2;
+
+        if (pX + pWidth >= lX - halfL && pX - pWidth <= lX + halfL) {
+          return { inRiver: true, onLog: true, logSpeed: 0 };
+        }
+      }
+
+      // 2. 次要檢查一般動態浮木 (Moving Logs)
+      for (const log of row.logs) {
+        if (log.isStationary) continue;
+        const lX = log.mesh.position.x;
+        const lWidth = (log.length || 3) * CONFIG.GRID_SIZE * 1.15;
         const halfL = lWidth / 2;
 
         if (pX + pWidth >= lX - halfL && pX - pWidth <= lX + halfL) {

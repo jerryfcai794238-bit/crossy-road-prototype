@@ -13,6 +13,9 @@ export class UIManager {
     this.finalBestEl = document.getElementById('final-best');
     this.deathReasonEl = document.getElementById('death-reason');
 
+    this.healthBarFill = document.getElementById('health-bar-fill');
+    this.healthBarText = document.getElementById('health-bar-text');
+
     let savedHighScore = 0;
     try {
       savedHighScore = parseInt(localStorage.getItem('crossy_highscore') || '0', 10);
@@ -83,6 +86,17 @@ export class UIManager {
       }
     }
     if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
+  }
+
+  updateHealth(hp, maxHp = 100) {
+    const currentHp = Math.max(0, Math.min(maxHp, hp));
+    const percentage = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));
+    if (this.healthBarFill) {
+      this.healthBarFill.style.width = `${percentage}%`;
+    }
+    if (this.healthBarText) {
+      this.healthBarText.innerText = `${Math.round(currentHp)}/${maxHp}`;
+    }
   }
 
   showGameOver(score, reason = '被車撞飛了！') {

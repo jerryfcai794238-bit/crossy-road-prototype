@@ -145,6 +145,21 @@ export function createLog(lengthInGrids = 3) {
   return group;
 }
 
+// 6.5. 睡蓮體素踏板 (Lily Pad)
+export function createLilyPadMesh() {
+  const group = new THREE.Group();
+
+  const base = createCube(0.85, 0.08, 0.85, 0x2ecc71);
+  base.position.y = 0.08;
+
+  const center = createCube(0.45, 0.08, 0.45, 0x27ae60);
+  center.position.y = 0.08;
+
+  group.add(base, center);
+  group.length = 1;
+  return group;
+}
+
 // 7. 老鷹體素模型 (Eagle)
 export function createEagle() {
   const group = new THREE.Group();

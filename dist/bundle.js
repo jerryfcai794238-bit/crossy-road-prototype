@@ -19404,6 +19404,16 @@
     group.length = lengthInGrids;
     return group;
   }
+  function createLilyPadMesh() {
+    const group = new Group();
+    const base = createCube(0.85, 0.08, 0.85, 3066993);
+    base.position.y = 0.08;
+    const center = createCube(0.45, 0.08, 0.45, 2600544);
+    center.position.y = 0.08;
+    group.add(base, center);
+    group.length = 1;
+    return group;
+  }
   function createEagle() {
     const group = new Group();
     const body = createCube(1, 0.6, 1.2, 4863784);
@@ -19465,6 +19475,10 @@
       this.minAllowedZ = -4;
       this.isDead = false;
       this.isRespawning = false;
+      this.hp = 100;
+      this.maxHp = 100;
+      this.isInvulnerable = false;
+      this.invulnerableTimer = 0;
       this.inputBuffer = [];
     }
     reset() {
@@ -19479,6 +19493,9 @@
       this.jumpProgress = 0;
       this.isDead = false;
       this.isRespawning = false;
+      this.hp = 100;
+      this.isInvulnerable = false;
+      this.invulnerableTimer = 0;
       this.inputBuffer = [];
       this.position.set(0, 0, 0);
       this.startPosition.set(0, 0, 0);
@@ -19602,12 +19619,32 @@
           this.position.y = Math.sin(this.jumpProgress * Math.PI) * this.jumpHeight;
         }
       }
+      if (this.isInvulnerable) {
+        this.invulnerableTimer -= safeDelta;
+        if (this.invulnerableTimer <= 0) {
+          this.invulnerableTimer = 0;
+          this.isInvulnerable = false;
+          if (this.mesh) this.mesh.visible = true;
+        } else if (this.mesh) {
+          this.mesh.visible = Math.floor(this.invulnerableTimer * 20) % 2 === 0;
+        }
+      }
       if (!Number.isFinite(this.position.x)) this.position.x = this.gridX * CONFIG.GRID_SIZE;
       if (!Number.isFinite(this.position.y)) this.position.y = 0;
       if (!Number.isFinite(this.position.z)) this.position.z = this.gridZ * CONFIG.GRID_SIZE;
       if (this.mesh && !this.isDead) {
         this.mesh.position.copy(this.position);
       }
+    }
+    takeDamage(amount) {
+      if (this.isInvulnerable || this.isDead) return false;
+      this.hp = Math.max(0, this.hp - amount);
+      if (this.hp <= 0) {
+        return true;
+      }
+      this.isInvulnerable = true;
+      this.invulnerableTimer = 2;
+      return false;
     }
     triggerFlattenAnimation() {
       this.isDead = true;
@@ -19638,6 +19675,8 @@
       this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
       this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
       this.clusterRemaining = 5;
+      this.currentRiverClusterSubtype = null;
+      this.lastLilyPadGridXs = null;
       this.initGeometriesAndMaterials();
     }
     initGeometriesAndMaterials() {
@@ -19676,6 +19715,8 @@
       this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
       this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
       this.clusterRemaining = 5;
+      this.currentRiverClusterSubtype = null;
+      this.lastLilyPadGridXs = null;
     }
     update(playerZ) {
       const targetAheadZ = playerZ + CONFIG.GENERATION_AHEAD;
@@ -19710,15 +19751,20 @@
       switch (nextType) {
         case CONFIG.ROW_TYPES.GRASS:
           this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+          this.lastLilyPadGridXs = null;
           break;
         case CONFIG.ROW_TYPES.ROAD:
           this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+          this.lastLilyPadGridXs = null;
           break;
         case CONFIG.ROW_TYPES.RIVER:
           this.clusterRemaining = Math.floor(Math.random() * 2) + 1;
+          this.currentRiverClusterSubtype = Math.random() < 0.3 ? "LILY_PAD" : "LOG";
+          this.lastLilyPadGridXs = null;
           break;
         case CONFIG.ROW_TYPES.RAILROAD:
           this.clusterRemaining = 1;
+          this.lastLilyPadGridXs = null;
           break;
       }
       return this.currentClusterType;
@@ -19806,6 +19852,17 @@
       const minSpeed = MathUtils.lerp(2, 4.2, zProgress);
       const speedRange = MathUtils.lerp(1.2, 2.3, zProgress);
       rowData.speed = minSpeed + Math.random() * speedRange;
+      const adjRowRoad = this.activeRows.get(rowData.z - 1) || this.activeRows.get(rowData.z + 1);
+      if (adjRowRoad && adjRowRoad.type === CONFIG.ROW_TYPES.RIVER) {
+        if (Math.random() < 0.8) {
+          rowData.direction = -adjRowRoad.direction;
+        }
+        if (rowData.direction === adjRowRoad.direction) {
+          if (Math.abs(rowData.speed - adjRowRoad.speed) < 2.2) {
+            rowData.speed = adjRowRoad.speed + 2.2;
+          }
+        }
+      }
       const isTruck = Math.random() < 0.15 + zProgress * 0.2;
       const vehicleWidth = isTruck ? 2.3 : 1.8;
       const minGapGrids = MathUtils.lerp(7.5, 4.5, zProgress);
@@ -19828,24 +19885,21 @@
         rowData.vehicles.push({ mesh, width: vehicleWidth });
       }
     }
-    buildRiverRow(rowData, rowGroup) {
-      const lane = new Mesh(this.laneGeo, this.riverMat);
-      lane.position.y = -0.05;
-      rowGroup.add(lane);
-      const zProgress = Math.min(1, Math.max(0, (rowData.z || 0) / 220));
-      if (this.lastRiverDirection !== void 0) {
-        rowData.direction = -this.lastRiverDirection;
+    upgradeRiverRowLogs(targetRowData) {
+      if (!targetRowData || targetRowData.type !== CONFIG.ROW_TYPES.RIVER || targetRowData.isPureLilyPadRow) {
+        return;
       }
-      this.lastRiverDirection = rowData.direction;
-      let speed = MathUtils.lerp(1.5, 3.2, zProgress) + Math.random() * 1;
-      if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1) {
-        speed += 1.2;
+      if (targetRowData.logs) {
+        targetRowData.logs.forEach((log) => {
+          if (log.mesh) {
+            targetRowData.mesh.remove(log.mesh);
+          }
+        });
       }
-      rowData.speed = speed;
-      this.lastRiverSpeed = rowData.speed;
-      const logLength = zProgress < 0.5 ? Math.floor(Math.random() * 2) + 3 : Math.floor(Math.random() * 2) + 2;
-      const minLogGap = MathUtils.lerp(1.2, 2.2, zProgress);
-      const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + Math.random() * 1.2);
+      targetRowData.logs = [];
+      const logLength = Math.floor(Math.random() * 2) + 3;
+      const minLogGap = 1 + Math.random() * 0.3;
+      const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * minLogGap;
       const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
       const count = Math.floor(totalSpan / logSpan);
       for (let i = 0; i < count; i++) {
@@ -19853,8 +19907,96 @@
         const startX = -totalSpan / 2 + i * logSpan;
         mesh.position.set(startX, 0.1, 0);
         mesh.rotation.y = Math.PI / 2;
-        rowGroup.add(mesh);
-        rowData.logs.push({ mesh, length: logLength });
+        targetRowData.mesh.add(mesh);
+        targetRowData.logs.push({ mesh, length: logLength });
+      }
+      targetRowData.isUpgraded = true;
+    }
+    buildRiverRow(rowData, rowGroup) {
+      const lane = new Mesh(this.laneGeo, this.riverMat);
+      lane.position.y = -0.05;
+      rowGroup.add(lane);
+      const prevRow = this.activeRows.get(rowData.z - 1);
+      const adjRowPrevIsLilyPad = Boolean(
+        prevRow && prevRow.type === CONFIG.ROW_TYPES.RIVER && (prevRow.isLilyPadRow || prevRow.isPureLilyPadRow)
+      );
+      let isPureLilyPadRow = false;
+      if (adjRowPrevIsLilyPad) {
+        isPureLilyPadRow = false;
+      } else {
+        isPureLilyPadRow = Math.random() < 0.35;
+      }
+      rowData.isLilyPadRow = isPureLilyPadRow;
+      rowData.isPureLilyPadRow = isPureLilyPadRow;
+      if (isPureLilyPadRow) {
+        const padCount = Math.floor(Math.random() * 3) + 3;
+        const playableRange = 4;
+        const usedXs = /* @__PURE__ */ new Set();
+        while (usedXs.size < padCount) {
+          const gridX = Math.floor(Math.random() * (playableRange * 2 + 1)) - playableRange;
+          usedXs.add(gridX);
+        }
+        for (const gridX of usedXs) {
+          const padMesh = createLilyPadMesh();
+          padMesh.position.set(gridX * CONFIG.GRID_SIZE, 0.1, 0);
+          rowGroup.add(padMesh);
+          rowData.logs.push({
+            mesh: padMesh,
+            length: 1,
+            isStationary: true,
+            speed: 0
+          });
+        }
+        if (prevRow && prevRow.type === CONFIG.ROW_TYPES.RIVER && !prevRow.isPureLilyPadRow) {
+          this.upgradeRiverRowLogs(prevRow);
+        }
+      } else {
+        this.lastLilyPadGridXs = null;
+        const zProgress = Math.min(1, Math.max(0, (rowData.z || 0) / 220));
+        if (this.lastRiverDirection !== void 0) {
+          rowData.direction = -this.lastRiverDirection;
+        }
+        this.lastRiverDirection = rowData.direction;
+        let speed = MathUtils.lerp(1.5, 3.2, zProgress) + Math.random() * 1;
+        if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1) {
+          speed += 1.2;
+        }
+        rowData.speed = speed;
+        const adjRowRoad = this.activeRows.get(rowData.z - 1) || this.activeRows.get(rowData.z + 1);
+        if (adjRowRoad && adjRowRoad.type === CONFIG.ROW_TYPES.ROAD) {
+          if (Math.random() < 0.8) {
+            rowData.direction = -adjRowRoad.direction;
+          }
+          if (rowData.direction === adjRowRoad.direction) {
+            if (Math.abs(rowData.speed - adjRowRoad.speed) < 2.2) {
+              rowData.speed = adjRowRoad.speed + 2.2;
+            }
+          }
+        }
+        this.lastRiverSpeed = rowData.speed;
+        const nextRow = this.activeRows.get(rowData.z + 1);
+        const isAdjacentToLilyPad = adjRowPrevIsLilyPad || Boolean(nextRow && nextRow.type === CONFIG.ROW_TYPES.RIVER && (nextRow.isLilyPadRow || nextRow.isPureLilyPadRow));
+        let logLength, minLogGap, gapRandomRange;
+        if (isAdjacentToLilyPad) {
+          logLength = Math.floor(Math.random() * 2) + 3;
+          minLogGap = 1 + Math.random() * 0.3;
+          gapRandomRange = 0;
+        } else {
+          logLength = zProgress < 0.5 ? Math.floor(Math.random() * 2) + 3 : Math.floor(Math.random() * 2) + 2;
+          minLogGap = MathUtils.lerp(1.2, 2.2, zProgress);
+          gapRandomRange = 1.2;
+        }
+        const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + Math.random() * gapRandomRange);
+        const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
+        const count = Math.floor(totalSpan / logSpan);
+        for (let i = 0; i < count; i++) {
+          const mesh = createLogMesh(logLength);
+          const startX = -totalSpan / 2 + i * logSpan;
+          mesh.position.set(startX, 0.1, 0);
+          mesh.rotation.y = Math.PI / 2;
+          rowGroup.add(mesh);
+          rowData.logs.push({ mesh, length: logLength });
+        }
       }
     }
     buildRailroadRow(rowData, rowGroup) {
@@ -19897,6 +20039,7 @@
         }
         if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
           row.logs.forEach((log) => {
+            if (log.isStationary) return;
             log.mesh.position.x += row.direction * row.speed * safeDelta;
             if (row.direction === 1 && log.mesh.position.x > boundX) {
               log.mesh.position.x = -boundX;
@@ -20001,7 +20144,7 @@
           const vWidth = veh.width || 1.8;
           const halfV = vWidth / 2;
           if (pX + pWidth > vX - halfV && pX - pWidth < vX + halfV) {
-            return { type: "car" };
+            return { type: "car", speed: Math.abs(row.speed || 0) };
           }
         }
       }
@@ -20010,7 +20153,7 @@
         const tWidth = 8;
         const halfT = tWidth / 2;
         if (pX + pWidth > tX - halfT && pX - pWidth < tX + halfT) {
-          return { type: "train" };
+          return { type: "train", speed: 38 };
         }
       }
       return null;
@@ -20026,8 +20169,18 @@
       const pWidth = 0.3 * CONFIG.GRID_SIZE;
       if (row.logs) {
         for (const log of row.logs) {
+          if (!log.isStationary) continue;
           const lX = log.mesh.position.x;
-          const lWidth = (log.length || 3) * CONFIG.GRID_SIZE * 0.95;
+          const lWidth = (log.length || 1) * CONFIG.GRID_SIZE * 1.15;
+          const halfL = lWidth / 2;
+          if (pX + pWidth >= lX - halfL && pX - pWidth <= lX + halfL) {
+            return { inRiver: true, onLog: true, logSpeed: 0 };
+          }
+        }
+        for (const log of row.logs) {
+          if (log.isStationary) continue;
+          const lX = log.mesh.position.x;
+          const lWidth = (log.length || 3) * CONFIG.GRID_SIZE * 1.15;
           const halfL = lWidth / 2;
           if (pX + pWidth >= lX - halfL && pX - pWidth <= lX + halfL) {
             return { inRiver: true, onLog: true, logSpeed: row.direction * row.speed };
@@ -20051,6 +20204,8 @@
       this.finalScoreEl = document.getElementById("final-score");
       this.finalBestEl = document.getElementById("final-best");
       this.deathReasonEl = document.getElementById("death-reason");
+      this.healthBarFill = document.getElementById("health-bar-fill");
+      this.healthBarText = document.getElementById("health-bar-text");
       let savedHighScore = 0;
       try {
         savedHighScore = parseInt(localStorage.getItem("crossy_highscore") || "0", 10);
@@ -20112,6 +20267,16 @@
         }
       }
       if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
+    }
+    updateHealth(hp, maxHp = 100) {
+      const currentHp = Math.max(0, Math.min(maxHp, hp));
+      const percentage = Math.max(0, Math.min(100, currentHp / maxHp * 100));
+      if (this.healthBarFill) {
+        this.healthBarFill.style.width = `${percentage}%`;
+      }
+      if (this.healthBarText) {
+        this.healthBarText.innerText = `${Math.round(currentHp)}/${maxHp}`;
+      }
     }
     showGameOver(score, reason = "\u88AB\u8ECA\u649E\u98DB\u4E86\uFF01") {
       if (this.finalScoreEl) this.finalScoreEl.innerText = score;
@@ -20214,6 +20379,7 @@
         this.eagleMesh = null;
       }
       this.player.reset();
+      this.uiManager.updateHealth(this.player.hp);
       this.mapGenerator.initMap();
       this.sceneSetup.resetCamera();
       this.uiManager.updateScore(0);
@@ -20296,9 +20462,14 @@
         this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ });
         if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking) {
           const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
-          if (hitObstacle) {
-            this.player.triggerFlattenAnimation();
-            this.gameOver(hitObstacle.type === "train" ? "\u6158\u906D\u97F3\u901F\u706B\u8ECA\u8F3E\u904E\uFF01" : "\u88AB\u8ECA\u8F1B\u91CD\u649E\u98DB\u4E86\uFF01");
+          if (hitObstacle && !this.player.isInvulnerable) {
+            const damage = hitObstacle.type === "train" ? 70 : Math.min(60, Math.round(hitObstacle.speed * 8 + 10));
+            const isFatal = this.player.takeDamage(damage);
+            this.uiManager.updateHealth(this.player.hp);
+            if (isFatal) {
+              this.player.triggerFlattenAnimation();
+              this.gameOver(hitObstacle.type === "train" ? "\u6158\u906D\u97F3\u901F\u706B\u8ECA\u8F3E\u904E\uFF01" : "\u88AB\u8ECA\u8F1B\u91CD\u649E\u98DB\u4E86\uFF01");
+            }
           }
           const riverStatus = this.physics.checkRiverStatus(this.player, activeRows);
           if (riverStatus.inRiver) {
@@ -20322,7 +20493,7 @@
     }
   };
   window.addEventListener("DOMContentLoaded", () => {
-    new Game();
+    window.game = new Game();
   });
 })();
 /*! Bundled license information:

@@ -26,6 +26,11 @@ export class Player {
     this.isDead = false;
     this.isRespawning = false;
 
+    this.hp = 100;
+    this.maxHp = 100;
+    this.isInvulnerable = false;
+    this.invulnerableTimer = 0;
+
     this.inputBuffer = [];
   }
 
@@ -42,6 +47,9 @@ export class Player {
     this.jumpProgress = 0;
     this.isDead = false;
     this.isRespawning = false;
+    this.hp = 100;
+    this.isInvulnerable = false;
+    this.invulnerableTimer = 0;
     this.inputBuffer = [];
 
     this.position.set(0, 0, 0);
@@ -171,6 +179,18 @@ export class Player {
       }
     }
 
+    // 無敵狀態與 2 秒閃爍處理
+    if (this.isInvulnerable) {
+      this.invulnerableTimer -= safeDelta;
+      if (this.invulnerableTimer <= 0) {
+        this.invulnerableTimer = 0;
+        this.isInvulnerable = false;
+        if (this.mesh) this.mesh.visible = true;
+      } else if (this.mesh) {
+        this.mesh.visible = Math.floor(this.invulnerableTimer * 20) % 2 === 0;
+      }
+    }
+
     // 座標 NaN 安全對齊
     if (!Number.isFinite(this.position.x)) this.position.x = this.gridX * CONFIG.GRID_SIZE;
     if (!Number.isFinite(this.position.y)) this.position.y = 0;
@@ -179,6 +199,17 @@ export class Player {
     if (this.mesh && !this.isDead) {
       this.mesh.position.copy(this.position);
     }
+  }
+
+  takeDamage(amount) {
+    if (this.isInvulnerable || this.isDead) return false;
+    this.hp = Math.max(0, this.hp - amount);
+    if (this.hp <= 0) {
+      return true;
+    }
+    this.isInvulnerable = true;
+    this.invulnerableTimer = 2.0;
+    return false;
   }
 
   triggerFlattenAnimation() {

@@ -8,21 +8,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:,">
 
 </head>
 <body>
   <div id="app">
     <!-- 3D Canvas 容器 -->
     <div id="canvas-container"></div>
-
-    <!-- 頂部能量與計時 UI -->
-    <div id="energy-bar">
-      <div class="energy-pill">
-        <span class="energy-icon">⚡</span>
-        <span id="energy-count">5/5</span>
-        <span id="energy-timer" class="energy-timer-text">已滿</span>
-      </div>
-    </div>
 
     <!-- 頂部 100 HP 紅色長血條 (Red Health Bar) -->
     <div id="health-bar-container">
@@ -99,7 +91,7 @@
           <div class="touch-hint">手機可點擊螢幕 / 虛擬 D-Pad 與 🐌 減速輔助鈕控制</div>
         </div>
 
-        <button id="btn-start" class="btn-primary">進入遊戲 (消耗 1 ⚡)</button>
+        <button id="btn-start" class="btn-primary">進入遊戲</button>
       </div>
     </div>
 
@@ -119,7 +111,7 @@
           </div>
         </div>
         <div class="btn-group">
-          <button id="btn-restart" class="btn-primary">再試一次 (消耗 1 ⚡)</button>
+          <button id="btn-restart" class="btn-primary">再試一次</button>
           <button id="btn-fast-respawn" class="btn-secondary">空投復活 (3秒)</button>
           <button id="btn-lobby" class="btn-secondary">返回大廳</button>
         </div>
