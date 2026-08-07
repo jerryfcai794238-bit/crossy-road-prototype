@@ -62,9 +62,11 @@ class Game {
       else if (key === 's' || key === 'arrowdown') this.handlePlayerInput('DOWN');
       else if (key === 'a' || key === 'arrowleft') this.handlePlayerInput('LEFT');
       else if (key === 'd' || key === 'arrowright') this.handlePlayerInput('RIGHT');
+      else if (key === 'e') this.handleSlowSkill();
     });
 
-    // 虛擬 D-Pad 控制器
+    // 減速技能按鈕與虛擬 D-Pad 控制器
+    document.getElementById('btn-slow')?.addEventListener('click', () => this.handleSlowSkill());
     document.getElementById('btn-up')?.addEventListener('click', () => this.handlePlayerInput('UP'));
     document.getElementById('btn-down')?.addEventListener('click', () => this.handlePlayerInput('DOWN'));
     document.getElementById('btn-left')?.addEventListener('click', () => this.handlePlayerInput('LEFT'));
@@ -72,10 +74,30 @@ class Game {
 
     // 螢幕點擊往前跳
     this.container?.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#hud') || e.target.closest('#leaderboard') || e.target.closest('#mobile-controls') || e.target.closest('.overlay')) return;
+      if (
+        e.target.closest('#hud') ||
+        e.target.closest('#leaderboard') ||
+        e.target.closest('#mobile-controls') ||
+        e.target.closest('.overlay') ||
+        e.target.closest('#btn-slow')
+      ) return;
       if (!this.isGameStarted || this.isGameOver) return;
       this.handlePlayerInput('UP');
     });
+  }
+
+  handleSlowSkill() {
+    if (!this.isGameStarted || this.isGameOver) return;
+    const result = this.mapGenerator.applySlowDown(this.player.gridZ);
+    if (result) {
+      if (result.success) {
+        this.uiManager.updateSlowButton(result.remainingUses, result.slowLevel >= 3);
+      } else {
+        if (result.slowLevel >= 3 || result.remainingUses === 0) {
+          this.uiManager.updateSlowButton(0, true);
+        }
+      }
+    }
   }
 
   handlePlayerInput(direction, distance = 1) {
@@ -110,6 +132,11 @@ class Game {
 
       this.mapGenerator.update(this.player.gridZ);
       this.uiManager.updateScore(this.player.score);
+
+      // 當玩家每移動一步踏上草地時，呼叫 checkSafeZoneReset 重置減速技能使用次數
+      if (this.mapGenerator.checkSafeZoneReset(this.player.gridZ)) {
+        this.uiManager.updateSlowButton(3, false);
+      }
     }
   }
 
@@ -133,6 +160,7 @@ class Game {
 
     this.player.reset();
     this.uiManager.updateHealth(this.player.hp);
+    this.uiManager.updateSlowButton(3, false);
     this.mapGenerator.initMap();
     this.sceneSetup.resetCamera();
     this.uiManager.updateScore(0);

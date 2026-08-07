@@ -179,6 +179,46 @@ body, html {
   border-color: #64748b;
 }
 
+/* 🐌 危險區緩速技能按鈕 (Danger Zone Speed Reduction Skill Button) */
+.slow-skill-btn {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  z-index: 30;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  border: 2.5px solid #74b9ff;
+  border-radius: 24px;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 900;
+  font-family: var(--font-family);
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(116, 185, 255, 0.5), 0 8px 24px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+.slow-skill-btn:hover {
+  transform: scale(1.06);
+  border-color: #a0c4ff;
+  box-shadow: 0 0 24px rgba(116, 185, 255, 0.8), 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+.slow-skill-btn:active {
+  transform: scale(0.95);
+}
+
+.slow-skill-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #64748b;
+  box-shadow: none;
+}
+
 /* HUD 分數 */
 #hud {
   position: absolute;
@@ -543,6 +583,10 @@ body, html {
 @media (max-width: 768px) {
   #mobile-controls {
     display: flex;
+  }
+  .slow-skill-btn {
+    bottom: 165px;
+    right: 24px;
   }
 }
 

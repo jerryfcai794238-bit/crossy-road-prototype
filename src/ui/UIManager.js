@@ -15,6 +15,7 @@ export class UIManager {
 
     this.healthBarFill = document.getElementById('health-bar-fill');
     this.healthBarText = document.getElementById('health-bar-text');
+    this.btnSlow = document.getElementById('btn-slow');
 
     let savedHighScore = 0;
     try {
@@ -49,6 +50,17 @@ export class UIManager {
     if (this.btnStart) this.btnStart.addEventListener('click', () => onStart(this.selectedMode));
     if (this.btnRestart) this.btnRestart.addEventListener('click', () => onRestart(this.selectedMode));
     if (this.btnLobby) this.btnLobby.addEventListener('click', () => onReturnLobby());
+  }
+
+  updateSlowButton(remainingUses, isMax = false) {
+    if (!this.btnSlow) return;
+    if (isMax || remainingUses <= 0) {
+      this.btnSlow.innerText = '🐌 減速 (已達上限)';
+      this.btnSlow.classList.add('disabled');
+    } else {
+      this.btnSlow.innerText = `🐌 減速 (${remainingUses}/3)`;
+      this.btnSlow.classList.remove('disabled');
+    }
   }
 
   showLobby() {

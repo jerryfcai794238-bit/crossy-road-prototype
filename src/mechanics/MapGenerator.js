@@ -22,6 +22,8 @@ export class MapGenerator {
     this.clusterRemaining = 5;
     this.currentRiverClusterSubtype = null;
     this.lastLilyPadGridXs = null;
+    this.currentClusterObj = null;
+    this.clusterCounter = 0;
 
     this.initGeometriesAndMaterials();
   }
@@ -73,6 +75,8 @@ export class MapGenerator {
     this.clusterRemaining = 5;
     this.currentRiverClusterSubtype = null;
     this.lastLilyPadGridXs = null;
+    this.currentClusterObj = null;
+    this.clusterCounter = 0;
   }
 
   update(playerZ) {
@@ -112,6 +116,18 @@ export class MapGenerator {
     }
 
     this.currentClusterType = nextType;
+
+    if (nextType !== CONFIG.ROW_TYPES.GRASS) {
+      this.clusterCounter++;
+      this.currentClusterObj = {
+        id: this.clusterCounter,
+        type: nextType,
+        slowLevel: 0,
+        rows: []
+      };
+    } else {
+      this.currentClusterObj = null;
+    }
 
     switch (nextType) {
       case CONFIG.ROW_TYPES.GRASS:
@@ -155,6 +171,20 @@ export class MapGenerator {
       direction: Math.random() > 0.5 ? 1 : -1,
       speed: 0
     };
+
+    if (type !== CONFIG.ROW_TYPES.GRASS) {
+      if (!this.currentClusterObj || this.currentClusterObj.type !== type) {
+        this.clusterCounter++;
+        this.currentClusterObj = {
+          id: this.clusterCounter,
+          type,
+          slowLevel: 0,
+          rows: []
+        };
+      }
+      rowData.cluster = this.currentClusterObj;
+      this.currentClusterObj.rows.push(rowData);
+    }
 
     switch (type) {
       case CONFIG.ROW_TYPES.GRASS:
@@ -512,7 +542,7 @@ export class MapGenerator {
           }
           if (row.idleTimer <= 0) {
             row.trainState = 'SIGNAL_FLASHING';
-            row.warningTimer = 2.0;
+            row.warningTimer = row.warningDuration || 2.0;
             row.flashTick = 0;
           }
         } else if (row.trainState === 'SIGNAL_FLASHING') {
@@ -540,6 +570,10 @@ export class MapGenerator {
               trainMesh.rotation.y = -Math.PI / 2;
             }
 
+            if (row.cluster && row.cluster.slowLevel > 0) {
+              this.updateMeshSlowTrail(trainMesh, row.direction, row.cluster.slowLevel);
+            }
+
             row.mesh.add(trainMesh);
             row.train = trainMesh;
           }
@@ -554,7 +588,8 @@ export class MapGenerator {
             });
           }
 
-          row.train.position.x += row.direction * 38.0 * safeDelta;
+          const trainSpeed = 38.0 * (row.trainSpeedMult || 1.0);
+          row.train.position.x += row.direction * trainSpeed * safeDelta;
           if (Math.abs(row.train.position.x) > boundX * 2.0) {
             row.mesh.remove(row.train);
             row.train = null;
@@ -572,9 +607,148 @@ export class MapGenerator {
     }
   }
 
+  applySlowDown(playerZ) {
+    let targetCluster = null;
+
+    // 1. 判斷玩家目前站在哪一列
+    const playerRow = this.activeRows.get(playerZ);
+    if (playerRow && playerRow.type !== CONFIG.ROW_TYPES.GRASS && playerRow.cluster) {
+      targetCluster = playerRow.cluster;
+    } else {
+      // 2. 玩家站在草地：尋找玩家前方最近的下一個危險區 (z > playerZ)
+      let minAheadZ = Infinity;
+      for (const [z, row] of this.activeRows.entries()) {
+        if (z > playerZ && row.type !== CONFIG.ROW_TYPES.GRASS && row.cluster) {
+          if (z < minAheadZ) {
+            minAheadZ = z;
+            targetCluster = row.cluster;
+          }
+        }
+      }
+    }
+
+    if (!targetCluster) {
+      return { success: false, slowLevel: 0, remainingUses: 3 };
+    }
+
+    if (targetCluster.slowLevel >= 3) {
+      return { success: false, slowLevel: 3, remainingUses: 0 };
+    }
+
+    targetCluster.slowLevel += 1;
+    const slowLevel = targetCluster.slowLevel;
+
+    // 套用減速與冰藍色拖尾特效
+    this.applyClusterSlowEffects(targetCluster);
+
+    return {
+      success: true,
+      slowLevel,
+      remainingUses: 3 - slowLevel
+    };
+  }
+
+  checkSafeZoneReset(playerZ) {
+    const row = this.activeRows.get(playerZ);
+    if (row && row.type === CONFIG.ROW_TYPES.GRASS) {
+      return true;
+    }
+    return false;
+  }
+
+  applyClusterSlowEffects(cluster) {
+    const mult = 1 - 0.15 * cluster.slowLevel;
+
+    for (const row of cluster.rows) {
+      if (row.baseSpeed === undefined) {
+        row.baseSpeed = row.speed || 3.0;
+      }
+      row.speed = row.baseSpeed * mult;
+
+      // 如果是火車列
+      if (row.type === CONFIG.ROW_TYPES.RAILROAD) {
+        row.trainSpeedMult = mult;
+        row.warningDuration = 2.0 * (1 + 0.15 * cluster.slowLevel);
+        if (row.train) {
+          this.updateMeshSlowTrail(row.train, row.direction, cluster.slowLevel);
+        }
+      }
+
+      // 如果是馬路車輛
+      if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
+        row.vehicles.forEach((veh) => {
+          this.updateMeshSlowTrail(veh.mesh, row.direction, cluster.slowLevel);
+        });
+      }
+
+      // 如果是河流浮木
+      if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
+        row.logs.forEach((log) => {
+          if (!log.isStationary) {
+            this.updateMeshSlowTrail(log.mesh, row.direction, cluster.slowLevel, true);
+          }
+        });
+      }
+    }
+  }
+
+  updateMeshSlowTrail(mesh, direction, slowLevel, isLog = false) {
+    if (!mesh) return;
+
+    const existing = mesh.getObjectByName('slowTrailGroup');
+    if (existing) {
+      mesh.remove(existing);
+    }
+
+    if (slowLevel <= 0) return;
+
+    const trailGroup = new THREE.Group();
+    trailGroup.name = 'slowTrailGroup';
+
+    const lineMat = new THREE.MeshBasicMaterial({
+      color: 0x74b9ff,
+      transparent: true,
+      opacity: 0.85
+    });
+
+    const trailCount = Math.min(3, slowLevel);
+
+    if (isLog) {
+      const sign = direction === 1 ? -1 : 1;
+      const logDepth = mesh.length ? mesh.length * CONFIG.GRID_SIZE * 0.45 : 1.2;
+
+      for (let i = 0; i < trailCount; i++) {
+        const trailLen = 0.4 + (i + 1) * 0.35 * slowLevel;
+        const trailGeo = new THREE.BoxGeometry(0.12, 0.05, trailLen);
+        const trailMesh = new THREE.Mesh(trailGeo, lineMat);
+        const offsetX = (i - (trailCount - 1) / 2) * 0.25;
+        const offsetZ = sign * (logDepth + trailLen / 2 + i * 0.15);
+        trailMesh.position.set(offsetX, 0.05, offsetZ);
+        trailGroup.add(trailMesh);
+      }
+    } else {
+      const rearOffset = -1.0;
+      for (let i = 0; i < trailCount; i++) {
+        const trailLen = 0.5 + (i + 1) * 0.35 * slowLevel;
+        const trailGeo = new THREE.BoxGeometry(0.1, 0.08, trailLen);
+        const trailMesh = new THREE.Mesh(trailGeo, lineMat);
+        const offsetX = (i - (trailCount - 1) / 2) * 0.35;
+        const offsetZ = rearOffset - trailLen / 2 - i * 0.2;
+        const offsetY = 0.2 + (i % 2) * 0.1;
+        trailMesh.position.set(offsetX, offsetY, offsetZ);
+        trailGroup.add(trailMesh);
+      }
+    }
+
+    mesh.add(trailGroup);
+  }
+
   removeRow(z, row) {
     if (row && row.mesh) {
       this.scene.remove(row.mesh);
+    }
+    if (row && row.cluster && row.cluster.rows) {
+      row.cluster.rows = row.cluster.rows.filter((r) => r !== row);
     }
     this.activeRows.delete(z);
   }

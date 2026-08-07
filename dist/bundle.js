@@ -19677,6 +19677,8 @@
       this.clusterRemaining = 5;
       this.currentRiverClusterSubtype = null;
       this.lastLilyPadGridXs = null;
+      this.currentClusterObj = null;
+      this.clusterCounter = 0;
       this.initGeometriesAndMaterials();
     }
     initGeometriesAndMaterials() {
@@ -19717,6 +19719,8 @@
       this.clusterRemaining = 5;
       this.currentRiverClusterSubtype = null;
       this.lastLilyPadGridXs = null;
+      this.currentClusterObj = null;
+      this.clusterCounter = 0;
     }
     update(playerZ) {
       const targetAheadZ = playerZ + CONFIG.GENERATION_AHEAD;
@@ -19748,6 +19752,17 @@
         nextType = CONFIG.ROW_TYPES.GRASS;
       }
       this.currentClusterType = nextType;
+      if (nextType !== CONFIG.ROW_TYPES.GRASS) {
+        this.clusterCounter++;
+        this.currentClusterObj = {
+          id: this.clusterCounter,
+          type: nextType,
+          slowLevel: 0,
+          rows: []
+        };
+      } else {
+        this.currentClusterObj = null;
+      }
       switch (nextType) {
         case CONFIG.ROW_TYPES.GRASS:
           this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
@@ -19786,6 +19801,19 @@
         direction: Math.random() > 0.5 ? 1 : -1,
         speed: 0
       };
+      if (type !== CONFIG.ROW_TYPES.GRASS) {
+        if (!this.currentClusterObj || this.currentClusterObj.type !== type) {
+          this.clusterCounter++;
+          this.currentClusterObj = {
+            id: this.clusterCounter,
+            type,
+            slowLevel: 0,
+            rows: []
+          };
+        }
+        rowData.cluster = this.currentClusterObj;
+        this.currentClusterObj.rows.push(rowData);
+      }
       switch (type) {
         case CONFIG.ROW_TYPES.GRASS:
           this.buildGrassRow(rowData, rowGroup, isInitialSafe);
@@ -20059,7 +20087,7 @@
             }
             if (row.idleTimer <= 0) {
               row.trainState = "SIGNAL_FLASHING";
-              row.warningTimer = 2;
+              row.warningTimer = row.warningDuration || 2;
               row.flashTick = 0;
             }
           } else if (row.trainState === "SIGNAL_FLASHING") {
@@ -20082,6 +20110,9 @@
               } else {
                 trainMesh.rotation.y = -Math.PI / 2;
               }
+              if (row.cluster && row.cluster.slowLevel > 0) {
+                this.updateMeshSlowTrail(trainMesh, row.direction, row.cluster.slowLevel);
+              }
               row.mesh.add(trainMesh);
               row.train = trainMesh;
             }
@@ -20094,7 +20125,8 @@
                 sig.rightLightMat.color.setHex(isLeftOn ? 4456448 : 16711680);
               });
             }
-            row.train.position.x += row.direction * 38 * safeDelta;
+            const trainSpeed = 38 * (row.trainSpeedMult || 1);
+            row.train.position.x += row.direction * trainSpeed * safeDelta;
             if (Math.abs(row.train.position.x) > boundX * 2) {
               row.mesh.remove(row.train);
               row.train = null;
@@ -20111,9 +20143,120 @@
         }
       }
     }
+    applySlowDown(playerZ) {
+      let targetCluster = null;
+      const playerRow = this.activeRows.get(playerZ);
+      if (playerRow && playerRow.type !== CONFIG.ROW_TYPES.GRASS && playerRow.cluster) {
+        targetCluster = playerRow.cluster;
+      } else {
+        let minAheadZ = Infinity;
+        for (const [z, row] of this.activeRows.entries()) {
+          if (z > playerZ && row.type !== CONFIG.ROW_TYPES.GRASS && row.cluster) {
+            if (z < minAheadZ) {
+              minAheadZ = z;
+              targetCluster = row.cluster;
+            }
+          }
+        }
+      }
+      if (!targetCluster) {
+        return { success: false, slowLevel: 0, remainingUses: 3 };
+      }
+      if (targetCluster.slowLevel >= 3) {
+        return { success: false, slowLevel: 3, remainingUses: 0 };
+      }
+      targetCluster.slowLevel += 1;
+      const slowLevel = targetCluster.slowLevel;
+      this.applyClusterSlowEffects(targetCluster);
+      return {
+        success: true,
+        slowLevel,
+        remainingUses: 3 - slowLevel
+      };
+    }
+    checkSafeZoneReset(playerZ) {
+      const row = this.activeRows.get(playerZ);
+      if (row && row.type === CONFIG.ROW_TYPES.GRASS) {
+        return true;
+      }
+      return false;
+    }
+    applyClusterSlowEffects(cluster) {
+      const mult = 1 - 0.15 * cluster.slowLevel;
+      for (const row of cluster.rows) {
+        if (row.baseSpeed === void 0) {
+          row.baseSpeed = row.speed || 3;
+        }
+        row.speed = row.baseSpeed * mult;
+        if (row.type === CONFIG.ROW_TYPES.RAILROAD) {
+          row.trainSpeedMult = mult;
+          row.warningDuration = 2 * (1 + 0.15 * cluster.slowLevel);
+          if (row.train) {
+            this.updateMeshSlowTrail(row.train, row.direction, cluster.slowLevel);
+          }
+        }
+        if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
+          row.vehicles.forEach((veh) => {
+            this.updateMeshSlowTrail(veh.mesh, row.direction, cluster.slowLevel);
+          });
+        }
+        if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
+          row.logs.forEach((log) => {
+            if (!log.isStationary) {
+              this.updateMeshSlowTrail(log.mesh, row.direction, cluster.slowLevel, true);
+            }
+          });
+        }
+      }
+    }
+    updateMeshSlowTrail(mesh, direction, slowLevel, isLog = false) {
+      if (!mesh) return;
+      const existing = mesh.getObjectByName("slowTrailGroup");
+      if (existing) {
+        mesh.remove(existing);
+      }
+      if (slowLevel <= 0) return;
+      const trailGroup = new Group();
+      trailGroup.name = "slowTrailGroup";
+      const lineMat = new MeshBasicMaterial({
+        color: 7649791,
+        transparent: true,
+        opacity: 0.85
+      });
+      const trailCount = Math.min(3, slowLevel);
+      if (isLog) {
+        const sign = direction === 1 ? -1 : 1;
+        const logDepth = mesh.length ? mesh.length * CONFIG.GRID_SIZE * 0.45 : 1.2;
+        for (let i = 0; i < trailCount; i++) {
+          const trailLen = 0.4 + (i + 1) * 0.35 * slowLevel;
+          const trailGeo = new BoxGeometry(0.12, 0.05, trailLen);
+          const trailMesh = new Mesh(trailGeo, lineMat);
+          const offsetX = (i - (trailCount - 1) / 2) * 0.25;
+          const offsetZ = sign * (logDepth + trailLen / 2 + i * 0.15);
+          trailMesh.position.set(offsetX, 0.05, offsetZ);
+          trailGroup.add(trailMesh);
+        }
+      } else {
+        const rearOffset = -1;
+        for (let i = 0; i < trailCount; i++) {
+          const trailLen = 0.5 + (i + 1) * 0.35 * slowLevel;
+          const trailGeo = new BoxGeometry(0.1, 0.08, trailLen);
+          const trailMesh = new Mesh(trailGeo, lineMat);
+          const offsetX = (i - (trailCount - 1) / 2) * 0.35;
+          const offsetZ = rearOffset - trailLen / 2 - i * 0.2;
+          const offsetY = 0.2 + i % 2 * 0.1;
+          trailMesh.position.set(offsetX, offsetY, offsetZ);
+          trailGroup.add(trailMesh);
+        }
+      }
+      mesh.add(trailGroup);
+    }
     removeRow(z, row) {
       if (row && row.mesh) {
         this.scene.remove(row.mesh);
+      }
+      if (row && row.cluster && row.cluster.rows) {
+        row.cluster.rows = row.cluster.rows.filter((r) => r !== row);
       }
       this.activeRows.delete(z);
     }
@@ -20206,6 +20349,7 @@
       this.deathReasonEl = document.getElementById("death-reason");
       this.healthBarFill = document.getElementById("health-bar-fill");
       this.healthBarText = document.getElementById("health-bar-text");
+      this.btnSlow = document.getElementById("btn-slow");
       let savedHighScore = 0;
       try {
         savedHighScore = parseInt(localStorage.getItem("crossy_highscore") || "0", 10);
@@ -20234,6 +20378,16 @@
       if (this.btnStart) this.btnStart.addEventListener("click", () => onStart(this.selectedMode));
       if (this.btnRestart) this.btnRestart.addEventListener("click", () => onRestart(this.selectedMode));
       if (this.btnLobby) this.btnLobby.addEventListener("click", () => onReturnLobby());
+    }
+    updateSlowButton(remainingUses, isMax = false) {
+      if (!this.btnSlow) return;
+      if (isMax || remainingUses <= 0) {
+        this.btnSlow.innerText = "\u{1F40C} \u6E1B\u901F (\u5DF2\u9054\u4E0A\u9650)";
+        this.btnSlow.classList.add("disabled");
+      } else {
+        this.btnSlow.innerText = `\u{1F40C} \u6E1B\u901F (${remainingUses}/3)`;
+        this.btnSlow.classList.remove("disabled");
+      }
     }
     showLobby() {
       if (this.startOverlay) {
@@ -20327,16 +20481,31 @@
         else if (key === "s" || key === "arrowdown") this.handlePlayerInput("DOWN");
         else if (key === "a" || key === "arrowleft") this.handlePlayerInput("LEFT");
         else if (key === "d" || key === "arrowright") this.handlePlayerInput("RIGHT");
+        else if (key === "e") this.handleSlowSkill();
       });
+      document.getElementById("btn-slow")?.addEventListener("click", () => this.handleSlowSkill());
       document.getElementById("btn-up")?.addEventListener("click", () => this.handlePlayerInput("UP"));
       document.getElementById("btn-down")?.addEventListener("click", () => this.handlePlayerInput("DOWN"));
       document.getElementById("btn-left")?.addEventListener("click", () => this.handlePlayerInput("LEFT"));
       document.getElementById("btn-right")?.addEventListener("click", () => this.handlePlayerInput("RIGHT"));
       this.container?.addEventListener("pointerdown", (e) => {
-        if (e.target.closest("#hud") || e.target.closest("#leaderboard") || e.target.closest("#mobile-controls") || e.target.closest(".overlay")) return;
+        if (e.target.closest("#hud") || e.target.closest("#leaderboard") || e.target.closest("#mobile-controls") || e.target.closest(".overlay") || e.target.closest("#btn-slow")) return;
         if (!this.isGameStarted || this.isGameOver) return;
         this.handlePlayerInput("UP");
       });
+    }
+    handleSlowSkill() {
+      if (!this.isGameStarted || this.isGameOver) return;
+      const result = this.mapGenerator.applySlowDown(this.player.gridZ);
+      if (result) {
+        if (result.success) {
+          this.uiManager.updateSlowButton(result.remainingUses, result.slowLevel >= 3);
+        } else {
+          if (result.slowLevel >= 3 || result.remainingUses === 0) {
+            this.uiManager.updateSlowButton(0, true);
+          }
+        }
+      }
     }
     handlePlayerInput(direction, distance = 1) {
       if (!this.isGameStarted || this.isGameOver) return;
@@ -20362,6 +20531,9 @@
         this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
         this.mapGenerator.update(this.player.gridZ);
         this.uiManager.updateScore(this.player.score);
+        if (this.mapGenerator.checkSafeZoneReset(this.player.gridZ)) {
+          this.uiManager.updateSlowButton(3, false);
+        }
       }
     }
     startGame(mode = "casual") {
@@ -20380,6 +20552,7 @@
       }
       this.player.reset();
       this.uiManager.updateHealth(this.player.hp);
+      this.uiManager.updateSlowButton(3, false);
       this.mapGenerator.initMap();
       this.sceneSetup.resetCamera();
       this.uiManager.updateScore(0);

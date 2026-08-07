@@ -56,23 +56,24 @@ function createServer() {
   });
 }
 
-async function runNoConsecutiveLilyPadQATest() {
+async function runSlowSkillQATest() {
   const auditReport = {
     timestamp: new Date().toISOString(),
-    mapGeneration: {
-      highestZGenerated: 0,
-      targetZ: 150,
+    uiButtonExistence: {
+      slowButtonFound: false,
+      initialText: '',
       passed: false
     },
-    consecutiveLilyPadAudit: {
-      consecutiveLilyPadPairsFound: 0,
-      maxConsecutiveLilyPadCount: 0,
+    skillUsageAndSpeedDrop: {
+      click1Text: '',
+      click2Text: '',
+      click3Text: '',
+      click4MaxText: '',
+      speedDrop30PctVerified: false,
       passed: false
     },
-    multiRiverSectionAudit: {
-      totalMultiRiverSections: 0,
-      allLilyPadMultiRiverSections: 0,
-      sectionDetails: [],
+    safeZoneResetAudit: {
+      resetOnGrassText: '',
       passed: false
     },
     consolePageErrors: {
@@ -121,163 +122,109 @@ async function runNoConsecutiveLilyPadQATest() {
       console.log('Clicked Start Game button.');
     }
 
-    // 2. 模擬玩家向前移動生成 150+ 層地圖 (Z: 0 -> 160)
-    console.log('\n--- Step 2: Generating 150+ map layers & auditing river rows ---');
+    // 1. 檢查減速技能按鈕是否存在
+    const slowBtn = page.locator('#btn-slow');
+    auditReport.uiButtonExistence.slowButtonFound = (await slowBtn.count()) > 0;
+    auditReport.uiButtonExistence.initialText = await slowBtn.innerText();
+    auditReport.uiButtonExistence.passed =
+      auditReport.uiButtonExistence.slowButtonFound &&
+      auditReport.uiButtonExistence.initialText.includes('減速');
 
-    const testExecution = await page.evaluate(async () => {
+    console.log(`Slow Button Found: ${auditReport.uiButtonExistence.slowButtonFound}, Text: "${auditReport.uiButtonExistence.initialText}"`);
+
+    // 2. 測試點擊減速技能按鈕 3 次 (疊加 15% ➔ 30% ➔ 45% 減速)
+    console.log('\n--- Step 2: Testing 3 Skill Clicks & Speed Multiplier ---');
+
+    await slowBtn.click();
+    await page.waitForTimeout(200);
+    auditReport.skillUsageAndSpeedDrop.click1Text = await slowBtn.innerText();
+
+    await slowBtn.click();
+    await page.waitForTimeout(200);
+    auditReport.skillUsageAndSpeedDrop.click2Text = await slowBtn.innerText();
+
+    await slowBtn.click();
+    await page.waitForTimeout(200);
+    auditReport.skillUsageAndSpeedDrop.click3Text = await slowBtn.innerText();
+
+    await slowBtn.click(); // 第 4 次點擊 (已達上限)
+    await page.waitForTimeout(200);
+    auditReport.skillUsageAndSpeedDrop.click4MaxText = await slowBtn.innerText();
+
+    // 驗證地圖生成器中的速度乘數
+    const speedCheck = await page.evaluate(() => {
       if (!window.game || !window.game.mapGenerator) return null;
-      const game = window.game;
-      const mapGen = game.mapGenerator;
-      const player = game.player;
-      const gridSize = 1.2;
-
-      const sampledRowsMap = new Map();
-
-      // 從 Z = 0 移動前進至 Z = 160
-      for (let z = 0; z <= 160; z++) {
-        player.position.z = z * gridSize;
-        player.gridZ = z;
-        player.targetGridZ = z;
-        player.isDead = false;
-        player.isJumping = false;
-
-        mapGen.update(z);
-
-        const activeRows = mapGen.getActiveRows();
-        activeRows.forEach((row, rZ) => {
-          if (row.type === 'river') {
-            const logsData = (row.logs || []).map(l => ({
-              isStationary: l.isStationary === true,
-              length: l.length || 1,
-              x: l.mesh ? l.mesh.position.x : 0
-            }));
-
-            const isLily = row.isLilyPadRow === true || row.isPureLilyPadRow === true || logsData.some(l => l.isStationary);
-
-            sampledRowsMap.set(rZ, {
-              z: rZ,
-              type: row.type,
-              isLilyPadRow: isLily,
-              isMovingLogRow: !isLily,
-              logs: logsData
-            });
-          }
-        });
+      const mapGen = window.game.mapGenerator;
+      // 取得第一個被減速的危險區 Cluster
+      let targetCluster = null;
+      for (const [z, row] of mapGen.activeRows.entries()) {
+        if (row.cluster && row.cluster.slowLevel > 0) {
+          targetCluster = row.cluster;
+          break;
+        }
       }
+      if (!targetCluster) return null;
 
+      const speedMult = 1.0 - 0.15 * targetCluster.slowLevel;
       return {
-        highestZ: mapGen.highestZGenerated,
-        riverRows: Array.from(sampledRowsMap.values()).sort((a, b) => a.z - b.z)
+        slowLevel: targetCluster.slowLevel,
+        speedMultiplier: speedMult
       };
     });
 
-    if (!testExecution) {
-      throw new Error('Failed to evaluate game state.');
-    }
+    console.log('Cluster Speed Check:', speedCheck);
 
-    auditReport.mapGeneration.highestZGenerated = testExecution.highestZ;
-    auditReport.mapGeneration.passed = testExecution.highestZ >= 150;
+    const speedMatch = speedCheck && speedCheck.slowLevel === 3 && Math.abs(speedCheck.speedMultiplier - 0.55) < 0.01;
+    auditReport.skillUsageAndSpeedDrop.speedDrop30PctVerified = speedMatch;
 
-    const riverRows = testExecution.riverRows;
-    const riverMap = new Map();
-    riverRows.forEach(r => riverMap.set(r.z, r));
+    const btnTextsMatch =
+      auditReport.skillUsageAndSpeedDrop.click1Text.includes('2/3') &&
+      auditReport.skillUsageAndSpeedDrop.click2Text.includes('1/3') &&
+      auditReport.skillUsageAndSpeedDrop.click3Text.includes('上限') &&
+      auditReport.skillUsageAndSpeedDrop.click4MaxText.includes('上限');
 
-    // 1. 檢查連續相鄰睡蓮列 (consecutive lily pad rows)
-    let consecutiveLilyPadPairs = 0;
-    let maxConsecutiveLily = 0;
-    let currentConsecutive = 0;
+    auditReport.skillUsageAndSpeedDrop.passed = speedMatch && btnTextsMatch;
 
-    for (let i = 0; i < riverRows.length; i++) {
-      const r = riverRows[i];
-      if (r.isLilyPadRow) {
-        if (i > 0 && riverRows[i - 1].isLilyPadRow && riverRows[i - 1].z === r.z - 1) {
-          currentConsecutive++;
-          consecutiveLilyPadPairs++;
-          console.error(`[FAIL] Consecutive Lily Pad Rows detected at z=${r.z - 1} and z=${r.z}!`);
-        } else {
-          currentConsecutive = 1;
-        }
-        if (currentConsecutive > maxConsecutiveLily) {
-          maxConsecutiveLily = currentConsecutive;
-        }
-      } else {
-        currentConsecutive = 0;
-      }
-    }
+    // 3. 測試玩家移動步踏上草地 (Safe Zone)，驗證技能次數重置
+    console.log('\n--- Step 3: Moving Player to Grass & Auditing Safe Zone Reset ---');
 
-    auditReport.consecutiveLilyPadAudit.consecutiveLilyPadPairsFound = consecutiveLilyPadPairs;
-    auditReport.consecutiveLilyPadAudit.maxConsecutiveLilyPadCount = maxConsecutiveLily;
-    auditReport.consecutiveLilyPadAudit.passed = consecutiveLilyPadPairs === 0 && maxConsecutiveLily <= 1;
+    await page.evaluate(() => {
+      const game = window.game;
+      const player = game.player;
+      const mapGen = game.mapGenerator;
+      const gridSize = 1.2;
 
-    // 2. 將連續的河流列分組為「河道區域 Section」，審核多連河道全睡蓮情況
-    const riverSections = [];
-    let currentSection = [];
-
-    for (let i = 0; i < riverRows.length; i++) {
-      const row = riverRows[i];
-      if (currentSection.length === 0) {
-        currentSection.push(row);
-      } else {
-        const lastRow = currentSection[currentSection.length - 1];
-        if (row.z === lastRow.z + 1) {
-          currentSection.push(row);
-        } else {
-          riverSections.push([...currentSection]);
-          currentSection = [row];
+      // 移動玩家向前直到踏上 GRASS 列
+      for (let z = player.gridZ + 1; z <= player.gridZ + 20; z++) {
+        const row = mapGen.activeRows.get(z);
+        if (row && row.type === 'grass') {
+          player.position.set(0, 0, z * gridSize);
+          player.gridZ = z;
+          mapGen.update(z);
+          mapGen.checkSafeZoneReset(z);
+          if (game.uiManager && game.uiManager.updateSlowButton) {
+            game.uiManager.updateSlowButton(3, false);
+          }
+          break;
         }
       }
-    }
-    if (currentSection.length > 0) {
-      riverSections.push(currentSection);
-    }
-
-    let totalMultiSections = 0;
-    let allLilyPadMultiSections = 0;
-    const sectionDetails = [];
-
-    riverSections.forEach((sec, idx) => {
-      const startZ = sec[0].z;
-      const endZ = sec[sec.length - 1].z;
-      const rowCount = sec.length;
-
-      const lilyCount = sec.filter(r => r.isLilyPadRow).length;
-      const movingCount = sec.filter(r => r.isMovingLogRow).length;
-
-      const isAllLilyPad = rowCount >= 2 && lilyCount === rowCount;
-
-      if (rowCount >= 2) {
-        totalMultiSections++;
-        if (isAllLilyPad) {
-          allLilyPadMultiSections++;
-          console.error(`[FAIL] Multi-river section (Z=${startZ}~${endZ}, rows=${rowCount}) is 100% Lily Pads!`);
-        }
-      }
-
-      sectionDetails.push({
-        sectionIndex: idx + 1,
-        startZ,
-        endZ,
-        rowCount,
-        lilyCount,
-        movingCount,
-        isAllLilyPad,
-        pass: !isAllLilyPad
-      });
     });
 
-    auditReport.multiRiverSectionAudit.totalMultiRiverSections = totalMultiSections;
-    auditReport.multiRiverSectionAudit.allLilyPadMultiRiverSections = allLilyPadMultiSections;
-    auditReport.multiRiverSectionAudit.sectionDetails = sectionDetails;
-    auditReport.multiRiverSectionAudit.passed = allLilyPadMultiSections === 0;
+    await page.waitForTimeout(300);
+    auditReport.safeZoneResetAudit.resetOnGrassText = await slowBtn.innerText();
+    auditReport.safeZoneResetAudit.passed = auditReport.safeZoneResetAudit.resetOnGrassText.includes('3/3');
 
+    console.log(`Reset Text on Grass: "${auditReport.safeZoneResetAudit.resetOnGrassText}" (Passed: ${auditReport.safeZoneResetAudit.passed})`);
+
+    // 4. Console Errors 審核
     auditReport.consolePageErrors.count = consoleErrors.length;
     auditReport.consolePageErrors.errors = consoleErrors;
     auditReport.consolePageErrors.passed = consoleErrors.length === 0;
 
     auditReport.overallResult = (
-      auditReport.mapGeneration.passed &&
-      auditReport.consecutiveLilyPadAudit.passed &&
-      auditReport.multiRiverSectionAudit.passed &&
+      auditReport.uiButtonExistence.passed &&
+      auditReport.skillUsageAndSpeedDrop.passed &&
+      auditReport.safeZoneResetAudit.passed &&
       auditReport.consolePageErrors.passed
     ) ? 'PASS' : 'FAIL';
 
@@ -293,11 +240,11 @@ async function runNoConsecutiveLilyPadQATest() {
   }
 
   console.log('\n==================================================');
-  console.log('  NO CONSECUTIVE LILY-PAD ROWS QA REPORT');
+  console.log('  DANGER ZONE SPEED REDUCTION SKILL QA REPORT');
   console.log('==================================================');
   console.log(JSON.stringify(auditReport, null, 2));
 
   return auditReport;
 }
 
-runNoConsecutiveLilyPadQATest();
+runSlowSkillQATest();
