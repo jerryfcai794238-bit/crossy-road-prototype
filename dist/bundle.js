@@ -19310,30 +19310,104 @@
     mesh.receiveShadow = true;
     return mesh;
   }
-  function createChicken() {
+  function createChicken(appearance = {}) {
     const group = new Group();
-    const body = createCube(0.7, 0.7, 0.7, CONFIG.COLORS.CHICKEN);
+    const bodyColor = appearance.bodyColor || CONFIG.COLORS.CHICKEN;
+    const combColor = appearance.combColor || CONFIG.COLORS.COMB;
+    const beakColor = appearance.beakColor || CONFIG.COLORS.BEAK;
+    const eyeColor = appearance.eyeColor || 1976635;
+    const body = createCube(0.7, 0.7, 0.7, bodyColor);
     body.position.y = 0.55;
     group.add(body);
-    const comb = createCube(0.15, 0.25, 0.35, CONFIG.COLORS.COMB);
+    const comb = createCube(0.15, 0.25, 0.35, combColor);
     comb.position.set(0, 0.95, 0.05);
     group.add(comb);
-    const beak = createCube(0.25, 0.15, 0.25, CONFIG.COLORS.BEAK);
+    const beak = createCube(0.25, 0.15, 0.25, beakColor);
     beak.position.set(0, 0.55, 0.45);
     group.add(beak);
-    const leftEye = createCube(0.08, 0.12, 0.08, 1976635);
+    const leftEye = createCube(0.08, 0.12, 0.08, eyeColor);
     leftEye.position.set(0.36, 0.65, 0.2);
-    const rightEye = createCube(0.08, 0.12, 0.08, 1976635);
+    const rightEye = createCube(0.08, 0.12, 0.08, eyeColor);
     rightEye.position.set(-0.36, 0.65, 0.2);
     group.add(leftEye, rightEye);
-    const leftLeg = createCube(0.12, 0.25, 0.12, CONFIG.COLORS.BEAK);
+    const leftLeg = createCube(0.12, 0.25, 0.12, beakColor);
     leftLeg.position.set(0.2, 0.12, 0);
-    const rightLeg = createCube(0.12, 0.25, 0.12, CONFIG.COLORS.BEAK);
+    const rightLeg = createCube(0.12, 0.25, 0.12, beakColor);
     rightLeg.position.set(-0.2, 0.12, 0);
     group.add(leftLeg, rightLeg);
     group.scale.set(0.95, 0.95, 0.95);
     return group;
   }
+  function createDuck() {
+    const group = new Group();
+    const body = createCube(0.75, 0.7, 0.75, 16700208);
+    body.position.y = 0.55;
+    const beak = createCube(0.38, 0.12, 0.3, 16417329);
+    beak.position.set(0, 0.5, 0.48);
+    group.add(body, beak);
+    [-1, 1].forEach((side) => {
+      const eye = createCube(0.08, 0.12, 0.08, 2547329);
+      eye.position.set(side * 0.39, 0.65, 0.2);
+      const wing = createCube(0.1, 0.35, 0.45, 16234289);
+      wing.position.set(side * 0.42, 0.55, 0);
+      const foot = createCube(0.15, 0.12, 0.25, 16417329);
+      foot.position.set(side * 0.2, 0.06, 0.05);
+      group.add(eye, wing, foot);
+    });
+    group.scale.set(0.95, 0.95, 0.95);
+    return group;
+  }
+  function createFrog() {
+    const group = new Group();
+    const body = createCube(0.75, 0.6, 0.75, 2547329);
+    body.position.y = 0.5;
+    const belly = createCube(0.55, 0.45, 0.1, 16777215);
+    belly.position.set(0, 0.45, 0.35);
+    group.add(body, belly);
+    [-1, 1].forEach((side) => {
+      const eye = createCube(0.22, 0.22, 0.22, 2146155);
+      eye.position.set(side * 0.25, 0.88, 0.2);
+      const pupil = createCube(0.1, 0.12, 0.1, 0);
+      pupil.position.set(side * 0.25, 0.88, 0.3);
+      const leg = createCube(0.2, 0.2, 0.45, 2146155);
+      leg.position.set(side * 0.42, 0.22, -0.05);
+      group.add(eye, pupil, leg);
+    });
+    group.scale.set(0.95, 0.95, 0.95);
+    return group;
+  }
+  function createShiba() {
+    const group = new Group();
+    const fur = 14790956;
+    const body = createCube(0.7, 0.7, 0.8, fur);
+    body.position.y = 0.55;
+    const snout = createCube(0.35, 0.25, 0.25, 16119546);
+    snout.position.set(0, 0.48, 0.45);
+    const nose = createCube(0.12, 0.1, 0.1, 3094080);
+    nose.position.set(0, 0.52, 0.56);
+    const tail = createCube(0.18, 0.3, 0.18, 16119546);
+    tail.position.set(0, 0.8, -0.42);
+    group.add(body, snout, nose, tail);
+    [-1, 1].forEach((side) => {
+      const ear = createCube(0.18, 0.22, 0.15, 13468687);
+      ear.position.set(side * 0.25, 0.98, 0.15);
+      const eye = createCube(0.08, 0.12, 0.08, 3094080);
+      eye.position.set(side * 0.32, 0.65, 0.35);
+      group.add(ear, eye);
+    });
+    [[0.22, 0.25], [-0.22, 0.25], [0.22, -0.25], [-0.22, -0.25]].forEach(([x, z]) => {
+      const leg = createCube(0.15, 0.25, 0.15, 16119546);
+      leg.position.set(x, 0.12, z);
+      group.add(leg);
+    });
+    group.scale.set(0.95, 0.95, 0.95);
+    return group;
+  }
+  var AI_CHARACTER_VARIANTS = [
+    { id: "duck", name: "\u5C0F\u9D28", createMesh: createDuck },
+    { id: "frog", name: "\u9752\u86D9", createMesh: createFrog },
+    { id: "shiba", name: "\u67F4\u72AC", createMesh: createShiba }
+  ];
   function createCar(colorHex = 15158332) {
     const group = new Group();
     const chassis = createCube(1.2, 0.45, 1.8, colorHex);
@@ -19646,6 +19720,26 @@
       this.invulnerableTimer = 2;
       return false;
     }
+    respawnAt(gridX, gridZ, invulnerableDuration = 1) {
+      this.gridX = gridX;
+      this.gridZ = gridZ;
+      this.targetGridX = gridX;
+      this.targetGridZ = gridZ;
+      this.position.set(gridX * CONFIG.GRID_SIZE, 0, gridZ * CONFIG.GRID_SIZE);
+      this.startPosition.copy(this.position);
+      this.targetPosition.copy(this.position);
+      this.isJumping = false;
+      this.isDead = false;
+      this.isRespawning = false;
+      this.inputBuffer = [];
+      this.isInvulnerable = true;
+      this.invulnerableTimer = invulnerableDuration;
+      if (this.mesh) {
+        this.mesh.position.copy(this.position);
+        this.mesh.scale.set(0.95, 0.95, 0.95);
+        this.mesh.visible = true;
+      }
+    }
     triggerFlattenAnimation() {
       this.isDead = true;
       this.isJumping = false;
@@ -19666,6 +19760,158 @@
     }
   };
 
+  // src/mechanics/AIBot.js
+  var AIBot = class extends Player {
+    constructor(mesh, botName, startX = 0, startZ = 0, baseAggression = 0.38) {
+      super(mesh);
+      this.botName = botName;
+      this.startX = startX;
+      this.startZ = startZ;
+      this.baseAggression = baseAggression;
+      this.decisionTimer = 0;
+      this.decisionInterval = 0.22;
+      this.lastDirection = null;
+      this.lateralCooldown = 0;
+      this.retreatCooldown = 0;
+      this.resetAt(startX, startZ);
+    }
+    resetAt(startX, startZ) {
+      this.reset();
+      this.gridX = startX;
+      this.gridZ = startZ;
+      this.targetGridX = startX;
+      this.targetGridZ = startZ;
+      this.position.set(startX * CONFIG.GRID_SIZE, 0, startZ * CONFIG.GRID_SIZE);
+      this.startPosition.copy(this.position);
+      this.targetPosition.copy(this.position);
+      this.isDead = false;
+      this.checkpoint = { x: startX, z: startZ };
+      if (this.mesh) {
+        this.mesh.position.copy(this.position);
+        this.mesh.visible = true;
+      }
+    }
+    updateCheckpoint() {
+      if (this.gridZ > this.checkpoint.z) {
+        this.checkpoint = { x: this.gridX, z: this.gridZ };
+      }
+    }
+    updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null) {
+      if (this.isJumping || this.isRespawning || this.isDead) return;
+      this.decisionTimer += deltaTime;
+      this.lateralCooldown = Math.max(0, this.lateralCooldown - deltaTime);
+      this.retreatCooldown = Math.max(0, this.retreatCooldown - deltaTime);
+      if (this.decisionTimer < this.decisionInterval) return;
+      this.decisionTimer = 0;
+      const directions = ["UP", "LEFT", "RIGHT"];
+      let bestDirection = null;
+      let bestScore = -999;
+      directions.forEach((dir) => {
+        const targetPos = this.getTargetGridPosition(dir);
+        if (physics.checkTreeCollision(targetPos, activeRows)) return;
+        if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X) return;
+        if (canMove && !canMove(this, dir)) return;
+        let score = 0;
+        if (dir === "UP") score += 30 + Math.random() * 2;
+        if (dir === "LEFT" || dir === "RIGHT") score -= 6;
+        if (dir === "LEFT" && this.lastDirection === "RIGHT" || dir === "RIGHT" && this.lastDirection === "LEFT") score -= 80;
+        if (dir !== "UP" && this.lateralCooldown > 0) score -= 50;
+        const row = activeRows.get(targetPos.z);
+        if (row) {
+          if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
+            for (const veh of row.vehicles) {
+              const obsX = veh.position ? veh.position.x : veh.mesh.position.x;
+              const dist = Math.abs(targetPos.x * CONFIG.GRID_SIZE - obsX);
+              if (dist < 2.2) {
+                score -= 1e3;
+              } else if (dist < 3.5) {
+                score -= 45;
+              }
+            }
+          }
+          if (row.type === CONFIG.ROW_TYPES.RAILROAD && (row.trainState === "SIGNAL_FLASHING" || row.trainState === "TRAIN_PASSING")) {
+            score -= 1e3;
+          }
+          if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
+            let canLandOnLog = false;
+            for (const log of row.logs) {
+              const logX = log.position ? log.position.x : log.mesh.position.x;
+              const width = (log.length || 3) * CONFIG.GRID_SIZE * 0.85;
+              const halfWidth = width / 2;
+              const targetXUnits = targetPos.x * CONFIG.GRID_SIZE;
+              if (targetXUnits >= logX - halfWidth - 0.2 && targetXUnits <= logX + halfWidth + 0.2) {
+                canLandOnLog = true;
+                break;
+              }
+            }
+            if (!canLandOnLog) {
+              score -= 1e3;
+            } else {
+              score += 10;
+            }
+          }
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestDirection = dir;
+        }
+      });
+      if (!bestDirection || bestScore <= -35) {
+        this.tryRetreat(activeRows, physics, tryMove, canMove);
+        return;
+      }
+      if (bestDirection && bestScore > -35) {
+        if (Math.random() < this.baseAggression + 0.45) {
+          let moved = false;
+          if (tryMove) {
+            moved = tryMove(this, bestDirection);
+          } else {
+            moved = this.move(bestDirection);
+          }
+          if (moved) {
+            this.lastDirection = bestDirection;
+            if (bestDirection === "LEFT" || bestDirection === "RIGHT") {
+              this.lateralCooldown = 0.6;
+            }
+          }
+        }
+      }
+    }
+    tryRetreat(activeRows, physics, tryMove, canMove) {
+      if (this.retreatCooldown > 0) return false;
+      const targetPos = this.getTargetGridPosition("DOWN");
+      if (targetPos.z < this.checkpoint.z || Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X) return false;
+      if (!this.isCellSafe(targetPos, activeRows, physics)) return false;
+      if (canMove && !canMove(this, "DOWN")) return false;
+      const moved = tryMove ? tryMove(this, "DOWN") : this.move("DOWN");
+      if (moved) {
+        this.lastDirection = "DOWN";
+        this.retreatCooldown = 0.7;
+      }
+      return moved;
+    }
+    isCellSafe(targetPos, activeRows, physics) {
+      if (physics.checkTreeCollision(targetPos, activeRows)) return false;
+      const row = activeRows.get(targetPos.z);
+      if (!row) return true;
+      if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
+        const targetX = targetPos.x * CONFIG.GRID_SIZE;
+        if (row.vehicles.some((vehicle) => Math.abs(targetX - (vehicle.position ? vehicle.position.x : vehicle.mesh.position.x)) < 2.2)) return false;
+      }
+      if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.trainState !== "IDLE") return false;
+      if (row.type === CONFIG.ROW_TYPES.RIVER) {
+        const targetX = targetPos.x * CONFIG.GRID_SIZE;
+        const isOnLog = row.logs?.some((log) => {
+          const logX = log.position ? log.position.x : log.mesh.position.x;
+          const width = (log.length || 3) * CONFIG.GRID_SIZE * 0.85;
+          return Math.abs(targetX - logX) <= width / 2 + 0.2;
+        });
+        if (!isOnLog) return false;
+      }
+      return true;
+    }
+  };
+
   // src/mechanics/MapGenerator.js
   var MapGenerator = class {
     constructor(scene) {
@@ -19679,6 +19925,8 @@
       this.lastLilyPadGridXs = null;
       this.currentClusterObj = null;
       this.clusterCounter = 0;
+      this.currentHazardChain = null;
+      this.hazardChainCounter = 0;
       this.initGeometriesAndMaterials();
     }
     initGeometriesAndMaterials() {
@@ -19721,6 +19969,8 @@
       this.lastLilyPadGridXs = null;
       this.currentClusterObj = null;
       this.clusterCounter = 0;
+      this.currentHazardChain = null;
+      this.hazardChainCounter = 0;
     }
     update(playerZ) {
       const targetAheadZ = playerZ + CONFIG.GENERATION_AHEAD;
@@ -19802,6 +20052,16 @@
         speed: 0
       };
       if (type !== CONFIG.ROW_TYPES.GRASS) {
+        if (!this.currentHazardChain) {
+          this.hazardChainCounter++;
+          this.currentHazardChain = {
+            id: this.hazardChainCounter,
+            remainingUses: 2,
+            rows: []
+          };
+        }
+        rowData.hazardChain = this.currentHazardChain;
+        this.currentHazardChain.rows.push(rowData);
         if (!this.currentClusterObj || this.currentClusterObj.type !== type) {
           this.clusterCounter++;
           this.currentClusterObj = {
@@ -19813,6 +20073,8 @@
         }
         rowData.cluster = this.currentClusterObj;
         this.currentClusterObj.rows.push(rowData);
+      } else {
+        this.currentHazardChain = null;
       }
       switch (type) {
         case CONFIG.ROW_TYPES.GRASS:
@@ -20174,6 +20436,57 @@
         remainingUses: 3 - slowLevel
       };
     }
+    applyCasualSpeedAdjustment(playerZ, adjustment) {
+      const targetRow = this.getCasualSkillTargetRow(playerZ);
+      if (!targetRow || !targetRow.hazardChain) {
+        return { success: false, remainingUses: 0, netAdjustment: 0 };
+      }
+      const chain = targetRow.hazardChain;
+      if (chain.remainingUses <= 0) {
+        return { success: false, remainingUses: 0, netAdjustment: targetRow.speedAdjustment || 0 };
+      }
+      targetRow.speedAdjustment = (targetRow.speedAdjustment || 0) + adjustment;
+      chain.remainingUses--;
+      this.applyRowSpeedAdjustment(targetRow);
+      return {
+        success: true,
+        remainingUses: chain.remainingUses,
+        netAdjustment: targetRow.speedAdjustment
+      };
+    }
+    getCasualSkillTargetRow(playerZ) {
+      const currentRow = this.activeRows.get(playerZ);
+      if (currentRow?.hazardChain) return currentRow;
+      let nextRow = null;
+      for (const [z, row] of this.activeRows.entries()) {
+        if (z > playerZ && row.hazardChain && (!nextRow || z < nextRow.z)) nextRow = row;
+      }
+      return nextRow;
+    }
+    getCasualSkillState(playerZ) {
+      const targetRow = this.getCasualSkillTargetRow(playerZ);
+      return {
+        remainingUses: targetRow?.hazardChain?.remainingUses ?? 0,
+        available: Boolean(targetRow?.hazardChain)
+      };
+    }
+    applyRowSpeedAdjustment(row) {
+      if (row.baseSpeed === void 0) row.baseSpeed = row.speed || 3;
+      const multiplier = 1 + 0.1 * (row.speedAdjustment || 0);
+      row.speed = row.baseSpeed * multiplier;
+      if (row.type === CONFIG.ROW_TYPES.RAILROAD) {
+        row.trainSpeedMult = multiplier;
+        if (row.train) this.updateMeshSlowTrail(row.train, row.direction, Math.abs(row.speedAdjustment || 0));
+      }
+      if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
+        row.vehicles.forEach((vehicle) => this.updateMeshSlowTrail(vehicle.mesh, row.direction, Math.abs(row.speedAdjustment || 0)));
+      }
+      if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
+        row.logs.forEach((log) => {
+          if (!log.isStationary) this.updateMeshSlowTrail(log.mesh, row.direction, Math.abs(row.speedAdjustment || 0), true);
+        });
+      }
+    }
     checkSafeZoneReset(playerZ) {
       const row = this.activeRows.get(playerZ);
       if (row && row.type === CONFIG.ROW_TYPES.GRASS) {
@@ -20349,7 +20662,14 @@
       this.deathReasonEl = document.getElementById("death-reason");
       this.healthBarFill = document.getElementById("health-bar-fill");
       this.healthBarText = document.getElementById("health-bar-text");
+      this.healthBarContainer = document.getElementById("health-bar-container");
       this.btnSlow = document.getElementById("btn-slow");
+      this.btnSpeedUp = document.getElementById("btn-speed-up");
+      this.skillControls = document.getElementById("casual-skill-controls");
+      this.timerCard = document.getElementById("timer-card");
+      this.timeRemainingEl = document.getElementById("time-remaining");
+      this.leaderboard = document.getElementById("leaderboard");
+      this.leaderboardList = document.getElementById("leaderboard-list");
       let savedHighScore = 0;
       try {
         savedHighScore = parseInt(localStorage.getItem("crossy_highscore") || "0", 10);
@@ -20379,15 +20699,44 @@
       if (this.btnRestart) this.btnRestart.addEventListener("click", () => onRestart(this.selectedMode));
       if (this.btnLobby) this.btnLobby.addEventListener("click", () => onReturnLobby());
     }
-    updateSlowButton(remainingUses, isMax = false) {
-      if (!this.btnSlow) return;
-      if (isMax || remainingUses <= 0) {
-        this.btnSlow.innerText = "\u{1F40C} \u6E1B\u901F (\u5DF2\u9054\u4E0A\u9650)";
-        this.btnSlow.classList.add("disabled");
-      } else {
-        this.btnSlow.innerText = `\u{1F40C} \u6E1B\u901F (${remainingUses}/3)`;
-        this.btnSlow.classList.remove("disabled");
+    setMode(mode) {
+      const isCasual = mode === "casual";
+      if (this.healthBarContainer) this.healthBarContainer.style.display = isCasual ? "none" : "flex";
+      if (this.timerCard) this.timerCard.style.display = isCasual ? "flex" : "none";
+      if (this.skillControls) this.skillControls.style.display = isCasual ? "flex" : "none";
+      if (this.leaderboard) this.leaderboard.style.display = isCasual ? "block" : "none";
+    }
+    updateCasualSkillButtons(remainingUses, available = true) {
+      const disabled = !available || remainingUses <= 0;
+      const label = available ? `(${remainingUses}/2)` : "(\u7121\u76EE\u6A19)";
+      for (const [button, text] of [[this.btnSpeedUp, "\u26A1 \u52A0\u901F"], [this.btnSlow, "\u{1F40C} \u6E1B\u901F"]]) {
+        if (!button) continue;
+        button.innerText = `${text} ${label}`;
+        button.classList.toggle("disabled", disabled);
+        button.disabled = disabled;
       }
+    }
+    updateTimer(seconds) {
+      if (this.timeRemainingEl) this.timeRemainingEl.innerText = Math.max(0, Math.ceil(seconds)).toString();
+    }
+    updateLeaderboard(entries) {
+      if (!this.leaderboardList) return;
+      this.leaderboardList.replaceChildren();
+      entries.slice().sort((left, right) => right.score - left.score || left.order - right.order).forEach((entry, index) => {
+        const row = document.createElement("div");
+        row.className = `lb-row${entry.isPlayer ? " player-row" : ""}`;
+        const rank = document.createElement("span");
+        rank.className = "lb-rank";
+        rank.textContent = `${index + 1}`;
+        const name = document.createElement("span");
+        name.className = "lb-name";
+        name.textContent = entry.name;
+        const score = document.createElement("span");
+        score.className = "lb-score";
+        score.textContent = entry.score.toString();
+        row.append(rank, name, score);
+        this.leaderboardList.append(row);
+      });
     }
     showLobby() {
       if (this.startOverlay) {
@@ -20459,9 +20808,14 @@
       this.lastPlayerZ = 0;
       this.eagleMesh = null;
       this.isEagleAttacking = false;
+      this.casualDuration = 120;
+      this.casualTimeRemaining = this.casualDuration;
+      this.casualCheckpoint = { x: 0, z: 0 };
+      this.lastLandedZ = 0;
       this.chickenMesh = createChicken();
       this.scene.add(this.chickenMesh);
       this.player = new Player(this.chickenMesh);
+      this.bots = [];
       this.clock = new Clock();
       this.setupInputListeners();
       this.uiManager.init(
@@ -20481,9 +20835,11 @@
         else if (key === "s" || key === "arrowdown") this.handlePlayerInput("DOWN");
         else if (key === "a" || key === "arrowleft") this.handlePlayerInput("LEFT");
         else if (key === "d" || key === "arrowright") this.handlePlayerInput("RIGHT");
-        else if (key === "e") this.handleSlowSkill();
+        else if (key === "e") this.handleCasualSpeedSkill(-1);
+        else if (key === "q") this.handleCasualSpeedSkill(1);
       });
-      document.getElementById("btn-slow")?.addEventListener("click", () => this.handleSlowSkill());
+      document.getElementById("btn-slow")?.addEventListener("click", () => this.handleCasualSpeedSkill(-1));
+      document.getElementById("btn-speed-up")?.addEventListener("click", () => this.handleCasualSpeedSkill(1));
       document.getElementById("btn-up")?.addEventListener("click", () => this.handlePlayerInput("UP"));
       document.getElementById("btn-down")?.addEventListener("click", () => this.handlePlayerInput("DOWN"));
       document.getElementById("btn-left")?.addEventListener("click", () => this.handlePlayerInput("LEFT"));
@@ -20494,18 +20850,10 @@
         this.handlePlayerInput("UP");
       });
     }
-    handleSlowSkill() {
-      if (!this.isGameStarted || this.isGameOver) return;
-      const result = this.mapGenerator.applySlowDown(this.player.gridZ);
-      if (result) {
-        if (result.success) {
-          this.uiManager.updateSlowButton(result.remainingUses, result.slowLevel >= 3);
-        } else {
-          if (result.slowLevel >= 3 || result.remainingUses === 0) {
-            this.uiManager.updateSlowButton(0, true);
-          }
-        }
-      }
+    handleCasualSpeedSkill(adjustment) {
+      if (!this.isGameStarted || this.isGameOver || this.currentMode !== "casual") return;
+      const result = this.mapGenerator.applyCasualSpeedAdjustment(this.player.gridZ, adjustment);
+      this.uiManager.updateCasualSkillButtons(result.remainingUses, result.success || result.remainingUses > 0);
     }
     handlePlayerInput(direction, distance = 1) {
       if (!this.isGameStarted || this.isGameOver) return;
@@ -20517,23 +20865,129 @@
     }
     handlePlayerMove(direction, distance = 1) {
       if (!this.isGameStarted || this.isGameOver) return;
-      const targetPos = this.player.getTargetGridPosition(direction, distance);
-      if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) {
+      if (!this.tryMoveActor(this.player, direction, distance)) {
         this.player.setFacingDirection(direction);
         this.player.inputBuffer = [];
-        return;
-      }
-      const moved = this.player.move(direction, distance);
-      if (moved) {
+      } else {
         const maxZ = Number.isFinite(this.player.maxReachedZ) ? this.player.maxReachedZ : 0;
         const catchupZ = (maxZ - 3) * CONFIG.GRID_SIZE;
         this.cameraAutoScrollZ = Math.max(this.cameraAutoScrollZ, catchupZ);
         this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
         this.mapGenerator.update(this.player.gridZ);
         this.uiManager.updateScore(this.player.score);
-        if (this.mapGenerator.checkSafeZoneReset(this.player.gridZ)) {
-          this.uiManager.updateSlowButton(3, false);
-        }
+      }
+    }
+    getActiveActors() {
+      return [this.player, ...this.bots].filter((actor) => actor && !actor.isDead);
+    }
+    getActorAtGrid(gridPosition, excludedActors = []) {
+      return this.getActiveActors().find((actor) => {
+        if (excludedActors.includes(actor)) return false;
+        const occupiesGrid = actor.gridX === gridPosition.x && actor.gridZ === gridPosition.z;
+        const reservesGrid = actor.isJumping && actor.targetGridX === gridPosition.x && actor.targetGridZ === gridPosition.z;
+        return occupiesGrid || reservesGrid;
+      }) || null;
+    }
+    canActorEnter(actor, gridPosition, excludedActors = []) {
+      if (Math.abs(gridPosition.x) > CONFIG.MAP_BOUNDS_X) return false;
+      if (gridPosition.z < actor.minAllowedZ) return false;
+      if (this.physics.checkTreeCollision(gridPosition, this.mapGenerator.getActiveRows())) return false;
+      return !this.getActorAtGrid(gridPosition, [actor, ...excludedActors]);
+    }
+    tryMoveActor(actor, direction, distance = 1) {
+      if (actor.isJumping || actor.isDead) return false;
+      const targetPos = actor.getTargetGridPosition(direction, distance);
+      if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X || targetPos.z < actor.minAllowedZ) return false;
+      if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) return false;
+      const pushedActor = this.getActorAtGrid(targetPos, [actor]);
+      if (pushedActor) {
+        if (pushedActor.isJumping || !this.tryPushActor(pushedActor, direction, actor)) return false;
+      }
+      return actor.move(direction, distance);
+    }
+    canMoveActor(actor, direction, distance = 1) {
+      if (actor.isJumping || actor.isDead) return false;
+      const targetPos = actor.getTargetGridPosition(direction, distance);
+      if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X || targetPos.z < actor.minAllowedZ) return false;
+      if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) return false;
+      const pushedActor = this.getActorAtGrid(targetPos, [actor]);
+      if (!pushedActor) return true;
+      if (pushedActor.isJumping) return false;
+      const pushTarget = pushedActor.getTargetGridPosition(direction);
+      return this.canActorEnter(pushedActor, pushTarget, [actor]);
+    }
+    tryPushActor(actor, direction, pushingActor) {
+      const pushTarget = actor.getTargetGridPosition(direction);
+      if (!this.canActorEnter(actor, pushTarget, [pushingActor])) return false;
+      return actor.move(direction);
+    }
+    createCasualBots() {
+      const botSpawns = [
+        { x: -2, z: -1, aggression: 0.42 },
+        { x: 0, z: -2, aggression: 0.48 },
+        { x: 2, z: -3, aggression: 0.54 }
+      ];
+      const shuffledVariants = [...AI_CHARACTER_VARIANTS];
+      for (let index = shuffledVariants.length - 1; index > 0; index--) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [shuffledVariants[index], shuffledVariants[randomIndex]] = [shuffledVariants[randomIndex], shuffledVariants[index]];
+      }
+      const selectedVariants = shuffledVariants.slice(0, botSpawns.length);
+      this.bots = botSpawns.map((spawn, index) => {
+        const variant = selectedVariants[index];
+        const mesh = variant.createMesh();
+        this.scene.add(mesh);
+        return new AIBot(mesh, variant.name, spawn.x, spawn.z, spawn.aggression);
+      });
+    }
+    clearBots() {
+      this.bots.forEach((bot) => this.scene.remove(bot.mesh));
+      this.bots = [];
+    }
+    refreshLeaderboard() {
+      if (this.currentMode !== "casual") return;
+      const entries = [
+        { name: "\u73A9\u5BB6", score: this.player.score, isPlayer: true, order: 0 },
+        ...this.bots.map((bot, index) => ({ name: bot.botName, score: bot.score, isPlayer: false, order: index + 1 }))
+      ];
+      this.uiManager.updateLeaderboard(entries);
+    }
+    handlePlayerLanded() {
+      if (!this.isGameStarted || this.isGameOver) return;
+      this.mapGenerator.update(this.player.gridZ);
+      this.uiManager.updateScore(this.player.score);
+      if (this.currentMode !== "casual") return;
+      const landedRow = this.mapGenerator.getActiveRows().get(this.player.gridZ);
+      if (landedRow?.type === CONFIG.ROW_TYPES.GRASS && this.player.gridZ > this.casualCheckpoint.z) {
+        this.casualCheckpoint = { x: this.player.gridX, z: this.player.gridZ };
+      }
+      const skillState = this.mapGenerator.getCasualSkillState(this.player.gridZ);
+      this.uiManager.updateCasualSkillButtons(skillState.remainingUses, skillState.available);
+    }
+    handleBotLanded(bot) {
+      const landedRow = this.mapGenerator.getActiveRows().get(bot.gridZ);
+      if (landedRow?.type === CONFIG.ROW_TYPES.GRASS) bot.updateCheckpoint();
+    }
+    respawnBotAtCheckpoint(bot) {
+      bot.respawnAt(bot.checkpoint.x, bot.checkpoint.z);
+    }
+    updateCasualBotHazards(bot, activeRows, deltaTime) {
+      if (bot.isJumping || bot.isDead) return;
+      const hitObstacle = this.physics.checkObstacleCollision(bot, activeRows);
+      if (hitObstacle && !bot.isInvulnerable) {
+        this.respawnBotAtCheckpoint(bot);
+        return;
+      }
+      const riverStatus = this.physics.checkRiverStatus(bot, activeRows);
+      if (!riverStatus.inRiver) return;
+      if (!riverStatus.onLog) {
+        this.respawnBotAtCheckpoint(bot);
+        return;
+      }
+      bot.position.x += riverStatus.logSpeed * deltaTime;
+      bot.gridX = Math.round(bot.position.x / CONFIG.GRID_SIZE);
+      if (Math.abs(bot.position.x) > (CONFIG.MAP_BOUNDS_X + 1.2) * CONFIG.GRID_SIZE) {
+        this.respawnBotAtCheckpoint(bot);
       }
     }
     startGame(mode = "casual") {
@@ -20546,16 +21000,27 @@
       this.idleTimer = 0;
       this.lastPlayerZ = 0;
       this.isEagleAttacking = false;
+      this.casualTimeRemaining = this.casualDuration;
+      this.casualCheckpoint = { x: 0, z: 0 };
+      this.lastLandedZ = 0;
       if (this.eagleMesh) {
         this.scene.remove(this.eagleMesh);
         this.eagleMesh = null;
       }
       this.player.reset();
+      this.clearBots();
+      this.uiManager.setMode(this.currentMode);
       this.uiManager.updateHealth(this.player.hp);
-      this.uiManager.updateSlowButton(3, false);
       this.mapGenerator.initMap();
       this.sceneSetup.resetCamera();
       this.uiManager.updateScore(0);
+      this.uiManager.updateTimer(this.casualTimeRemaining);
+      if (this.currentMode === "casual") {
+        this.createCasualBots();
+        this.refreshLeaderboard();
+        const skillState = this.mapGenerator.getCasualSkillState(this.player.gridZ);
+        this.uiManager.updateCasualSkillButtons(skillState.remainingUses, skillState.available);
+      }
     }
     restartGame(mode) {
       this.startGame(mode || this.currentMode);
@@ -20563,6 +21028,7 @@
     returnLobby() {
       this.isGameStarted = false;
       this.isGameOver = false;
+      this.clearBots();
       this.uiManager.showLobby();
     }
     triggerEagleAttack() {
@@ -20598,13 +21064,38 @@
       this.isGameOver = true;
       this.uiManager.showGameOver(this.player.score, reason);
     }
+    respawnAtCasualCheckpoint() {
+      this.player.respawnAt(this.casualCheckpoint.x, this.casualCheckpoint.z);
+      this.cameraScrollZ = Math.max(0, this.casualCheckpoint.z * CONFIG.GRID_SIZE);
+      this.mapGenerator.update(this.casualCheckpoint.z);
+      const skillState = this.mapGenerator.getCasualSkillState(this.player.gridZ);
+      this.uiManager.updateCasualSkillButtons(skillState.remainingUses, skillState.available);
+    }
     animate() {
       requestAnimationFrame(this.animate);
       try {
         const rawDelta = this.clock.getDelta();
         const deltaTime = Number.isFinite(rawDelta) && rawDelta > 0 ? Math.min(rawDelta, 0.1) : 0.016;
         const activeRows = this.mapGenerator.getActiveRows();
+        const wasJumping = this.player.isJumping;
         this.player.update(deltaTime);
+        if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
+        if (this.isGameStarted && !this.isGameOver && this.currentMode === "casual") {
+          this.bots.forEach((bot) => {
+            const wasBotJumping = bot.isJumping;
+            bot.updateAI(
+              deltaTime,
+              activeRows,
+              this.physics,
+              (actor, direction) => this.tryMoveActor(actor, direction),
+              (actor, direction) => this.canMoveActor(actor, direction)
+            );
+            bot.update(deltaTime);
+            if (wasBotJumping && !bot.isJumping) this.handleBotLanded(bot);
+            this.updateCasualBotHazards(bot, activeRows, deltaTime);
+          });
+          this.refreshLeaderboard();
+        }
         if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
           const nextInput = this.player.inputBuffer.shift();
           this.handlePlayerMove(nextInput.direction, nextInput.distance);
@@ -20612,6 +21103,13 @@
         const pZ = Number.isFinite(this.player.position.z) ? this.player.position.z : this.player.gridZ * CONFIG.GRID_SIZE;
         const pX = Number.isFinite(this.player.position.x) ? this.player.position.x : this.player.gridX * CONFIG.GRID_SIZE;
         if (this.isGameStarted && !this.isGameOver) {
+          if (this.currentMode === "casual") {
+            this.casualTimeRemaining = Math.max(0, this.casualTimeRemaining - deltaTime);
+            this.uiManager.updateTimer(this.casualTimeRemaining);
+            if (this.casualTimeRemaining <= 0) {
+              this.gameOver("\u6642\u9593\u5230\uFF01\u672C\u5C40\u6700\u9060\u8DDD\u96E2\u5DF2\u7D50\u7B97\u3002");
+            }
+          }
           if (this.currentMode === "challenge") {
             this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
             if (pZ > this.cameraScrollZ) {
@@ -20636,6 +21134,10 @@
         if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking) {
           const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
           if (hitObstacle && !this.player.isInvulnerable) {
+            if (this.currentMode === "casual") {
+              this.respawnAtCasualCheckpoint();
+              return;
+            }
             const damage = hitObstacle.type === "train" ? 70 : Math.min(60, Math.round(hitObstacle.speed * 8 + 10));
             const isFatal = this.player.takeDamage(damage);
             this.uiManager.updateHealth(this.player.hp);
@@ -20650,10 +21152,18 @@
               this.player.position.x += riverStatus.logSpeed * deltaTime;
               this.player.gridX = Math.round(this.player.position.x / CONFIG.GRID_SIZE);
               if (Math.abs(this.player.position.x) > (CONFIG.MAP_BOUNDS_X + 1.2) * CONFIG.GRID_SIZE) {
+                if (this.currentMode === "casual") {
+                  this.respawnAtCasualCheckpoint();
+                  return;
+                }
                 this.player.triggerDrownAnimation();
                 this.gameOver("\u6F02\u6D41\u904E\u9060\uFF0C\u6389\u51FA\u908A\u754C\u5916\uFF01");
               }
             } else {
+              if (this.currentMode === "casual") {
+                this.respawnAtCasualCheckpoint();
+                return;
+              }
               this.player.triggerDrownAnimation();
               this.gameOver("\u5657\u901A\uFF01\u843D\u6C34\u6DF9\u6B7B\uFF01");
             }

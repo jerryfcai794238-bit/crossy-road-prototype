@@ -212,6 +212,28 @@ export class Player {
     return false;
   }
 
+  respawnAt(gridX, gridZ, invulnerableDuration = 1) {
+    this.gridX = gridX;
+    this.gridZ = gridZ;
+    this.targetGridX = gridX;
+    this.targetGridZ = gridZ;
+    this.position.set(gridX * CONFIG.GRID_SIZE, 0, gridZ * CONFIG.GRID_SIZE);
+    this.startPosition.copy(this.position);
+    this.targetPosition.copy(this.position);
+    this.isJumping = false;
+    this.isDead = false;
+    this.isRespawning = false;
+    this.inputBuffer = [];
+    this.isInvulnerable = true;
+    this.invulnerableTimer = invulnerableDuration;
+
+    if (this.mesh) {
+      this.mesh.position.copy(this.position);
+      this.mesh.scale.set(0.95, 0.95, 0.95);
+      this.mesh.visible = true;
+    }
+  }
+
   triggerFlattenAnimation() {
     this.isDead = true;
     this.isJumping = false;

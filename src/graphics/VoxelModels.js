@@ -11,36 +11,176 @@ function createCube(width, height, depth, colorHex) {
 }
 
 // 1. 小雞體素模型 (Chicken)
-export function createChicken() {
+export function createChicken(appearance = {}) {
   const group = new THREE.Group();
 
-  const body = createCube(0.7, 0.7, 0.7, CONFIG.COLORS.CHICKEN);
+  const bodyColor = appearance.bodyColor || CONFIG.COLORS.CHICKEN;
+  const combColor = appearance.combColor || CONFIG.COLORS.COMB;
+  const beakColor = appearance.beakColor || CONFIG.COLORS.BEAK;
+  const eyeColor = appearance.eyeColor || 0x1e293b;
+
+  const body = createCube(0.7, 0.7, 0.7, bodyColor);
   body.position.y = 0.55;
   group.add(body);
 
-  const comb = createCube(0.15, 0.25, 0.35, CONFIG.COLORS.COMB);
+  const comb = createCube(0.15, 0.25, 0.35, combColor);
   comb.position.set(0, 0.95, 0.05);
   group.add(comb);
 
-  const beak = createCube(0.25, 0.15, 0.25, CONFIG.COLORS.BEAK);
+  const beak = createCube(0.25, 0.15, 0.25, beakColor);
   beak.position.set(0, 0.55, 0.45);
   group.add(beak);
 
-  const leftEye = createCube(0.08, 0.12, 0.08, 0x1e293b);
+  const leftEye = createCube(0.08, 0.12, 0.08, eyeColor);
   leftEye.position.set(0.36, 0.65, 0.2);
-  const rightEye = createCube(0.08, 0.12, 0.08, 0x1e293b);
+  const rightEye = createCube(0.08, 0.12, 0.08, eyeColor);
   rightEye.position.set(-0.36, 0.65, 0.2);
   group.add(leftEye, rightEye);
 
-  const leftLeg = createCube(0.12, 0.25, 0.12, CONFIG.COLORS.BEAK);
+  const leftLeg = createCube(0.12, 0.25, 0.12, beakColor);
   leftLeg.position.set(0.2, 0.12, 0);
-  const rightLeg = createCube(0.12, 0.25, 0.12, CONFIG.COLORS.BEAK);
+  const rightLeg = createCube(0.12, 0.25, 0.12, beakColor);
   rightLeg.position.set(-0.2, 0.12, 0);
   group.add(leftLeg, rightLeg);
 
   group.scale.set(0.95, 0.95, 0.95);
   return group;
 }
+
+export function createFox() {
+  const group = new THREE.Group();
+  const orange = 0xf97316;
+  const cream = 0xffedd5;
+  const dark = 0x1f2937;
+  const body = createCube(0.78, 0.45, 0.9, orange);
+  body.position.y = 0.48;
+  const head = createCube(0.5, 0.48, 0.5, orange);
+  head.position.set(0, 0.82, 0.48);
+  const muzzle = createCube(0.32, 0.2, 0.18, cream);
+  muzzle.position.set(0, 0.7, 0.78);
+  const tail = createCube(0.3, 0.28, 0.78, orange);
+  tail.position.set(0, 0.52, -0.72);
+  tail.rotation.x = -0.35;
+  group.add(body, head, muzzle, tail);
+  [-0.18, 0.18].forEach((x) => {
+    const ear = createCube(0.16, 0.32, 0.16, orange);
+    ear.position.set(x, 1.18, 0.48);
+    const eye = createCube(0.06, 0.08, 0.05, dark);
+    eye.position.set(x, 0.88, 0.75);
+    group.add(ear, eye);
+  });
+  group.scale.set(0.95, 0.95, 0.95);
+  return group;
+}
+
+export function createDog() {
+  const group = new THREE.Group();
+  const tan = 0xd6a46b;
+  const brown = 0x7c4a22;
+  const dark = 0x1f2937;
+  const body = createCube(0.82, 0.48, 0.9, tan);
+  body.position.y = 0.48;
+  const head = createCube(0.52, 0.48, 0.52, tan);
+  head.position.set(0, 0.82, 0.48);
+  const nose = createCube(0.16, 0.12, 0.12, dark);
+  nose.position.set(0, 0.77, 0.8);
+  const tail = createCube(0.18, 0.18, 0.7, tan);
+  tail.position.set(0, 0.7, -0.7);
+  tail.rotation.x = -0.7;
+  group.add(body, head, nose, tail);
+  [-0.27, 0.27].forEach((x) => {
+    const ear = createCube(0.18, 0.35, 0.16, brown);
+    ear.position.set(x, 0.9, 0.45);
+    const eye = createCube(0.06, 0.08, 0.05, dark);
+    eye.position.set(x * 0.55, 0.9, 0.76);
+    group.add(ear, eye);
+  });
+  group.scale.set(0.95, 0.95, 0.95);
+  return group;
+}
+
+export function createCat() {
+  const group = new THREE.Group();
+  const gray = 0x94a3b8;
+  const pink = 0xf9a8d4;
+  const dark = 0x111827;
+  const body = createCube(0.72, 0.48, 0.86, gray);
+  body.position.y = 0.48;
+  const head = createCube(0.5, 0.5, 0.5, gray);
+  head.position.set(0, 0.82, 0.48);
+  const tail = createCube(0.14, 0.16, 0.9, gray);
+  tail.position.set(0, 0.78, -0.72);
+  tail.rotation.x = -0.9;
+  group.add(body, head, tail);
+  [-0.18, 0.18].forEach((x) => {
+    const ear = createCube(0.16, 0.3, 0.16, gray);
+    ear.position.set(x, 1.18, 0.48);
+    const innerEar = createCube(0.08, 0.16, 0.05, pink);
+    innerEar.position.set(x, 1.18, 0.57);
+    const eye = createCube(0.06, 0.08, 0.05, dark);
+    eye.position.set(x, 0.9, 0.76);
+    group.add(ear, innerEar, eye);
+  });
+  group.scale.set(0.95, 0.95, 0.95);
+  return group;
+}
+
+// Legacy antigravity voxel variants. New AI appearances are added to the roster below.
+export function createDuck() {
+  const group = new THREE.Group();
+  const body = createCube(0.75, 0.7, 0.75, 0xfed330); body.position.y = 0.55;
+  const beak = createCube(0.38, 0.12, 0.3, 0xfa8231); beak.position.set(0, 0.5, 0.48);
+  group.add(body, beak);
+  [-1, 1].forEach((side) => {
+    const eye = createCube(0.08, 0.12, 0.08, 0x26de81); eye.position.set(side * 0.39, 0.65, 0.2);
+    const wing = createCube(0.1, 0.35, 0.45, 0xf7b731); wing.position.set(side * 0.42, 0.55, 0);
+    const foot = createCube(0.15, 0.12, 0.25, 0xfa8231); foot.position.set(side * 0.2, 0.06, 0.05);
+    group.add(eye, wing, foot);
+  });
+  group.scale.set(0.95, 0.95, 0.95);
+  return group;
+}
+
+export function createFrog() {
+  const group = new THREE.Group();
+  const body = createCube(0.75, 0.6, 0.75, 0x26de81); body.position.y = 0.5;
+  const belly = createCube(0.55, 0.45, 0.1, 0xffffff); belly.position.set(0, 0.45, 0.35);
+  group.add(body, belly);
+  [-1, 1].forEach((side) => {
+    const eye = createCube(0.22, 0.22, 0.22, 0x20bf6b); eye.position.set(side * 0.25, 0.88, 0.2);
+    const pupil = createCube(0.1, 0.12, 0.1, 0x000000); pupil.position.set(side * 0.25, 0.88, 0.3);
+    const leg = createCube(0.2, 0.2, 0.45, 0x20bf6b); leg.position.set(side * 0.42, 0.22, -0.05);
+    group.add(eye, pupil, leg);
+  });
+  group.scale.set(0.95, 0.95, 0.95);
+  return group;
+}
+
+export function createShiba() {
+  const group = new THREE.Group();
+  const fur = 0xe1b12c;
+  const body = createCube(0.7, 0.7, 0.8, fur); body.position.y = 0.55;
+  const snout = createCube(0.35, 0.25, 0.25, 0xf5f6fa); snout.position.set(0, 0.48, 0.45);
+  const nose = createCube(0.12, 0.1, 0.1, 0x2f3640); nose.position.set(0, 0.52, 0.56);
+  const tail = createCube(0.18, 0.3, 0.18, 0xf5f6fa); tail.position.set(0, 0.8, -0.42);
+  group.add(body, snout, nose, tail);
+  [-1, 1].forEach((side) => {
+    const ear = createCube(0.18, 0.22, 0.15, 0xcd840f); ear.position.set(side * 0.25, 0.98, 0.15);
+    const eye = createCube(0.08, 0.12, 0.08, 0x2f3640); eye.position.set(side * 0.32, 0.65, 0.35);
+    group.add(ear, eye);
+  });
+  [[0.22, 0.25], [-0.22, 0.25], [0.22, -0.25], [-0.22, -0.25]].forEach(([x, z]) => {
+    const leg = createCube(0.15, 0.25, 0.15, 0xf5f6fa); leg.position.set(x, 0.12, z); group.add(leg);
+  });
+  group.scale.set(0.95, 0.95, 0.95);
+  return group;
+}
+
+export const AI_CHARACTER_VARIANTS = [
+  { id: 'duck', name: '小鴨', createMesh: createDuck },
+  { id: 'frog', name: '青蛙', createMesh: createFrog },
+  { id: 'shiba', name: '柴犬', createMesh: createShiba }
+];
 
 // 2. 車輛體素模型 (Car)
 export function createCar(colorHex = 0xe74c3c) {

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { SceneSetup } from './graphics/SceneSetup.js';
-import { createChicken, createEagle } from './graphics/VoxelModels.js';
+import { AI_CHARACTER_VARIANTS, createChicken, createEagle } from './graphics/VoxelModels.js';
 import { Player } from './mechanics/Player.js';
+import { AIBot } from './mechanics/AIBot.js';
 import { MapGenerator } from './mechanics/MapGenerator.js';
 import { Physics } from './mechanics/Physics.js';
 import { UIManager } from './ui/UIManager.js';
@@ -31,11 +32,16 @@ class Game {
     this.lastPlayerZ = 0;
     this.eagleMesh = null;
     this.isEagleAttacking = false;
+    this.casualDuration = 120;
+    this.casualTimeRemaining = this.casualDuration;
+    this.casualCheckpoint = { x: 0, z: 0 };
+    this.lastLandedZ = 0;
 
     // 4. 小雞主角
     this.chickenMesh = createChicken();
     this.scene.add(this.chickenMesh);
     this.player = new Player(this.chickenMesh);
+    this.bots = [];
 
     this.clock = new THREE.Clock();
 
@@ -62,11 +68,13 @@ class Game {
       else if (key === 's' || key === 'arrowdown') this.handlePlayerInput('DOWN');
       else if (key === 'a' || key === 'arrowleft') this.handlePlayerInput('LEFT');
       else if (key === 'd' || key === 'arrowright') this.handlePlayerInput('RIGHT');
-      else if (key === 'e') this.handleSlowSkill();
+      else if (key === 'e') this.handleCasualSpeedSkill(-1);
+      else if (key === 'q') this.handleCasualSpeedSkill(1);
     });
 
     // 減速技能按鈕與虛擬 D-Pad 控制器
-    document.getElementById('btn-slow')?.addEventListener('click', () => this.handleSlowSkill());
+    document.getElementById('btn-slow')?.addEventListener('click', () => this.handleCasualSpeedSkill(-1));
+    document.getElementById('btn-speed-up')?.addEventListener('click', () => this.handleCasualSpeedSkill(1));
     document.getElementById('btn-up')?.addEventListener('click', () => this.handlePlayerInput('UP'));
     document.getElementById('btn-down')?.addEventListener('click', () => this.handlePlayerInput('DOWN'));
     document.getElementById('btn-left')?.addEventListener('click', () => this.handlePlayerInput('LEFT'));
@@ -86,18 +94,10 @@ class Game {
     });
   }
 
-  handleSlowSkill() {
-    if (!this.isGameStarted || this.isGameOver) return;
-    const result = this.mapGenerator.applySlowDown(this.player.gridZ);
-    if (result) {
-      if (result.success) {
-        this.uiManager.updateSlowButton(result.remainingUses, result.slowLevel >= 3);
-      } else {
-        if (result.slowLevel >= 3 || result.remainingUses === 0) {
-          this.uiManager.updateSlowButton(0, true);
-        }
-      }
-    }
+  handleCasualSpeedSkill(adjustment) {
+    if (!this.isGameStarted || this.isGameOver || this.currentMode !== 'casual') return;
+    const result = this.mapGenerator.applyCasualSpeedAdjustment(this.player.gridZ, adjustment);
+    this.uiManager.updateCasualSkillButtons(result.remainingUses, result.success || result.remainingUses > 0);
   }
 
   handlePlayerInput(direction, distance = 1) {
@@ -114,16 +114,10 @@ class Game {
   handlePlayerMove(direction, distance = 1) {
     if (!this.isGameStarted || this.isGameOver) return;
 
-    const targetPos = this.player.getTargetGridPosition(direction, distance);
-
-    if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) {
+    if (!this.tryMoveActor(this.player, direction, distance)) {
       this.player.setFacingDirection(direction);
       this.player.inputBuffer = [];
-      return;
-    }
-
-    const moved = this.player.move(direction, distance);
-    if (moved) {
+    } else {
       // 玩家跳躍時底邊界對齊
       const maxZ = Number.isFinite(this.player.maxReachedZ) ? this.player.maxReachedZ : 0;
       const catchupZ = (maxZ - 3.0) * CONFIG.GRID_SIZE;
@@ -132,11 +126,140 @@ class Game {
 
       this.mapGenerator.update(this.player.gridZ);
       this.uiManager.updateScore(this.player.score);
+    }
+  }
 
-      // 當玩家每移動一步踏上草地時，呼叫 checkSafeZoneReset 重置減速技能使用次數
-      if (this.mapGenerator.checkSafeZoneReset(this.player.gridZ)) {
-        this.uiManager.updateSlowButton(3, false);
-      }
+  getActiveActors() {
+    return [this.player, ...this.bots].filter((actor) => actor && !actor.isDead);
+  }
+
+  getActorAtGrid(gridPosition, excludedActors = []) {
+    return this.getActiveActors().find((actor) => {
+      if (excludedActors.includes(actor)) return false;
+      const occupiesGrid = actor.gridX === gridPosition.x && actor.gridZ === gridPosition.z;
+      const reservesGrid = actor.isJumping && actor.targetGridX === gridPosition.x && actor.targetGridZ === gridPosition.z;
+      return occupiesGrid || reservesGrid;
+    }) || null;
+  }
+
+  canActorEnter(actor, gridPosition, excludedActors = []) {
+    if (Math.abs(gridPosition.x) > CONFIG.MAP_BOUNDS_X) return false;
+    if (gridPosition.z < actor.minAllowedZ) return false;
+    if (this.physics.checkTreeCollision(gridPosition, this.mapGenerator.getActiveRows())) return false;
+    return !this.getActorAtGrid(gridPosition, [actor, ...excludedActors]);
+  }
+
+  tryMoveActor(actor, direction, distance = 1) {
+    if (actor.isJumping || actor.isDead) return false;
+    const targetPos = actor.getTargetGridPosition(direction, distance);
+    if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X || targetPos.z < actor.minAllowedZ) return false;
+    if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) return false;
+
+    const pushedActor = this.getActorAtGrid(targetPos, [actor]);
+    if (pushedActor) {
+      if (pushedActor.isJumping || !this.tryPushActor(pushedActor, direction, actor)) return false;
+    }
+
+    return actor.move(direction, distance);
+  }
+
+  canMoveActor(actor, direction, distance = 1) {
+    if (actor.isJumping || actor.isDead) return false;
+    const targetPos = actor.getTargetGridPosition(direction, distance);
+    if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X || targetPos.z < actor.minAllowedZ) return false;
+    if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) return false;
+
+    const pushedActor = this.getActorAtGrid(targetPos, [actor]);
+    if (!pushedActor) return true;
+    if (pushedActor.isJumping) return false;
+    const pushTarget = pushedActor.getTargetGridPosition(direction);
+    return this.canActorEnter(pushedActor, pushTarget, [actor]);
+  }
+
+  tryPushActor(actor, direction, pushingActor) {
+    const pushTarget = actor.getTargetGridPosition(direction);
+    if (!this.canActorEnter(actor, pushTarget, [pushingActor])) return false;
+    return actor.move(direction);
+  }
+
+  createCasualBots() {
+    const botSpawns = [
+      { x: -2, z: -1, aggression: 0.42 },
+      { x: 0, z: -2, aggression: 0.48 },
+      { x: 2, z: -3, aggression: 0.54 }
+    ];
+    const shuffledVariants = [...AI_CHARACTER_VARIANTS];
+    for (let index = shuffledVariants.length - 1; index > 0; index--) {
+      const randomIndex = Math.floor(Math.random() * (index + 1));
+      [shuffledVariants[index], shuffledVariants[randomIndex]] = [shuffledVariants[randomIndex], shuffledVariants[index]];
+    }
+    const selectedVariants = shuffledVariants.slice(0, botSpawns.length);
+
+    this.bots = botSpawns.map((spawn, index) => {
+      const variant = selectedVariants[index];
+      const mesh = variant.createMesh();
+      this.scene.add(mesh);
+      return new AIBot(mesh, variant.name, spawn.x, spawn.z, spawn.aggression);
+    });
+  }
+
+  clearBots() {
+    this.bots.forEach((bot) => this.scene.remove(bot.mesh));
+    this.bots = [];
+  }
+
+  refreshLeaderboard() {
+    if (this.currentMode !== 'casual') return;
+    const entries = [
+      { name: '玩家', score: this.player.score, isPlayer: true, order: 0 },
+      ...this.bots.map((bot, index) => ({ name: bot.botName, score: bot.score, isPlayer: false, order: index + 1 }))
+    ];
+    this.uiManager.updateLeaderboard(entries);
+  }
+
+  handlePlayerLanded() {
+    if (!this.isGameStarted || this.isGameOver) return;
+    this.mapGenerator.update(this.player.gridZ);
+    this.uiManager.updateScore(this.player.score);
+
+    if (this.currentMode !== 'casual') return;
+    const landedRow = this.mapGenerator.getActiveRows().get(this.player.gridZ);
+    if (landedRow?.type === CONFIG.ROW_TYPES.GRASS && this.player.gridZ > this.casualCheckpoint.z) {
+      this.casualCheckpoint = { x: this.player.gridX, z: this.player.gridZ };
+    }
+    const skillState = this.mapGenerator.getCasualSkillState(this.player.gridZ);
+    this.uiManager.updateCasualSkillButtons(skillState.remainingUses, skillState.available);
+  }
+
+  handleBotLanded(bot) {
+    const landedRow = this.mapGenerator.getActiveRows().get(bot.gridZ);
+    if (landedRow?.type === CONFIG.ROW_TYPES.GRASS) bot.updateCheckpoint();
+  }
+
+  respawnBotAtCheckpoint(bot) {
+    bot.respawnAt(bot.checkpoint.x, bot.checkpoint.z);
+  }
+
+  updateCasualBotHazards(bot, activeRows, deltaTime) {
+    if (bot.isJumping || bot.isDead) return;
+
+    const hitObstacle = this.physics.checkObstacleCollision(bot, activeRows);
+    if (hitObstacle && !bot.isInvulnerable) {
+      this.respawnBotAtCheckpoint(bot);
+      return;
+    }
+
+    const riverStatus = this.physics.checkRiverStatus(bot, activeRows);
+    if (!riverStatus.inRiver) return;
+    if (!riverStatus.onLog) {
+      this.respawnBotAtCheckpoint(bot);
+      return;
+    }
+
+    bot.position.x += riverStatus.logSpeed * deltaTime;
+    bot.gridX = Math.round(bot.position.x / CONFIG.GRID_SIZE);
+    if (Math.abs(bot.position.x) > (CONFIG.MAP_BOUNDS_X + 1.2) * CONFIG.GRID_SIZE) {
+      this.respawnBotAtCheckpoint(bot);
     }
   }
 
@@ -152,6 +275,9 @@ class Game {
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
     this.isEagleAttacking = false;
+    this.casualTimeRemaining = this.casualDuration;
+    this.casualCheckpoint = { x: 0, z: 0 };
+    this.lastLandedZ = 0;
 
     if (this.eagleMesh) {
       this.scene.remove(this.eagleMesh);
@@ -159,11 +285,19 @@ class Game {
     }
 
     this.player.reset();
+    this.clearBots();
+    this.uiManager.setMode(this.currentMode);
     this.uiManager.updateHealth(this.player.hp);
-    this.uiManager.updateSlowButton(3, false);
     this.mapGenerator.initMap();
     this.sceneSetup.resetCamera();
     this.uiManager.updateScore(0);
+    this.uiManager.updateTimer(this.casualTimeRemaining);
+    if (this.currentMode === 'casual') {
+      this.createCasualBots();
+      this.refreshLeaderboard();
+      const skillState = this.mapGenerator.getCasualSkillState(this.player.gridZ);
+      this.uiManager.updateCasualSkillButtons(skillState.remainingUses, skillState.available);
+    }
   }
 
   restartGame(mode) {
@@ -173,6 +307,7 @@ class Game {
   returnLobby() {
     this.isGameStarted = false;
     this.isGameOver = false;
+    this.clearBots();
     this.uiManager.showLobby();
   }
 
@@ -214,6 +349,14 @@ class Game {
     this.uiManager.showGameOver(this.player.score, reason);
   }
 
+  respawnAtCasualCheckpoint() {
+    this.player.respawnAt(this.casualCheckpoint.x, this.casualCheckpoint.z);
+    this.cameraScrollZ = Math.max(0, this.casualCheckpoint.z * CONFIG.GRID_SIZE);
+    this.mapGenerator.update(this.casualCheckpoint.z);
+    const skillState = this.mapGenerator.getCasualSkillState(this.player.gridZ);
+    this.uiManager.updateCasualSkillButtons(skillState.remainingUses, skillState.available);
+  }
+
   animate() {
     requestAnimationFrame(this.animate);
 
@@ -223,7 +366,26 @@ class Game {
       const activeRows = this.mapGenerator.getActiveRows();
 
       // 1. 主角動態更新
+      const wasJumping = this.player.isJumping;
       this.player.update(deltaTime);
+      if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
+
+      if (this.isGameStarted && !this.isGameOver && this.currentMode === 'casual') {
+        this.bots.forEach((bot) => {
+          const wasBotJumping = bot.isJumping;
+          bot.updateAI(
+            deltaTime,
+            activeRows,
+            this.physics,
+            (actor, direction) => this.tryMoveActor(actor, direction),
+            (actor, direction) => this.canMoveActor(actor, direction)
+          );
+          bot.update(deltaTime);
+          if (wasBotJumping && !bot.isJumping) this.handleBotLanded(bot);
+          this.updateCasualBotHazards(bot, activeRows, deltaTime);
+        });
+        this.refreshLeaderboard();
+      }
 
       // 安全消耗連續跳躍緩衝隊列 (100% 通過 checkTreeCollision 嚴格碰撞檢測，徹底根除穿樹 Bug)
       if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
@@ -236,6 +398,13 @@ class Game {
       const pX = Number.isFinite(this.player.position.x) ? this.player.position.x : (this.player.gridX * CONFIG.GRID_SIZE);
 
       if (this.isGameStarted && !this.isGameOver) {
+        if (this.currentMode === 'casual') {
+          this.casualTimeRemaining = Math.max(0, this.casualTimeRemaining - deltaTime);
+          this.uiManager.updateTimer(this.casualTimeRemaining);
+          if (this.casualTimeRemaining <= 0) {
+            this.gameOver('時間到！本局最遠距離已結算。');
+          }
+        }
         if (this.currentMode === 'challenge') {
           // 🏆 挑戰模式：相機無間斷自主向前推進 (0.45格/秒) 與 7.5 秒發呆老鷹抓走淘汰
           this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
@@ -273,6 +442,10 @@ class Game {
       if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking) {
         const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
         if (hitObstacle && !this.player.isInvulnerable) {
+          if (this.currentMode === 'casual') {
+            this.respawnAtCasualCheckpoint();
+            return;
+          }
           const damage = hitObstacle.type === 'train' ? 70 : Math.min(60, Math.round(hitObstacle.speed * 8 + 10));
           const isFatal = this.player.takeDamage(damage);
           this.uiManager.updateHealth(this.player.hp);
@@ -290,10 +463,18 @@ class Game {
             this.player.gridX = Math.round(this.player.position.x / CONFIG.GRID_SIZE);
 
             if (Math.abs(this.player.position.x) > (CONFIG.MAP_BOUNDS_X + 1.2) * CONFIG.GRID_SIZE) {
+              if (this.currentMode === 'casual') {
+                this.respawnAtCasualCheckpoint();
+                return;
+              }
               this.player.triggerDrownAnimation();
               this.gameOver('漂流過遠，掉出邊界外！');
             }
           } else {
+            if (this.currentMode === 'casual') {
+              this.respawnAtCasualCheckpoint();
+              return;
+            }
             this.player.triggerDrownAnimation();
             this.gameOver('噗通！落水淹死！');
           }

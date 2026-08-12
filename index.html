@@ -31,14 +31,11 @@
       <span id="combo-count">🔥 5 COMBO</span>
     </div>
 
-    <!-- 🎮 休閒模式專屬：金幣減速輔助按鈕 -->
-    <button id="btn-casual-slowdown" class="casual-slowdown-btn hidden">
-      <span class="slowdown-icon">🐌</span>
-      <span id="slowdown-text">金幣減速 (可按 3 次)</span>
-    </button>
-
     <!-- 🐌 危險區緩速技能按鈕 -->
-    <button id="btn-slow" class="slow-skill-btn">🐌 減速 (3/3)</button>
+    <div id="casual-skill-controls" class="casual-skill-controls">
+      <button id="btn-speed-up" class="speed-skill-btn speed-up-skill-btn">⚡ 加速</button>
+      <button id="btn-slow" class="speed-skill-btn slow-skill-btn">🐌 減速</button>
+    </div>
 
     <!-- 遊戲 HUD UI -->
     <div id="hud">
@@ -49,6 +46,10 @@
       <div class="high-score-card">
         <span class="score-label">BEST</span>
         <span id="high-score">0</span>
+      </div>
+      <div id="timer-card" class="timer-card">
+        <span class="score-label">TIME</span>
+        <span id="time-remaining">120</span>
       </div>
     </div>
 
@@ -115,7 +116,6 @@
         </div>
         <div class="btn-group">
           <button id="btn-restart" class="btn-primary">再試一次</button>
-          <button id="btn-fast-respawn" class="btn-secondary">空投復活 (3秒)</button>
           <button id="btn-lobby" class="btn-secondary">返回大廳</button>
         </div>
       </div>

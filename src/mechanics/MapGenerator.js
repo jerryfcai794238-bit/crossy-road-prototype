@@ -24,6 +24,8 @@ export class MapGenerator {
     this.lastLilyPadGridXs = null;
     this.currentClusterObj = null;
     this.clusterCounter = 0;
+    this.currentHazardChain = null;
+    this.hazardChainCounter = 0;
 
     this.initGeometriesAndMaterials();
   }
@@ -77,6 +79,8 @@ export class MapGenerator {
     this.lastLilyPadGridXs = null;
     this.currentClusterObj = null;
     this.clusterCounter = 0;
+    this.currentHazardChain = null;
+    this.hazardChainCounter = 0;
   }
 
   update(playerZ) {
@@ -173,6 +177,16 @@ export class MapGenerator {
     };
 
     if (type !== CONFIG.ROW_TYPES.GRASS) {
+      if (!this.currentHazardChain) {
+        this.hazardChainCounter++;
+        this.currentHazardChain = {
+          id: this.hazardChainCounter,
+          remainingUses: 2,
+          rows: []
+        };
+      }
+      rowData.hazardChain = this.currentHazardChain;
+      this.currentHazardChain.rows.push(rowData);
       if (!this.currentClusterObj || this.currentClusterObj.type !== type) {
         this.clusterCounter++;
         this.currentClusterObj = {
@@ -184,6 +198,8 @@ export class MapGenerator {
       }
       rowData.cluster = this.currentClusterObj;
       this.currentClusterObj.rows.push(rowData);
+    } else {
+      this.currentHazardChain = null;
     }
 
     switch (type) {
@@ -646,6 +662,66 @@ export class MapGenerator {
       slowLevel,
       remainingUses: 3 - slowLevel
     };
+  }
+
+  applyCasualSpeedAdjustment(playerZ, adjustment) {
+    const targetRow = this.getCasualSkillTargetRow(playerZ);
+    if (!targetRow || !targetRow.hazardChain) {
+      return { success: false, remainingUses: 0, netAdjustment: 0 };
+    }
+
+    const chain = targetRow.hazardChain;
+    if (chain.remainingUses <= 0) {
+      return { success: false, remainingUses: 0, netAdjustment: targetRow.speedAdjustment || 0 };
+    }
+
+    targetRow.speedAdjustment = (targetRow.speedAdjustment || 0) + adjustment;
+    chain.remainingUses--;
+    this.applyRowSpeedAdjustment(targetRow);
+
+    return {
+      success: true,
+      remainingUses: chain.remainingUses,
+      netAdjustment: targetRow.speedAdjustment
+    };
+  }
+
+  getCasualSkillTargetRow(playerZ) {
+    const currentRow = this.activeRows.get(playerZ);
+    if (currentRow?.hazardChain) return currentRow;
+
+    let nextRow = null;
+    for (const [z, row] of this.activeRows.entries()) {
+      if (z > playerZ && row.hazardChain && (!nextRow || z < nextRow.z)) nextRow = row;
+    }
+    return nextRow;
+  }
+
+  getCasualSkillState(playerZ) {
+    const targetRow = this.getCasualSkillTargetRow(playerZ);
+    return {
+      remainingUses: targetRow?.hazardChain?.remainingUses ?? 0,
+      available: Boolean(targetRow?.hazardChain)
+    };
+  }
+
+  applyRowSpeedAdjustment(row) {
+    if (row.baseSpeed === undefined) row.baseSpeed = row.speed || 3.0;
+    const multiplier = 1 + 0.1 * (row.speedAdjustment || 0);
+    row.speed = row.baseSpeed * multiplier;
+
+    if (row.type === CONFIG.ROW_TYPES.RAILROAD) {
+      row.trainSpeedMult = multiplier;
+      if (row.train) this.updateMeshSlowTrail(row.train, row.direction, Math.abs(row.speedAdjustment || 0));
+    }
+    if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
+      row.vehicles.forEach((vehicle) => this.updateMeshSlowTrail(vehicle.mesh, row.direction, Math.abs(row.speedAdjustment || 0)));
+    }
+    if (row.type === CONFIG.ROW_TYPES.RIVER && row.logs) {
+      row.logs.forEach((log) => {
+        if (!log.isStationary) this.updateMeshSlowTrail(log.mesh, row.direction, Math.abs(row.speedAdjustment || 0), true);
+      });
+    }
   }
 
   checkSafeZoneReset(playerZ) {
