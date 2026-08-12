@@ -184,9 +184,9 @@ class Game {
 
   createCasualBots() {
     const botSpawns = [
-      { x: -2, z: -1, aggression: 0.42 },
-      { x: 0, z: -2, aggression: 0.48 },
-      { x: 2, z: -3, aggression: 0.54 }
+      { x: -1, z: 0, aggression: 0.42 },
+      { x: 1, z: 0, aggression: 0.48 },
+      { x: 3, z: 0, aggression: 0.54 }
     ];
     const shuffledVariants = [...AI_CHARACTER_VARIANTS];
     for (let index = shuffledVariants.length - 1; index > 0; index--) {
@@ -289,6 +289,11 @@ class Game {
     this.uiManager.setMode(this.currentMode);
     this.uiManager.updateHealth(this.player.hp);
     this.mapGenerator.initMap();
+    if (this.currentMode === 'casual') {
+      // 四個角色在同一條起跑線排列，避免開局出現前後錯位。
+      this.player.respawnAt(-3, 0, 0.1);
+      this.casualCheckpoint = { x: -3, z: 0 };
+    }
     this.sceneSetup.resetCamera();
     this.uiManager.updateScore(0);
     this.uiManager.updateTimer(this.casualTimeRemaining);

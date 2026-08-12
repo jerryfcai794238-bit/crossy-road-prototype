@@ -248,7 +248,7 @@ export class MapGenerator {
         placeTree = Math.random() < 0.28;
       }
 
-      if (isInitialSafe && rowData.z >= -3 && rowData.z <= 3 && Math.abs(x) <= 1) {
+      if (isInitialSafe && rowData.z >= -3 && rowData.z <= 3 && Math.abs(x) <= 4) {
         placeTree = false;
       }
 
