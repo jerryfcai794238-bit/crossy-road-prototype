@@ -68,13 +68,9 @@ class Game {
       else if (key === 's' || key === 'arrowdown') this.handlePlayerInput('DOWN');
       else if (key === 'a' || key === 'arrowleft') this.handlePlayerInput('LEFT');
       else if (key === 'd' || key === 'arrowright') this.handlePlayerInput('RIGHT');
-      else if (key === 'e') this.handleCasualSpeedSkill(-1);
-      else if (key === 'q') this.handleCasualSpeedSkill(1);
     });
 
-    // 減速技能按鈕與虛擬 D-Pad 控制器
-    document.getElementById('btn-slow')?.addEventListener('click', () => this.handleCasualSpeedSkill(-1));
-    document.getElementById('btn-speed-up')?.addEventListener('click', () => this.handleCasualSpeedSkill(1));
+    // 虛擬 D-Pad 控制器
     document.getElementById('btn-up')?.addEventListener('click', () => this.handlePlayerInput('UP'));
     document.getElementById('btn-down')?.addEventListener('click', () => this.handlePlayerInput('DOWN'));
     document.getElementById('btn-left')?.addEventListener('click', () => this.handlePlayerInput('LEFT'));
@@ -86,18 +82,11 @@ class Game {
         e.target.closest('#hud') ||
         e.target.closest('#leaderboard') ||
         e.target.closest('#mobile-controls') ||
-        e.target.closest('.overlay') ||
-        e.target.closest('#btn-slow')
+        e.target.closest('.overlay')
       ) return;
       if (!this.isGameStarted || this.isGameOver) return;
       this.handlePlayerInput('UP');
     });
-  }
-
-  handleCasualSpeedSkill(adjustment) {
-    if (!this.isGameStarted || this.isGameOver || this.currentMode !== 'casual') return;
-    const result = this.mapGenerator.applyCasualSpeedAdjustment(this.player.gridZ, adjustment);
-    this.uiManager.updateCasualSkillButtons(result.remainingUses, result.success || result.remainingUses > 0);
   }
 
   handlePlayerInput(direction, distance = 1) {
@@ -227,8 +216,6 @@ class Game {
     if (landedRow?.type === CONFIG.ROW_TYPES.GRASS && this.player.gridZ > this.casualCheckpoint.z) {
       this.casualCheckpoint = { x: this.player.gridX, z: this.player.gridZ };
     }
-    const skillState = this.mapGenerator.getCasualSkillState(this.player.gridZ);
-    this.uiManager.updateCasualSkillButtons(skillState.remainingUses, skillState.available);
   }
 
   handleBotLanded(bot) {
@@ -300,8 +287,6 @@ class Game {
     if (this.currentMode === 'casual') {
       this.createCasualBots();
       this.refreshLeaderboard();
-      const skillState = this.mapGenerator.getCasualSkillState(this.player.gridZ);
-      this.uiManager.updateCasualSkillButtons(skillState.remainingUses, skillState.available);
     }
   }
 
@@ -358,8 +343,6 @@ class Game {
     this.player.respawnAt(this.casualCheckpoint.x, this.casualCheckpoint.z);
     this.cameraScrollZ = Math.max(0, this.casualCheckpoint.z * CONFIG.GRID_SIZE);
     this.mapGenerator.update(this.casualCheckpoint.z);
-    const skillState = this.mapGenerator.getCasualSkillState(this.player.gridZ);
-    this.uiManager.updateCasualSkillButtons(skillState.remainingUses, skillState.available);
   }
 
   animate() {

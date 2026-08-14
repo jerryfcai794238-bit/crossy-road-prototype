@@ -16,9 +16,6 @@ export class UIManager {
     this.healthBarFill = document.getElementById('health-bar-fill');
     this.healthBarText = document.getElementById('health-bar-text');
     this.healthBarContainer = document.getElementById('health-bar-container');
-    this.btnSlow = document.getElementById('btn-slow');
-    this.btnSpeedUp = document.getElementById('btn-speed-up');
-    this.skillControls = document.getElementById('casual-skill-controls');
     this.timerCard = document.getElementById('timer-card');
     this.timeRemainingEl = document.getElementById('time-remaining');
     this.leaderboard = document.getElementById('leaderboard');
@@ -63,19 +60,7 @@ export class UIManager {
     const isCasual = mode === 'casual';
     if (this.healthBarContainer) this.healthBarContainer.style.display = isCasual ? 'none' : 'flex';
     if (this.timerCard) this.timerCard.style.display = isCasual ? 'flex' : 'none';
-    if (this.skillControls) this.skillControls.style.display = isCasual ? 'flex' : 'none';
     if (this.leaderboard) this.leaderboard.style.display = isCasual ? 'block' : 'none';
-  }
-
-  updateCasualSkillButtons(remainingUses, available = true) {
-    const disabled = !available || remainingUses <= 0;
-    const label = available ? `(${remainingUses}/2)` : '(無目標)';
-    for (const [button, text] of [[this.btnSpeedUp, '⚡ 加速'], [this.btnSlow, '🐌 減速']]) {
-      if (!button) continue;
-      button.innerText = `${text} ${label}`;
-      button.classList.toggle('disabled', disabled);
-      button.disabled = disabled;
-    }
   }
 
   updateTimer(seconds) {
