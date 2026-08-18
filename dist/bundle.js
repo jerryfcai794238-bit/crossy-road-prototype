@@ -16478,7 +16478,7 @@
       let _clippingEnabled = false;
       let _localClippingEnabled = false;
       let _transmissionRenderTarget = null;
-      const _projScreenMatrix = new Matrix4();
+      const _projScreenMatrix2 = new Matrix4();
       const _vector22 = new Vector2();
       const _vector3 = new Vector3();
       const _emptyScene = { background: null, fog: null, environment: null, overrideMaterial: null, isScene: true };
@@ -16981,8 +16981,8 @@
         currentRenderState = renderStates.get(scene, renderStateStack.length);
         currentRenderState.init();
         renderStateStack.push(currentRenderState);
-        _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        _frustum.setFromProjectionMatrix(_projScreenMatrix);
+        _projScreenMatrix2.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        _frustum.setFromProjectionMatrix(_projScreenMatrix2);
         _localClippingEnabled = this.localClippingEnabled;
         _clippingEnabled = clipping.init(this.clippingPlanes, _localClippingEnabled);
         currentRenderList = renderLists.get(scene, renderListStack.length);
@@ -17047,7 +17047,7 @@
           } else if (object.isSprite) {
             if (!object.frustumCulled || _frustum.intersectsSprite(object)) {
               if (sortObjects) {
-                _vector3.setFromMatrixPosition(object.matrixWorld).applyMatrix4(_projScreenMatrix);
+                _vector3.setFromMatrixPosition(object.matrixWorld).applyMatrix4(_projScreenMatrix2);
               }
               const geometry = objects.update(object);
               const material = object.material;
@@ -17067,7 +17067,7 @@
                   if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
                   _vector3.copy(geometry.boundingSphere.center);
                 }
-                _vector3.applyMatrix4(object.matrixWorld).applyMatrix4(_projScreenMatrix);
+                _vector3.applyMatrix4(object.matrixWorld).applyMatrix4(_projScreenMatrix2);
               }
               if (Array.isArray(material)) {
                 const groups = geometry.groups;
@@ -18702,6 +18702,104 @@
       object.camera = this.camera.toJSON(false).object;
       delete object.camera.matrix;
       return object;
+    }
+  };
+  var _projScreenMatrix = /* @__PURE__ */ new Matrix4();
+  var _lightPositionWorld = /* @__PURE__ */ new Vector3();
+  var _lookTarget = /* @__PURE__ */ new Vector3();
+  var PointLightShadow = class extends LightShadow {
+    constructor() {
+      super(new PerspectiveCamera(90, 1, 0.5, 500));
+      this.isPointLightShadow = true;
+      this._frameExtents = new Vector2(4, 2);
+      this._viewportCount = 6;
+      this._viewports = [
+        // These viewports map a cube-map onto a 2D texture with the
+        // following orientation:
+        //
+        //  xzXZ
+        //   y Y
+        //
+        // X - Positive x direction
+        // x - Negative x direction
+        // Y - Positive y direction
+        // y - Negative y direction
+        // Z - Positive z direction
+        // z - Negative z direction
+        // positive X
+        new Vector4(2, 1, 1, 1),
+        // negative X
+        new Vector4(0, 1, 1, 1),
+        // positive Z
+        new Vector4(3, 1, 1, 1),
+        // negative Z
+        new Vector4(1, 1, 1, 1),
+        // positive Y
+        new Vector4(3, 0, 1, 1),
+        // negative Y
+        new Vector4(1, 0, 1, 1)
+      ];
+      this._cubeDirections = [
+        new Vector3(1, 0, 0),
+        new Vector3(-1, 0, 0),
+        new Vector3(0, 0, 1),
+        new Vector3(0, 0, -1),
+        new Vector3(0, 1, 0),
+        new Vector3(0, -1, 0)
+      ];
+      this._cubeUps = [
+        new Vector3(0, 1, 0),
+        new Vector3(0, 1, 0),
+        new Vector3(0, 1, 0),
+        new Vector3(0, 1, 0),
+        new Vector3(0, 0, 1),
+        new Vector3(0, 0, -1)
+      ];
+    }
+    updateMatrices(light, viewportIndex = 0) {
+      const camera = this.camera;
+      const shadowMatrix = this.matrix;
+      const far = light.distance || camera.far;
+      if (far !== camera.far) {
+        camera.far = far;
+        camera.updateProjectionMatrix();
+      }
+      _lightPositionWorld.setFromMatrixPosition(light.matrixWorld);
+      camera.position.copy(_lightPositionWorld);
+      _lookTarget.copy(camera.position);
+      _lookTarget.add(this._cubeDirections[viewportIndex]);
+      camera.up.copy(this._cubeUps[viewportIndex]);
+      camera.lookAt(_lookTarget);
+      camera.updateMatrixWorld();
+      shadowMatrix.makeTranslation(-_lightPositionWorld.x, -_lightPositionWorld.y, -_lightPositionWorld.z);
+      _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      this._frustum.setFromProjectionMatrix(_projScreenMatrix);
+    }
+  };
+  var PointLight = class extends Light {
+    constructor(color, intensity, distance = 0, decay = 2) {
+      super(color, intensity);
+      this.isPointLight = true;
+      this.type = "PointLight";
+      this.distance = distance;
+      this.decay = decay;
+      this.shadow = new PointLightShadow();
+    }
+    get power() {
+      return this.intensity * 4 * Math.PI;
+    }
+    set power(power) {
+      this.intensity = power / (4 * Math.PI);
+    }
+    dispose() {
+      this.shadow.dispose();
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      this.distance = source.distance;
+      this.decay = source.decay;
+      this.shadow = source.shadow.clone();
+      return this;
     }
   };
   var DirectionalLightShadow = class extends LightShadow {
@@ -20440,6 +20538,208 @@
     }
   };
 
+  // src/ui/TutorialSceneRenderer.js
+  var STEP_DURATION = 1.25;
+  var LOOP_DURATION = 4.8;
+  function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+  }
+  function disposeObject(object) {
+    object.traverse((child) => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((material) => material.dispose());
+      }
+    });
+  }
+  var TutorialSceneRenderer = class {
+    constructor() {
+      this.scenes = /* @__PURE__ */ new Map();
+      this.activeType = null;
+      this.frameId = null;
+      this.startedAt = 0;
+      this.reducedMotion = typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      this.supported = typeof window !== "undefined" && typeof document !== "undefined" && typeof window.WebGLRenderingContext !== "undefined";
+    }
+    setActive(type) {
+      this.stop();
+      this.activeType = type;
+      if (!this.supported || !type) return;
+      const entry = this.ensureScene(type);
+      if (!entry) return;
+      this.reset(entry);
+      this.resize(entry);
+      this.render(entry);
+      if (!this.reducedMotion) {
+        this.startedAt = performance.now();
+        this.frameId = requestAnimationFrame((now2) => this.animate(now2));
+      }
+    }
+    stop() {
+      if (this.frameId !== null) cancelAnimationFrame(this.frameId);
+      this.frameId = null;
+      if (this.activeType && this.scenes.has(this.activeType)) {
+        const entry = this.scenes.get(this.activeType);
+        this.reset(entry);
+        this.render(entry);
+      }
+      this.activeType = null;
+    }
+    dispose() {
+      this.stop();
+      this.scenes.forEach((entry) => {
+        if (entry.observer) entry.observer.disconnect();
+        disposeObject(entry.scene);
+        entry.renderer.dispose();
+        entry.renderer.domElement.remove();
+      });
+      this.scenes.clear();
+    }
+    ensureScene(type) {
+      if (this.scenes.has(type)) return this.scenes.get(type);
+      const host = document.querySelector(`[data-tutorial-scene="${type}"]`);
+      if (!host) return null;
+      let renderer;
+      try {
+        renderer = new WebGLRenderer({ antialias: true, alpha: true });
+      } catch (error) {
+        this.supported = false;
+        return null;
+      }
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0, 0);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = PCFSoftShadowMap;
+      renderer.domElement.className = "tutorial-scene-canvas";
+      host.replaceChildren(renderer.domElement);
+      const scene = new Scene();
+      const camera = new OrthographicCamera(-4.5, 4.5, 3.8, -3.8, 0.1, 100);
+      camera.position.set(-8, 10, -8);
+      camera.lookAt(0, 0, 0);
+      scene.add(new HemisphereLight(16777215, 3693394, 1.35));
+      const light = new DirectionalLight(16777215, 1.5);
+      light.position.set(-6, 10, -4);
+      light.castShadow = true;
+      light.shadow.mapSize.set(512, 512);
+      scene.add(light);
+      const tileGeometry = new BoxGeometry(CONFIG.GRID_SIZE, 0.16, CONFIG.GRID_SIZE);
+      const grassMaterial = new MeshLambertMaterial({ color: CONFIG.COLORS.GRASS_PRIMARY });
+      const grassAltMaterial = new MeshLambertMaterial({ color: CONFIG.COLORS.GRASS_SECONDARY });
+      for (let x = -1; x <= 1; x += 1) {
+        for (let z = -3; z <= 3; z += 1) {
+          const tile = new Mesh(tileGeometry, (x + z) % 2 ? grassMaterial : grassAltMaterial);
+          tile.position.set(x * CONFIG.GRID_SIZE, 0, z * CONFIG.GRID_SIZE);
+          tile.receiveShadow = true;
+          scene.add(tile);
+        }
+      }
+      const entry = { type, host, scene, camera, renderer, actors: {}, checkpoint: null, observer: null };
+      this.buildActors(entry);
+      if (typeof ResizeObserver !== "undefined") {
+        entry.observer = new ResizeObserver(() => {
+          this.resize(entry);
+          if (this.activeType === type) this.render(entry);
+        });
+        entry.observer.observe(host);
+      }
+      this.scenes.set(type, entry);
+      return entry;
+    }
+    buildActors(entry) {
+      const player = createChicken();
+      player.castShadow = true;
+      entry.scene.add(player);
+      entry.actors.player = player;
+      if (entry.type === "push") {
+        const friend = AI_CHARACTER_VARIANTS[1].createMesh();
+        entry.scene.add(friend);
+        entry.actors.friend = friend;
+      }
+      if (entry.type === "respawn") {
+        const flagPole = new Mesh(
+          new BoxGeometry(0.08, 1.15, 0.08),
+          new MeshLambertMaterial({ color: 16317180 })
+        );
+        const flag = new Mesh(
+          new BoxGeometry(0.58, 0.34, 0.06),
+          new MeshLambertMaterial({ color: 16763904 })
+        );
+        flagPole.position.set(0, 0.58, -2.3 * CONFIG.GRID_SIZE);
+        flag.position.set(0.29, 0.93, -2.3 * CONFIG.GRID_SIZE);
+        entry.scene.add(flagPole, flag);
+        entry.checkpoint = new PointLight(8257457, 0, 3.4);
+        entry.checkpoint.position.copy(flagPole.position).add(new Vector3(0, 0.45, 0));
+        entry.scene.add(entry.checkpoint);
+      }
+    }
+    reset(entry) {
+      const step = CONFIG.GRID_SIZE;
+      if (entry.type === "move") entry.actors.player.position.set(0, 0.08, -1.5 * step);
+      if (entry.type === "push") {
+        entry.actors.player.position.set(0, 0.08, -2.2 * step);
+        entry.actors.friend.position.set(0, 0.08, -0.9 * step);
+      }
+      if (entry.type === "respawn") {
+        entry.actors.player.position.set(0, 0.08, 1.8 * step);
+        entry.actors.player.visible = true;
+        entry.checkpoint.intensity = 0;
+      }
+    }
+    animate(now2) {
+      if (!this.activeType || this.reducedMotion) return;
+      const entry = this.scenes.get(this.activeType);
+      if (!entry) return;
+      this.update(entry, (now2 - this.startedAt) / 1e3 % LOOP_DURATION);
+      this.render(entry);
+      this.frameId = requestAnimationFrame((nextNow) => this.animate(nextNow));
+    }
+    update(entry, elapsed) {
+      this.reset(entry);
+      const step = CONFIG.GRID_SIZE;
+      const jump = (actor, from, to, progress) => {
+        actor.position.lerpVectors(from, to, progress);
+        actor.position.y += Math.sin(progress * Math.PI) * 0.42;
+      };
+      if (entry.type === "move") {
+        const progress = clamp01((elapsed - 0.45) / STEP_DURATION);
+        jump(entry.actors.player, new Vector3(0, 0.08, -1.5 * step), new Vector3(0, 0.08, -0.3 * step), progress);
+        return;
+      }
+      if (entry.type === "push") {
+        const friendProgress = clamp01((elapsed - 0.65) / STEP_DURATION);
+        const playerProgress = clamp01((elapsed - 0.3) / STEP_DURATION);
+        jump(entry.actors.friend, new Vector3(0, 0.08, -0.9 * step), new Vector3(0, 0.08, 0.3 * step), friendProgress);
+        jump(entry.actors.player, new Vector3(0, 0.08, -2.2 * step), new Vector3(0, 0.08, -1 * step), playerProgress);
+        return;
+      }
+      const retreat = clamp01((elapsed - 0.25) / 1.15);
+      const resume = clamp01((elapsed - 2.35) / STEP_DURATION);
+      if (retreat < 1) {
+        jump(entry.actors.player, new Vector3(0, 0.08, 1.8 * step), new Vector3(0, 0.08, -2.3 * step), retreat);
+      } else {
+        entry.checkpoint.intensity = 2.6 * (0.45 + Math.sin(elapsed * 12) * 0.25);
+        jump(entry.actors.player, new Vector3(0, 0.08, -2.3 * step), new Vector3(0, 0.08, -1.05 * step), resume);
+      }
+    }
+    resize(entry) {
+      const width = entry.host.clientWidth;
+      const height = entry.host.clientHeight;
+      if (!width || !height) return;
+      const aspect2 = width / height;
+      const d = 3.8;
+      entry.camera.left = -d * aspect2;
+      entry.camera.right = d * aspect2;
+      entry.camera.top = d;
+      entry.camera.bottom = -d;
+      entry.camera.updateProjectionMatrix();
+      entry.renderer.setSize(width, height, false);
+    }
+    render(entry) {
+      entry.renderer.render(entry.scene, entry.camera);
+    }
+  };
+
   // src/ui/UIManager.js
   var UIManager = class {
     constructor() {
@@ -20450,6 +20750,13 @@
       this.btnStart = document.getElementById("btn-start");
       this.btnRestart = document.getElementById("btn-restart");
       this.btnLobby = document.getElementById("btn-lobby");
+      this.btnCasualGuide = document.getElementById("btn-casual-guide");
+      this.casualGuideOverlay = document.getElementById("casual-guide-overlay");
+      this.guideActions = document.querySelector("[data-guide-actions]");
+      this.btnGuideBack = document.getElementById("btn-guide-back");
+      this.btnGuideNext = document.getElementById("btn-guide-next");
+      this.guideSlides = Array.from(document.querySelectorAll("[data-guide-card]"));
+      this.guideDots = Array.from(document.querySelectorAll("[data-guide-progress]"));
       this.finalScoreEl = document.getElementById("final-score");
       this.finalBestEl = document.getElementById("final-best");
       this.deathReasonEl = document.getElementById("death-reason");
@@ -20468,7 +20775,24 @@
       this.highScore = isNaN(savedHighScore) ? 0 : savedHighScore;
       if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
       this.selectedMode = "casual";
+      this.casualGuideSeen = this.readCasualGuideSeen();
+      this.activeGuideCard = 0;
+      this.tutorialSceneRenderer = new TutorialSceneRenderer();
       this.setupModeSelection();
+    }
+    readCasualGuideSeen() {
+      try {
+        return localStorage.getItem("crossy_casual_guide_seen_v1") === "1";
+      } catch (e) {
+        return false;
+      }
+    }
+    markCasualGuideSeen() {
+      this.casualGuideSeen = true;
+      try {
+        localStorage.setItem("crossy_casual_guide_seen_v1", "1");
+      } catch (e) {
+      }
     }
     setupModeSelection() {
       const modeCards = document.querySelectorAll(".mode-card");
@@ -20481,13 +20805,120 @@
           modeCards.forEach((c) => c.classList.remove("selected"));
           card.classList.add("selected");
           this.selectedMode = card.getAttribute("data-mode") || "casual";
+          this.updateCasualGuideAvailability(true);
         });
       });
     }
     init(onStart, onRestart, onReturnLobby) {
-      if (this.btnStart) this.btnStart.addEventListener("click", () => onStart(this.selectedMode));
+      if (this.btnStart) {
+        this.btnStart.addEventListener("click", () => {
+          if (this.isCasualGuideOpen()) return;
+          if (this.selectedMode === "casual" && !this.casualGuideSeen) {
+            this.openCasualGuide();
+            return;
+          }
+          onStart(this.selectedMode);
+        });
+      }
       if (this.btnRestart) this.btnRestart.addEventListener("click", () => onRestart(this.selectedMode));
       if (this.btnLobby) this.btnLobby.addEventListener("click", () => onReturnLobby());
+      this.setupCasualGuide(onStart);
+      this.updateCasualGuideAvailability(true);
+    }
+    setupCasualGuide(onStart) {
+      if (this.btnCasualGuide) {
+        this.btnCasualGuide.addEventListener("click", () => this.openCasualGuide());
+      }
+      if (this.btnGuideNext) {
+        this.btnGuideNext.addEventListener("click", () => {
+          if (this.activeGuideCard < this.guideSlides.length - 1) {
+            this.showGuideCard(this.activeGuideCard + 1);
+            return;
+          }
+          this.markCasualGuideSeen();
+          this.closeCasualGuide();
+          onStart("casual");
+        });
+      }
+      if (this.btnGuideBack) {
+        this.btnGuideBack.addEventListener("click", () => {
+          if (this.activeGuideCard > 0) this.showGuideCard(this.activeGuideCard - 1);
+        });
+      }
+      document.addEventListener("keydown", (event) => {
+        if (!this.isCasualGuideOpen()) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        if (event.key === "Tab") {
+          event.preventDefault();
+          event.stopPropagation();
+          const focusable = this.getGuideFocusableElements();
+          if (!focusable.length) return;
+          const currentIndex = focusable.indexOf(document.activeElement);
+          const nextIndex = event.shiftKey ? currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1 : currentIndex === -1 || currentIndex === focusable.length - 1 ? 0 : currentIndex + 1;
+          focusable[nextIndex].focus();
+        }
+      }, true);
+    }
+    updateCasualGuideAvailability(openIfUnread = false) {
+      const isCasual = this.selectedMode === "casual";
+      if (this.btnCasualGuide) this.btnCasualGuide.hidden = !isCasual;
+      if (!isCasual) {
+        this.closeCasualGuide();
+        return;
+      }
+      if (openIfUnread && !this.casualGuideSeen) this.openCasualGuide();
+    }
+    openCasualGuide() {
+      if (this.selectedMode !== "casual" || !this.casualGuideOverlay) return;
+      this.showGuideCard(0);
+      this.casualGuideOverlay.classList.remove("hidden");
+      this.casualGuideOverlay.style.display = "flex";
+      this.casualGuideOverlay.setAttribute("aria-hidden", "false");
+      this.setLobbyGuideInert(true);
+      this.tutorialSceneRenderer.setActive(["move", "push", "respawn"][this.activeGuideCard]);
+      if (this.btnGuideNext) this.btnGuideNext.focus();
+    }
+    closeCasualGuide() {
+      if (!this.casualGuideOverlay) return;
+      this.casualGuideOverlay.classList.add("hidden");
+      this.casualGuideOverlay.style.display = "none";
+      this.casualGuideOverlay.setAttribute("aria-hidden", "true");
+      this.setLobbyGuideInert(false);
+      this.tutorialSceneRenderer.stop();
+    }
+    setLobbyGuideInert(isInert) {
+      if (!this.startOverlay) return;
+      this.startOverlay.toggleAttribute("inert", isInert);
+    }
+    isCasualGuideOpen() {
+      return Boolean(this.casualGuideOverlay && !this.casualGuideOverlay.classList.contains("hidden"));
+    }
+    getGuideFocusableElements() {
+      return [this.btnGuideBack, this.btnGuideNext].filter((button) => button && !button.hidden && !button.disabled);
+    }
+    showGuideCard(index) {
+      const target = Math.max(0, Math.min(this.guideSlides.length - 1, index));
+      this.activeGuideCard = target;
+      this.guideSlides.forEach((slide, slideIndex) => {
+        const isActive = slideIndex === target;
+        slide.classList.toggle("active", isActive);
+        slide.hidden = !isActive;
+      });
+      this.guideDots.forEach((dot, dotIndex) => {
+        const isActive = dotIndex === target;
+        dot.classList.toggle("active", isActive);
+        dot.setAttribute("aria-current", isActive ? "step" : "false");
+      });
+      if (this.btnGuideNext) {
+        this.btnGuideNext.textContent = target === this.guideSlides.length - 1 ? "\u958B\u59CB\u904A\u6232" : "\u4E0B\u4E00\u6B65";
+      }
+      if (this.btnGuideBack) this.btnGuideBack.hidden = target === 0;
+      if (this.guideActions) this.guideActions.classList.toggle("is-single-action", target === 0);
+      if (this.isCasualGuideOpen()) this.tutorialSceneRenderer.setActive(["move", "push", "respawn"][target]);
     }
     setMode(mode) {
       const isCasual = mode === "casual";

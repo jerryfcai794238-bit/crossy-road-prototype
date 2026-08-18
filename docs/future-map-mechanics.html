@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>天天過馬路 3D｜未來地圖機制庫</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eeece7;
+      --paper: #fffdfa;
+      --paper-soft: #f7f5f0;
+      --line: #d7d3ca;
+      --ink: #1f2937;
+      --muted: #5c6775;
+      --blue: #276b9f;
+      --blue-soft: #eaf3fb;
+      --green: #277a55;
+      --green-soft: #eaf5ee;
+      --gold: #a66a00;
+      --gold-soft: #fff4d6;
+      --red: #b34a47;
+      --red-soft: #fdecea;
+      --purple: #7658aa;
+      --purple-soft: #f1ecfb;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-width: 320px; background: var(--bg); color: var(--ink); font: 16px/1.7 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Microsoft JhengHei', sans-serif; }
+    a { color: inherit; }
+    .hero { border-bottom: 1px solid var(--line); background: var(--paper); }
+    .hero-inner, .shell { width: min(1440px, calc(100% - 3rem)); margin: auto; }
+    .hero-inner { padding: 3.5rem 0 3rem; }
+    .eyebrow { display: flex; align-items: center; gap: .5rem; margin: 0 0 .5rem; color: var(--gold); font: 800 .82rem/1 'Outfit', sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+    .eyebrow::before { width: 8px; height: 8px; border-radius: 50%; background: currentColor; content: ''; }
+    h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; line-height: 1.22; }
+    h1 { max-width: 15ch; margin: 0; font-size: clamp(2.35rem, 5vw, 4.1rem); letter-spacing: -.035em; }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.65rem, 2.5vw, 2.35rem); letter-spacing: -.02em; }
+    h3 { margin: 0; font-size: 1.17rem; }
+    h4 { margin: 0; font-size: .98rem; }
+    p { margin: .55rem 0; }
+    .lead { max-width: 70rem; color: var(--muted); font-size: 1.08rem; }
+    .key { color: var(--gold); font-weight: 800; }
+    .meta-row, .legend, .chips { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; }
+    .meta, .chip, .status { display: inline-flex; align-items: center; min-height: 2rem; padding: .22rem .65rem; border: 1px solid var(--line); border-radius: 999px; background: var(--paper-soft); color: var(--muted); font-size: .82rem; font-weight: 750; }
+    .status--research { color: var(--purple); border-color: #c9b8e6; background: var(--purple-soft); }
+    .status--p1 { color: var(--red); border-color: #e1adab; background: var(--red-soft); }
+    .status--p2 { color: var(--blue); border-color: #b6d0e3; background: var(--blue-soft); }
+    .status--p3 { color: var(--muted); }
+    .status--base { color: var(--green); border-color: #b9dbc8; background: var(--green-soft); }
+    .shell { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); gap: clamp(2rem, 5vw, 5.5rem); padding: 2.5rem 0 5rem; }
+    .toc { position: sticky; top: 1.25rem; align-self: start; padding: 1.1rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); }
+    .toc strong { display: block; margin: 0 .45rem .6rem; font-family: 'Outfit', sans-serif; }
+    .toc a { display: block; padding: .46rem .6rem; border-radius: .35rem; color: var(--muted); font-size: .9rem; font-weight: 650; text-decoration: none; }
+    .toc a:hover, .toc a:focus-visible, .toc a[aria-current='location'] { background: var(--blue); color: #fff; outline: 0; }
+    .toc .back { margin-top: .75rem; border-top: 1px solid var(--line); padding-top: .95rem; color: var(--blue); }
+    section { margin-bottom: 4.8rem; scroll-margin-top: 2rem; }
+    .notice { display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: start; padding: 1.1rem 1.25rem; border: 1px solid #dec884; border-radius: .75rem; background: var(--gold-soft); }
+    .notice b { color: #725000; }
+    .notice p { margin: 0; color: #5d543f; }
+    .score-grid, .mechanic-grid { display: grid; gap: 1rem; }
+    .score-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .score-card, .mechanic-card, .template-card, .milestone { border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); }
+    .score-card { padding: 1rem; }
+    .score-card strong { display: block; margin-bottom: .2rem; color: var(--blue); font: 800 1.35rem/1 'Outfit', sans-serif; }
+    .score-card p { margin: .25rem 0 0; color: var(--muted); font-size: .86rem; line-height: 1.5; }
+    .decision-strip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, .55fr); gap: 1rem; align-items: stretch; margin-top: 1.25rem; }
+    .decision-strip > div { padding: 1.1rem 1.2rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); }
+    .decision-strip strong { color: var(--green); }
+    .decision-strip p { color: var(--muted); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); }
+    table { width: 100%; min-width: 53rem; border-collapse: collapse; }
+    th, td { padding: .95rem 1rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: #435263; background: var(--paper-soft); font-size: .82rem; letter-spacing: .04em; }
+    tr:last-child td { border-bottom: 0; }
+    td { color: #435263; }
+    .score { display: inline-flex; min-width: 2.55rem; justify-content: center; padding: .08rem .4rem; border-radius: .25rem; background: var(--paper-soft); color: var(--ink); font: 800 .95rem/1.5 'Outfit', sans-serif; }
+    .score--top { color: var(--green); background: var(--green-soft); }
+    .score--pilot { color: var(--gold); background: var(--gold-soft); }
+    .mechanic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mechanic-card { padding: 1.3rem; border-left: 4px solid var(--blue); }
+    .mechanic-card[data-priority='P1'] { border-left-color: var(--red); }
+    .mechanic-card[data-priority='P3'] { border-left-color: var(--purple); }
+    .mechanic-card > p { color: var(--muted); }
+    .mechanic-card ul { margin: .9rem 0 0; padding-left: 1.15rem; color: #455566; }
+    .mechanic-card li + li { margin-top: .35rem; }
+    .card-head { display: flex; justify-content: space-between; gap: .75rem; align-items: start; }
+    .subhead { margin: 1.35rem 0 .65rem; color: var(--blue); font: 800 .86rem/1 'Outfit', sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+    .timeline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; align-items: center; }
+    .milestone { position: relative; min-height: 9.8rem; padding: 1rem; }
+    .milestone:not(:last-child)::after { position: absolute; top: 50%; right: -.62rem; width: .44rem; height: .44rem; border-top: 2px solid var(--blue); border-right: 2px solid var(--blue); transform: translateY(-50%) rotate(45deg); content: ''; }
+    .milestone:nth-child(1) { border-top: 4px solid var(--gold); }
+    .milestone:nth-child(2) { border-top: 4px solid var(--red); }
+    .milestone:nth-child(3) { border-top: 4px solid var(--blue); }
+    .milestone:nth-child(4) { border-top: 4px solid var(--green); }
+    .milestone p { color: var(--muted); font-size: .9rem; }
+    .template-card { display: grid; grid-template-columns: 11rem 1fr; gap: 1rem; padding: 1.05rem 1.2rem; }
+    .template-card + .template-card { margin-top: .75rem; }
+    .template-card strong { color: var(--blue); }
+    .template-card p { margin: 0; color: var(--muted); }
+    details { border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); }
+    summary { cursor: pointer; padding: 1rem 1.2rem; font-weight: 800; }
+    details > div { padding: 0 1.2rem 1.2rem; }
+    .source-list { margin: 0; padding-left: 1.2rem; color: var(--muted); }
+    .source-list li + li { margin-top: .45rem; }
+    .source-list a { color: var(--blue); font-weight: 700; }
+    code { padding: .1rem .35rem; border: 1px solid var(--line); border-radius: .25rem; background: var(--paper-soft); color: var(--blue); font: .9em 'Fira Code', monospace; }
+    @media (max-width: 1000px) { .score-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 820px) { .hero-inner, .shell { width: min(100% - 2rem, 44rem); } .shell { display: block; padding-top: 1.5rem; } .toc { position: static; display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: 2.5rem; } .toc strong { width: 100%; } .toc a { display: inline-block; } .toc .back { margin: 0; padding: .46rem .6rem; border: 0; } .mechanic-grid, .decision-strip { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .hero-inner { padding: 2.5rem 0 2.15rem; } .score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .timeline { grid-template-columns: 1fr; } .milestone { min-height: auto; } .milestone:not(:last-child)::after { top: auto; right: auto; bottom: -.64rem; left: 50%; transform: translateX(-50%) rotate(135deg); } .template-card { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="hero-inner">
+    <p class="eyebrow">Design Library</p>
+    <h1>未來地圖機制庫</h1>
+    <p class="lead">把競品啟發整理成可驗證的設計候選；<span class="key">這裡不是現行遊戲規格</span>，任何項目都必須通過原型與多人公平性驗證，才可進入正式 GDD。</p>
+    <div class="meta-row"><span class="meta">適用：休閒多人</span><span class="meta">狀態：研究與原型決策</span><span class="meta">更新：2026-08-18</span></div>
+  </div></header>
+
+  <div class="shell">
+    <nav class="toc" aria-label="機制庫導覽">
+      <strong>機制庫導覽</strong>
+      <a href="#how-to-read">怎麼使用</a>
+      <a href="#ranking">候選排序</a>
+      <a href="#p1-prototype">P1 原型</a>
+      <a href="#candidates">候選機制</a>
+      <a href="#templates">可複用模板</a>
+      <a href="#research">競品依據</a>
+      <a class="back" href="過馬路GDD.html">← 回遊戲設計文件</a>
+    </nav>
+
+    <main>
+      <section id="how-to-read">
+        <p class="eyebrow">Decision Frame</p>
+        <h2>先決定要驗證什麼，再決定要做什麼</h2>
+        <div class="notice"><b>使用規則</b><p>分數是設計假設，不等於直接排程。<strong>優先序看「能否驗證下一個核心風險」</strong>；正式採用前，仍須通過可讀性、多人公平與 AI 尋路檢核。</p></div>
+        <div class="legend" style="margin-top:1rem"><span class="status status--research">研究中：尚未進 GDD</span><span class="status status--p1">P1：下一個原型驗證</span><span class="status status--p2">P2：依賴前置系統</span><span class="status status--p3">P3：最後驗證</span><span class="status status--base">P0：既有核心基準</span></div>
+        <div class="score-grid" style="margin-top:1.25rem">
+          <article class="score-card"><strong>25%</strong><h4>競速趣味</h4><p>是否帶來等、衝、繞、推的選擇。</p></article>
+          <article class="score-card"><strong>25%</strong><h4>推擠相容</h4><p>推人是否同時有合作與干擾價值。</p></article>
+          <article class="score-card"><strong>15%</strong><h4>一眼可讀</h4><p>不看教學也能理解危險與解法。</p></article>
+          <article class="score-card"><strong>20%</strong><h4>多人公平</h4><p>有預警、有反應，不會產生無解。</p></article>
+          <article class="score-card"><strong>15%</strong><h4>原型成本</h4><p>分數越高代表越容易、成本越低。</p></article>
+        </div>
+        <div class="decision-strip"><div><h3>進入原型的門檻</h3><p>加權總分至少 <strong>3.8／5</strong>，可讀性至少 4，公平至少 3；再用固定種子短關卡驗證 4 人推擠、失誤回檢查點、AI 重搜。</p></div><div><h3>進入正式地圖池的門檻</h3><p>加權總分至少 <strong>4.2／5</strong>，公平至少 4，且沒有封死所有可行路線的情境。</p></div></div>
+        <p class="lead" style="margin-top:.85rem;font-size:.92rem">加權分數以五項權重合計，顯示至小數一位；<strong>剛好落在 0.05 時一律進位</strong>，確保排序可重算。</p>
+      </section>
+
+      <section id="ranking">
+        <p class="eyebrow">Prioritized Board</p>
+        <h2>候選排序</h2>
+        <p class="lead">P0 是現在玩法必須持續穩定的基準；P1 起才是新增內容。<span class="key">分數高但依賴未完成時，仍會排在較後面。</span></p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>優先</th><th>候選機制</th><th>趣味</th><th>推擠</th><th>可讀</th><th>公平</th><th>成本</th><th>加權</th><th>採用理由</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status status--base">P0</span></td><td><strong>車流／鐵道／漂流木</strong></td><td><span class="score score--top">4–5</span></td><td><span class="score score--top">4–5</span></td><td><span class="score score--top">4–5</span></td><td><span class="score score--top">4–5</span></td><td><span class="score score--top">3–5</span></td><td><strong>基準</strong></td><td>抓空檔、讀預警、搭平台，是所有後續機制的比較基準。</td></tr>
+            <tr><td><span class="status status--p1">P1</span></td><td><strong>預警後動態破洞</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><span class="score">2</span></td><td><strong>4.0</strong></td><td>最能驗證「地圖也會改變」是否能與推擠共存。</td></tr>
+            <tr><td><span class="status status--p2">P2</span></td><td><strong>共享渡筏／大型載具</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">2</span></td><td><strong>4.2</strong></td><td>放大四人同跑，但依賴漂流木承載與佔位穩定。</td></tr>
+            <tr><td><span class="status status--p2">P2</span></td><td><strong>橫向掃擊物</strong></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><strong>4.0</strong></td><td>低成本的主題擴充：巨浪、滾桶、擺錘都能共用規則。</td></tr>
+            <tr><td><span class="status status--p2">P2</span></td><td><strong>動物群／遊行隊列</strong></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><strong>3.9</strong></td><td>以可穿越缺口取代規律車流，增加左右選位。</td></tr>
+            <tr><td><span class="status status--p3">P3</span></td><td><strong>踩踏後崩落地板／斷橋</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">3</span></td><td><span class="score">2</span></td><td><span class="score">2</span></td><td><strong>3.7</strong></td><td>張力高，但最容易讓領先者永久封路，最後才驗證。</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section id="p1-prototype">
+        <p class="eyebrow">First Experiment</p>
+        <h2>P1：預警後動態破洞</h2>
+        <p class="lead">借鑑的是「<span class="key">預警後改變地形</span>」這個結構，而不是任何 Disney 的角色、關卡美術或 IP 表現。主題可換成炮彈、隕石、落石或魔法爆炸。</p>
+        <div class="timeline" aria-label="預警後動態破洞的四步流程">
+          <article class="milestone"><span class="status status--p2">01</span><h3>顯示落點</h3><p>危險格出現明顯標記至少 <strong>1.0–1.2 秒</strong>。</p></article>
+          <article class="milestone"><span class="status status--p1">02</span><h3>命中地格</h3><p>落點命中後才切換成破洞；不直接隨機命中玩家。</p></article>
+          <article class="milestone"><span class="status status--p1">03</span><h3>暫時失效</h3><p>踩入或被推入破洞就失誤，回上一個安全區。</p></article>
+          <article class="milestone"><span class="status status--base">04</span><h3>定時修復</h3><p>破洞修復，避免領先者永久封住後方路線。</p></article>
+        </div>
+        <div class="mechanic-grid" style="margin-top:1rem">
+          <article class="mechanic-card" data-priority="P1"><div class="card-head"><h3>製作範圍</h3><span class="status status--p1">短關卡驗證</span></div><ul><li><code>安全區 2 排 → 動態破洞 4 排 → 安全區 2 排</code></li><li>先做固定種子與固定落點，再測隨機生成。</li><li>玩家、AI、推擠都必須使用同一份格子可走判定。</li></ul></article>
+          <article class="mechanic-card" data-priority="P1"><div class="card-head"><h3>公平護欄</h3><span class="status status--research">未通過不可採用</span></div><ul><li>不攻擊安全區／檢查點，不同時封死整排。</li><li>任何時刻至少保留一條可行路線。</li><li>不可連續鎖定同一名角色；破洞必須修復。</li></ul></article>
+        </div>
+      </section>
+
+      <section id="candidates">
+        <p class="eyebrow">Mechanic Cards</p>
+        <h2>候選機制：玩家看到什麼，系統要保證什麼</h2>
+        <div class="mechanic-grid">
+          <article class="mechanic-card" data-priority="P1"><div class="card-head"><h3>預警後動態破洞</h3><span class="status status--p1">P1｜4.0</span></div><p>危險格先亮起，命中後成為暫時無法站立的洞；推擠既可能救人，也可能害人。</p><p class="subhead">系統依賴</p><ul><li>動態格子狀態、修復計時、AI 重搜、全隊共享可走判定。</li><li>失誤沿用【休閒模式】個人 checkpoint 與目前位置排名。</li></ul><p class="subhead">要先證明</p><ul><li>畫面預警足夠清楚，四人不會因一發攻擊全部無解。</li></ul></article>
+          <article class="mechanic-card" data-priority="P2"><div class="card-head"><h3>共享渡筏／大型載具</h3><span class="status status--p2">P2｜4.2</span></div><p>能同時載四人的大型平台橫渡河道；上船、等船與下船自然形成隊列壓力。</p><p class="subhead">系統依賴</p><ul><li>多角色承載、相對座標、上／下船格子預約。</li><li>先穩定目前漂流木「不會把人拉回中間」的世界座標規則。</li></ul><p class="subhead">公平護欄</p><ul><li>容量至少四人，靠岸安全窗可讓整隊離開，不能依出生順序固定淘汰人。</li></ul></article>
+          <article class="mechanic-card" data-priority="P2"><div class="card-head"><h3>橫向掃擊物</h3><span class="status status--p2">P2｜4.0</span></div><p>巨浪、滾桶、擺錘或光束從一側掃過；玩家要等安全週期或搶先跨越。</p><p class="subhead">系統依賴</p><ul><li>固定軌跡、入場預告、擊退或失誤判定。</li><li>可用相同邏輯替換世界主題，無須另寫玩法。</li></ul><p class="subhead">公平護欄</p><ul><li>必須從畫面邊緣可見，完整安全週期不能在安全區生成。</li></ul></article>
+          <article class="mechanic-card" data-priority="P2"><div class="card-head"><h3>動物群／遊行隊列</h3><span class="status status--p2">P2｜3.9</span></div><p>一個寬隊列橫向通過，但會保留缺口；玩家需選擇左或右的通過點。</p><p class="subhead">系統依賴</p><ul><li>群體隊形、缺口生成、可達性檢查。</li><li>比單純車流更容易製造橫移與推擠。</li></ul><p class="subhead">公平護欄</p><ul><li>缺口至少容納兩名相鄰角色，每輪至少有一個可達缺口。</li></ul></article>
+          <article class="mechanic-card" data-priority="P3"><div class="card-head"><h3>踩踏後崩落地板</h3><span class="status status--p3">P3｜3.7</span></div><p>踩過後先顯示裂痕，再短暫崩落；領先者會改變後方玩家的通路。</p><p class="subhead">系統依賴</p><ul><li>每格獨立狀態、延遲倒數、修復、AI 動態尋路。</li><li>與動態破洞共用地格狀態，但風險更高。</li></ul><p class="subhead">公平護欄</p><ul><li>裂開後至少保留 <strong>0.8–1 秒</strong>逃離時間，且永遠有替代路。</li></ul></article>
+          <article class="mechanic-card" data-priority="P0"><div class="card-head"><h3>既有三項基準</h3><span class="status status--base">P0｜基準</span></div><p>車流、鐵道預警、河道載具不是新內容；它們是評估每個新機制是否更有價值的基準。</p><p class="subhead">先穩定再擴充</p><ul><li>車流不可重疊；鐵道必須可讀；河道必須支援多載具與左右位移。</li><li>若基準規則仍不穩，新機制只會放大問題。</li></ul></article>
+        </div>
+      </section>
+
+      <section id="templates">
+        <p class="eyebrow">Reusable Templates</p>
+        <h2>不要複製關卡，複用機制模板</h2>
+        <p class="lead">程式應依機制分類，美術、音效與名稱再依世界主題替換。這樣可避免每個新地圖都重寫玩法。</p>
+        <article class="template-card"><strong>移動碰撞物</strong><p>車流 → 動物群 → 遊行隊列。共用：方向、速度、缺口與碰撞。</p></article>
+        <article class="template-card"><strong>預警後高速通過</strong><p>火車 → 巨浪 → 光束。共用：預警、不可通過時間窗、通過實體。</p></article>
+        <article class="template-card"><strong>移動承載物</strong><p>漂流木 → 渡筏 → 飛毯。共用：承載、相對位置、出界與下船。</p></article>
+        <article class="template-card"><strong>預警後地形失效</strong><p>炮彈 → 隕石 → 落石 → 魔法爆炸。共用：落點、破洞、修復、重搜。</p></article>
+        <article class="template-card"><strong>踩踏後延遲失效</strong><p>斷橋 → 薄冰 → 腐朽木板。共用：觸發、倒數、崩落、修復。</p></article>
+      </section>
+
+      <section id="research">
+        <p class="eyebrow">Reference Notes</p>
+        <h2>競品依據與使用邊界</h2>
+        <details open><summary>可借鑑的是結構，不是角色或美術</summary><div><ul class="source-list"><li><a href="https://apps.apple.com/us/mac/story/id1505864249" target="_blank" rel="noreferrer">Apple｜Crossy Road 玩法整理</a>：車流空檔、火車警示、河流平台與後退決策，是本作 P0 基準。</li><li><a href="https://gamefaqs.gamespot.com/iphone/188930-disney-crossy-road/reviews/168769" target="_blank" rel="noreferrer">GameFAQs｜Disney Crossy Road 評測</a>：描述《神鬼奇航》世界的炮彈破洞甲板。</li><li><a href="https://www.gameskinny.com/tips/how-to-fire-cannons-in-disney-crossy-road/" target="_blank" rel="noreferrer">GameSkinny｜炮台機制說明</a>：補充炮彈可命中相鄰格的觀察；屬二手資料，僅作靈感參考。</li><li><a href="https://www.mobygames.com/game/78096/disney-crossy-road/" target="_blank" rel="noreferrer">MobyGames｜Disney Crossy Road 世界特色</a>：燭台、彩色方塊、跳板、動物群等主題化範例。</li></ul><p>Disney 官方支援頁僅提供基本操作，因此上述細部關卡行為均標為<span class="key">競品觀察，不是可直接複製的規格</span>。</p></div></details>
+      </section>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const links = [...document.querySelectorAll('.toc a[href^="#"]')];
+      const sections = links.map(link => document.getElementById(link.hash.slice(1))).filter(Boolean);
+      const setCurrent = id => links.forEach(link => {
+        if (link.hash === `#${id}`) link.setAttribute('aria-current', 'location');
+        else link.removeAttribute('aria-current');
+      });
+      const updateCurrent = () => {
+        const offset = window.scrollY + Math.min(window.innerHeight * .28, 260);
+        let current = sections[0]?.id;
+        for (const section of sections) if (section.offsetTop <= offset) current = section.id;
+        if (current) setCurrent(current);
+      };
+      addEventListener('scroll', updateCurrent, { passive: true });
+      addEventListener('resize', updateCurrent);
+      updateCurrent();
+    })();
+  </script>
+</body>
+</html>

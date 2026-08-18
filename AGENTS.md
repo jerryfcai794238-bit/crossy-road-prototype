@@ -11,10 +11,13 @@ experience.
 | Main coordinator | GPT-5.6 Terra | Default coordination and small tasks |
 | Game Designer | GPT-5.6 Sol | Core gameplay, game rules, and prototype direction |
 | Architect | GPT-5.6 Sol | Ambiguous or high-impact architecture decisions |
+| Feasibility Defender | Gemini 3.1 Pro / Opus 4.6 | 具備深度推理解析能力，專責系統跨界風險評估與機制可行性答辯 |
+| GDD Designer | Claude Sonnet 4.6 (Thinking) | 強大程式與視覺設計能力，負責 HTML/CSS 現代化排版與企劃 |
 | Explorer | GPT-5.6 Luna | Targeted, read-only repository discovery |
 | Implementer | GPT-5.6 Terra | Normal features, fixes, gameplay, and UI work |
 | Batch Worker | GPT-5.6 Luna | Clear, repetitive, mechanical changes |
 | Reviewer | GPT-5.6 Terra | Read-only validation of meaningful changes |
+| Game QA Tester | GPT-5.6 Terra | 專責實際啟動 Vite、執行自動化測試腳本、Console 報錯偵測與鏡頭/機制實機視覺驗證 |
 
 ## Routing
 
@@ -83,6 +86,35 @@ Use `architect` only when at least one condition applies:
 
 Architect normally plans rather than implements. Its output returns to the
 implementer for execution.
+
+### Feasibility Defender
+
+Use `feasibility_defender` when evaluating system-wide boundary risks, cross-domain interaction bottlenecks, or conducting high-stakes technical feasibility defense.
+
+Triggers include:
+1. High-risk proposals that touch core performance, network, rendering, or physics engines concurrently.
+2. Architecture proposals requiring deep reasoning to prove feasibility or refute flaws before implementation.
+3. Conducting structured Q&A / defense on proposed gameplay or system mechanisms.
+
+Boundaries:
+- `Feasibility Defender` conducts stress testing on reasoning, risk assessment, and feasibility defense.
+- It hands off approved specs/plans back to `Main Coordinator -> Architect / Implementer`.
+
+### Game QA Tester
+
+Use `game_qa_tester` for live execution verification. It is responsible for launching Vite, running automated end-to-end tests, detecting runtime console errors, and performing real-time camera and gameplay mechanic visual verifications.
+
+### GDD Designer
+
+Use `gdd_designer` when designing, structuring, or updating Game Design Documents (GDD) with modern HTML/CSS layout and visual presentation.
+
+Triggers include:
+1. Drafting or refining GDD specifications into clean, modern HTML/CSS layout documents.
+2. Designing web-based UI wireframes, flowcharts, or system layout specs for gameplay systems.
+
+Boundaries & Handoff:
+- Focuses on GDD visualization, HTML/CSS layout, typography, and visual presentation.
+- Handoff flow: `Game Designer -> GDD Designer -> Main Coordinator -> Implementer`.
 
 ## Escalation and Sol control
 

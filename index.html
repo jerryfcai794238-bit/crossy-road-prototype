@@ -89,7 +89,79 @@
           <div class="touch-hint">手機可點擊螢幕或使用虛擬 D-Pad 控制</div>
         </div>
 
+        <button id="btn-casual-guide" class="btn-guide" type="button">玩法圖卡</button>
         <button id="btn-start" class="btn-primary">進入遊戲</button>
+      </div>
+    </div>
+
+    <!-- 僅限休閒模式：依序閱讀的三張玩法圖卡 -->
+    <div id="casual-guide-overlay" class="overlay guide-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="guide-title" aria-hidden="true">
+      <div class="modal-card guide-card">
+        <div class="guide-heading">
+          <span class="guide-kicker">休閒模式</span>
+          <h2 id="guide-title">看懂怎麼玩</h2>
+        </div>
+
+        <div class="guide-slides" aria-live="polite">
+          <article class="guide-slide active" data-guide-card="0">
+            <div class="guide-visual move-visual" aria-hidden="true">
+              <div class="tutorial-scene" data-tutorial-scene="move"></div>
+              <span class="tutorial-scene-label">左下 ↗ 右上</span>
+            </div>
+            <h3>怎麼移動</h3>
+            <p class="guide-move-copy">使用 <strong>W A S D</strong> 或 <strong>↑ ↓ ← →</strong>，每次按一下移動一格。</p>
+            <div class="guide-controls" aria-label="移動操作：W、A、S、D，或上、下、左、右方向鍵；每次按一下移動一格。">
+              <div class="guide-control-group">
+                <span class="guide-control-label">WASD</span>
+                <span class="guide-key">W</span>
+                <span class="guide-key">A</span>
+                <span class="guide-key">S</span>
+                <span class="guide-key">D</span>
+              </div>
+              <span class="guide-control-or" aria-hidden="true">或</span>
+              <div class="guide-control-group">
+                <span class="guide-control-label">方向鍵</span>
+                <span class="guide-key">↑</span>
+                <span class="guide-key">↓</span>
+                <span class="guide-key">←</span>
+                <span class="guide-key">→</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="guide-slide" data-guide-card="1" hidden>
+            <div class="guide-visual push-visual" aria-hidden="true">
+              <div class="tutorial-scene" data-tutorial-scene="push"></div>
+              <span class="tutorial-scene-label">推動隊列 ↗</span>
+            </div>
+            <h3>前方有人怎麼辦</h3>
+            <p>前方有人不會卡住；往前走會推動隊列。</p>
+          </article>
+
+          <article class="guide-slide" data-guide-card="2" hidden>
+            <div class="guide-visual respawn-visual" aria-hidden="true">
+              <div class="tutorial-scene" data-tutorial-scene="respawn"></div>
+              <svg class="respawn-boundary" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                <polygon class="respawn-safe-zone" points="0,0 0,100 100,100"></polygon>
+                <polygon class="respawn-danger-zone" points="0,0 100,0 100,100"></polygon>
+                <line class="respawn-boundary-line" x1="0" y1="0" x2="100" y2="100"></line>
+              </svg>
+              <span class="tutorial-scene-label">↙ 回安全區 · ↗ 再前進</span>
+            </div>
+            <h3>失誤後怎麼辦</h3>
+            <p>失誤時，回到上一個安全區，再繼續移動。</p>
+          </article>
+        </div>
+
+        <div class="guide-nav" aria-label="圖卡閱讀進度">
+          <span class="guide-dot active" data-guide-progress="0" aria-label="第 1 張，共 3 張"></span>
+          <span class="guide-dot" data-guide-progress="1" aria-label="第 2 張，共 3 張"></span>
+          <span class="guide-dot" data-guide-progress="2" aria-label="第 3 張，共 3 張"></span>
+        </div>
+        <div class="guide-actions" data-guide-actions>
+          <button id="btn-guide-back" class="btn-secondary guide-back" type="button" hidden>上一步</button>
+          <button id="btn-guide-next" class="btn-primary guide-start" type="button">下一步</button>
+        </div>
       </div>
     </div>
 
