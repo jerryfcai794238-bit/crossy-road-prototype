@@ -12,7 +12,7 @@ experience.
 | Game Designer | GPT-5.6 Sol | Core gameplay, game rules, and prototype direction |
 | Architect | GPT-5.6 Sol | Ambiguous or high-impact architecture decisions |
 | Feasibility Defender | Gemini 3.1 Pro / Opus 4.6 | 具備深度推理解析能力，專責系統跨界風險評估與機制可行性答辯 |
-| GDD Designer | Claude Sonnet 4.6 (Thinking) | 強大程式與視覺設計能力，負責 HTML/CSS 現代化排版與企劃 |
+| GDD Designer | GPT-5.6 Sol | 核心 GDD 規則、架構與高風險企劃審查 |
 | Explorer | GPT-5.6 Luna | Targeted, read-only repository discovery |
 | Implementer | GPT-5.6 Terra | Normal features, fixes, gameplay, and UI work |
 | Batch Worker | GPT-5.6 Luna | Clear, repetitive, mechanical changes |

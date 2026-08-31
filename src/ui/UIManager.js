@@ -273,6 +273,13 @@ export class UIManager {
     if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
   }
 
+  pulseScoreReward() {
+    if (!this.currentScoreEl) return;
+    this.currentScoreEl.classList.remove('score-pulse');
+    void this.currentScoreEl.offsetWidth;
+    this.currentScoreEl.classList.add('score-pulse');
+  }
+
   updateHealth(hp, maxHp = 100) {
     const currentHp = Math.max(0, Math.min(maxHp, hp));
     const percentage = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));

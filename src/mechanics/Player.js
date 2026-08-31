@@ -9,6 +9,8 @@ export class Player {
     this.targetGridX = 0;
     this.targetGridZ = 0;
     this.maxReachedZ = 0;
+    // 前進分是既有基準；道具分獨立累加，避免下一次前進覆寫拾取獎勵。
+    this.itemScore = 0;
     this.score = 0;
 
     this.isJumping = false;
@@ -40,6 +42,7 @@ export class Player {
     this.targetGridX = 0;
     this.targetGridZ = 0;
     this.maxReachedZ = 0;
+    this.itemScore = 0;
     this.score = 0;
     this.minAllowedZ = -4;
 
@@ -125,10 +128,19 @@ export class Player {
 
     if (this.targetGridZ > this.maxReachedZ) {
       this.maxReachedZ = this.targetGridZ;
+      // 正式休閒分數維持既有「首次抵達更前方新格 +1」基準。
+      // 原型道具分另存於 itemScore，避免改寫 120 秒模式的排名規則。
       this.score = this.maxReachedZ;
     }
 
     return true;
+  }
+
+  addItemScore(points) {
+    const reward = Number.isFinite(points) ? points : 0;
+    if (reward <= 0) return this.itemScore;
+    this.itemScore += reward;
+    return this.itemScore;
   }
 
   queueInput(direction, distance = 1) {

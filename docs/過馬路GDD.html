@@ -25,7 +25,8 @@
       --purple: #6d28d9;
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    /* 左側章節導覽以即時跳轉為準，避免長文件的平滑捲動打斷閱讀。 */
+    html { scroll-behavior: auto; }
     body {
       margin: 0;
       min-width: 320px;
@@ -464,6 +465,76 @@
     .challenge-gif figcaption { padding: 1rem 1.25rem; background: #f8fafc; color: var(--muted); font-size: 0.95rem; }
     .challenge-gif figcaption b { color: var(--purple); }
 
+    /* Actual in-game tutorial card previews */
+    .guide-card-strip {
+      margin: 1.1rem 0 1.35rem;
+      padding: 1rem;
+      border: 1px solid var(--line-strong);
+      border-radius: 0.65rem;
+      background: #f8fafc;
+    }
+    .guide-card-strip__label {
+      margin: 0 0 0.75rem;
+      color: var(--blue);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+    .guide-card-strip__grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.9rem;
+      align-items: stretch;
+    }
+    .guide-card-preview {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      margin: 0;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 0.5rem;
+      background: #e6f1f5;
+    }
+    .guide-card-preview__scene {
+      position: relative;
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      min-height: 0;
+      overflow: hidden;
+      background: #dceef5;
+    }
+    .guide-card-preview__scene .tutorial-scene-canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .guide-card-preview__fallback {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      margin: 0;
+      padding: 1rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+      text-align: center;
+    }
+    .guide-card-preview figcaption {
+      display: grid;
+      min-height: 2.65rem;
+      place-items: center;
+      padding: 0.5rem 0.65rem;
+      border-top: 1px solid var(--line);
+      background: #ffffff;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 700;
+      line-height: 1.4;
+      text-align: center;
+    }
+
     /* Responsive adjustments */
     @media (max-width: 920px) {
       .shell { display: block; padding-top: 1.5rem; }
@@ -488,6 +559,16 @@
       .hazard-lab__footer--dpad { grid-template-columns: 1fr; grid-template-areas: 'pad' 'status' 'message'; justify-items: center; }
       .hazard-dpad { width: min(11.5rem, 100%); }
       .hazard-lab__footer--dpad .hazard-status, .hazard-lab__footer--dpad .demo-message { width: 100%; }
+      .guide-card-strip { padding: 0.8rem; }
+      .guide-card-strip__grid {
+        grid-template-columns: none;
+        grid-auto-columns: minmax(13rem, 72vw);
+        grid-auto-flow: column;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+        scroll-snap-type: x mandatory;
+      }
+      .guide-card-preview { scroll-snap-align: start; }
     }
   </style>
 </head>
@@ -502,7 +583,7 @@
     <span style="display:block;margin:.9rem .5rem .2rem;color:var(--blue);font-size:.72rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase">實作與驗收</span>
     <a href="#engineering">工程規格</a><a href="#validation">驗收清單</a>
     <span style="display:block;margin:.9rem .5rem .2rem;color:var(--blue);font-size:.72rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase">研究與擴充</span>
-    <a href="future-map-mechanics.html">未來地圖機制庫 ↗</a>
+    <a href="future-map-mechanics.html">未來玩法機制庫 ↗</a>
   </nav><main id="content">
     <section id="change-log"><p class="eyebrow">Change Log</p><h2>變更記錄</h2><details open><summary>2026-08-18｜GDD v0.2</summary><div class="contract"><p>新增【休閒模式】首次遊玩圖卡規格：以三張圖卡依序教會移動、推擠與失誤回安全區；完成最後一張才可開始遊戲。v0.1 的舊「已看過」紀錄不可直接視為已完成 v0.2 教學。</p></div></details><details><summary>2026-08-12｜GDD v0.1</summary><div class="contract"><p>初始 GDD 版本：整理玩家摘要、可收合實作契約與技術附錄。</p></div></details></section>
     <section id="overview"><p class="eyebrow">3 分鐘總覽</p><h2>先看懂【休閒模式】怎麼玩</h2><p class="lead">你和另外 3 名角色一起過馬路。<span class="key-action">120 秒倒數結束時，站得最前面的人獲勝。</span>被撞或落水不會淘汰，但會回到上個安全區，位置與排名都會退後。</p><div class="grid three">
@@ -521,7 +602,7 @@
       <details><summary>道路與鐵路實作契約</summary><div class="contract"><h4>觸發</h4><p>角色完成落地後，進入道路列或火車列即檢查移動物件碰撞。</p><h4>判定順序</h4><p>先以角色碰撞寬度比對同列車體；再於 <code>TRAIN_PASSING</code> 時比對火車。推擠不預先跳過此判定。</p><h4>狀態與可見結果</h4><p>【休閒模式】角色命中後進入 Respawning；【挑戰模式】角色依傷害契約扣血或結束。畫面需清楚顯示撞擊來源。</p><h4>邊界</h4><p>無敵期間不重複受傷；火車警示開始不代表已碰撞，只有火車通過中的實體命中才算。</p><h4>驗收例</h4><ul><li>【休閒模式】角色落在車體重疊區：回 checkpoint。</li><li>【挑戰模式】角色在火車警示但尚未通過時：不受傷。</li><li>【挑戰模式】角色無敵時再與車體重疊：HP 不變。</li></ul></div></details>
       <details><summary>河道實作契約</summary><div class="contract"><h4>觸發</h4><p>角色完成落地後位於 RIVER 列，或站在動態浮木上被水平帶動時。</p><h4>判定順序</h4><p>先檢查角色是否覆蓋浮木／浮萍；若覆蓋動態浮木，套用 <code>direction×speed×Δt</code>；否則判為落水。</p><h4>狀態與可見結果</h4><p>【休閒模式】角色落水或出界進入 Respawning；【挑戰模式】角色立即 Dead／結算。角色不可停留在無載具河面。</p><h4>邊界</h4><p>浮木帶動出 <code>|worldX|&gt;8.64</code> 即失誤；跳躍中不做河道承載判定，落地後才判。</p><h4>驗收例</h4><ul><li>落在浮萍：不位移且存活。</li><li>落在無浮木河面：【休閒模式】角色回 checkpoint；【挑戰模式】角色結束。</li><li>浮木帶出邊界：依模式進入對應失誤狀態。</li></ul></div></details></section>
     <section id="casual"><p class="eyebrow">Ch5 / Casual Multiplayer</p><h2>休閒模式：120 秒內把「現在」跑得最前</h2><div class="grid two"><article class="card card--goal"><span class="chip">🏁 結算</span><h3>規則與結算 </h3><p>【休閒模式】4 人同列起跑，<span class="key-action">120 秒</span>是唯一自然結算。排名比較目前位置，不是歷史最遠距離，也不是存活時間。</p></article><article class="card card--safe"><span class="chip">⚑ 可逆轉</span><h3>失誤與復活 </h3><p>【休閒模式】角色遭車撞、火車、落水或漂出邊界時，回到個人檢查點；復活後 <span class="key-safe">1.0 秒無敵</span>，排名立即依新位置回退。</p></article></div>
-      <details><summary>首次遊玩圖卡：三張最小規則教學</summary><div class="contract"><h4>觸發與目的</h4><p>首次進入【休閒模式】大廳時自動開啟；只教會玩家開始第一局所需的三件事，不在圖卡提前說明車道、河道、倒數、排名或模式差異。</p><h4>三張卡片</h4><ol><li><strong>怎麼移動：</strong>畫面顯示角色由左下往右上逐格前進；文案為「使用 W／A／S／D 或方向鍵，每次按一下移動一格。」</li><li><strong>前方有人怎麼辦：</strong>後方角色往前輸入時，前方角色被推往前一格；文案為「前方有人不會卡住；往前走會推動隊列。」</li><li><strong>失誤後怎麼辦：</strong>角色從右上回到左下旗幟安全區，再由該處重新前進；文案為「失誤時，回到上一個安全區，繼續追趕。」</li></ol><h4>閱讀流程</h4><p>第 1 張只顯示「下一步」；第 2 張顯示「上一步／下一步」；第 3 張顯示「上一步／開始遊戲」。圖卡開啟期間不可用 X、Esc、進度點或大廳按鈕跳過；只有第 3 張「開始遊戲」可結束流程並進入遊戲。</p><h4>狀態、版本遷移與模式邊界</h4><p>完成第 3 張後寫入 <code>CasualGuideCompletedV2</code>；v0.1 的舊「已看過」紀錄不可當作完成 v0.2，已使用舊版的玩家仍須由第 1 張完成一次。完成後不再自動開啟，但【休閒模式】大廳保留「玩法圖卡」入口供重看。切換【挑戰模式】時，圖卡入口隱藏且未完成圖卡立即關閉；挑戰模式不套用本教學流程。</p><h4>驗收例</h4><ul><li>未閱讀玩家進入【休閒模式】大廳：由第 1 張開始，背景大廳不可操作。</li><li>第 1 張沒有「上一步」；第 2 張可前後切換；第 3 張右側按鈕為「開始遊戲」。</li><li>第 1、2 張按鈕不會開始遊戲；第 3 張開始後，三張卡皆不再自動出現。</li><li>只有 v0.1 舊「已看過」紀錄、沒有 <code>CasualGuideCompletedV2</code> 的玩家：仍由第 1 張開始。</li><li>玩家重開「玩法圖卡」可由第 1 張重新閱讀；切換【挑戰模式】時不顯示圖卡。</li></ul></div></details>
+      <details><summary>首次遊玩圖卡：三張最小規則教學</summary><div class="contract"><h4>觸發與目的</h4><p>首次進入【休閒模式】大廳時自動開啟；只教會玩家開始第一局所需的三件事，不在圖卡提前說明車道、河道、倒數、排名或模式差異。</p><div class="guide-card-strip" id="tutorial-scene-previews" role="group" aria-label="遊戲內實際首次遊玩圖卡，由左至右為移動、推擠與回安全區"><p class="guide-card-strip__label">遊戲內即時場景</p><div class="guide-card-strip__grid"><figure class="guide-card-preview"><div class="guide-card-preview__scene" data-tutorial-scene="move" data-gdd-tutorial-scene role="img" aria-label="角色從左下往右上移動一格的即時遊戲場景。"><p class="guide-card-preview__fallback">此裝置未啟用即時場景；請在遊戲內查看移動圖卡。</p></div><figcaption>① 怎麼移動</figcaption></figure><figure class="guide-card-preview"><div class="guide-card-preview__scene" data-tutorial-scene="push" data-gdd-tutorial-scene role="img" aria-label="後方角色向前推動隊列的即時遊戲場景。"><p class="guide-card-preview__fallback">此裝置未啟用即時場景；請在遊戲內查看推擠圖卡。</p></div><figcaption>② 推動隊列</figcaption></figure><figure class="guide-card-preview"><div class="guide-card-preview__scene" data-tutorial-scene="respawn" data-gdd-tutorial-scene role="img" aria-label="角色失誤後回到旗幟安全區並重新前進的即時遊戲場景。"><p class="guide-card-preview__fallback">此裝置未啟用即時場景；請在遊戲內查看重生圖卡。</p></div><figcaption>③ 回安全區</figcaption></figure></div></div><h4>三張卡片</h4><ol><li><strong>怎麼移動：</strong>畫面顯示角色由左下往右上逐格前進；文案為「使用 W／A／S／D 或方向鍵，每次按一下移動一格。」</li><li><strong>前方有人怎麼辦：</strong>後方角色往前輸入時，前方角色被推往前一格；文案為「前方有人不會卡住；往前走會推動隊列。」</li><li><strong>失誤後怎麼辦：</strong>角色從右上回到左下旗幟安全區，再由該處重新前進；文案為「失誤時，回到上一個安全區，繼續追趕。」</li></ol><h4>閱讀流程</h4><p>第 1 張只顯示「下一步」；第 2 張顯示「上一步／下一步」；第 3 張顯示「上一步／開始遊戲」。圖卡開啟期間不可用 X、Esc、進度點或大廳按鈕跳過；只有第 3 張「開始遊戲」可結束流程並進入遊戲。</p><h4>狀態、版本遷移與模式邊界</h4><p>完成第 3 張後寫入 <code>CasualGuideCompletedV2</code>；v0.1 的舊「已看過」紀錄不可當作完成 v0.2，已使用舊版的玩家仍須由第 1 張完成一次。完成後不再自動開啟，但【休閒模式】大廳保留「玩法圖卡」入口供重看。切換【挑戰模式】時，圖卡入口隱藏且未完成圖卡立即關閉；挑戰模式不套用本教學流程。</p><h4>驗收例</h4><ul><li>未閱讀玩家進入【休閒模式】大廳：由第 1 張開始，背景大廳不可操作。</li><li>第 1 張沒有「上一步」；第 2 張可前後切換；第 3 張右側按鈕為「開始遊戲」。</li><li>第 1、2 張按鈕不會開始遊戲；第 3 張開始後，三張卡皆不再自動出現。</li><li>只有 v0.1 舊「已看過」紀錄、沒有 <code>CasualGuideCompletedV2</code> 的玩家：仍由第 1 張開始。</li><li>玩家重開「玩法圖卡」可由第 1 張重新閱讀；切換【挑戰模式】時不顯示圖卡。</li></ul></div></details>
       <details><summary>實作契約與驗收</summary><div class="contract"><h4>觸發</h4><p>【休閒模式】角色每次落地更新 <code>CurrentDistance = gridZ</code>；只有 <code>gridZ</code> 改變時才寫入 <code>reachedTimestamp = simulationTime</code>，橫移不改。時間歸零時凍結操作並排序。</p><h4>判定順序</h4><p>落地 → 檢查危險 → 若是較前方無樹草地則更新 checkpoint → 更新目前距離／即時排名；復活後以新 gridZ 寫當下 simulation time，再更新排名。</p><h4>狀態與可見結果</h4><p>【休閒模式】開場為 <code>z=0, x=[-3,-1,+1,+3]</code>。結算排序為 <code>CurrentDistance DESC, reachedTimestamp ASC, playerJoinOrder ASC</code>；時間戳只比較同一目前距離的角色。</p><h4>邊界</h4><p>舊草地不覆寫較前方 checkpoint。復活候選永遠 <code>z&lt;=checkpoint.z</code>：先在 checkpoint 同列找可用 x；無格時才依距離由近到遠找更後方草地，不能選前方。候選均需無樹、無 actor、無預約；同距離選 x 較小，半徑 6 無格則維持 Respawning 並每 tick 重試。</p><h4>驗收例</h4><ul><li>【休閒模式】角色從 z=12 復活至 z=6：排行榜立刻以 6 比較。</li><li>【休閒模式】角色死亡於 z=12、checkpoint z=6 且同列被占：復活格必須 z&lt;=6，名次下降。</li><li>兩人先後復活至同一 z：較早寫入該 z 的 simulation time 者排名較前。</li><li>橫移後同在 z=10：時間戳不變；再同時才依 join order。</li></ul></div></details>
       <details><summary>AI 實作契約與驗收</summary><div class="contract"><h4>觸發</h4><p>AI 每 0.22 秒評估，搜尋深度至少 10 格，候選順序固定為前、左、右、後。</p><h4>判定順序</h4><p>排除樹、預約格、2.2 world units 內車體、非 IDLE 鐵路與無載具河格，再套用與人類相同的 push／reservation 規則。</p><h4>狀態與可見結果</h4><p>前進無解時，連續 3 次決策無有效前進後退一格；失敗時依固定左右順序重搜，不能左右抖動。</p><h4>邊界</h4><p>【休閒模式】AI 被推入危險或漂出邊界，套用同一個 checkpoint／排名流程。</p><h4>驗收例</h4><ul><li>前方車距不足時不跳入危險格。</li><li>玩家卡位 0.66 秒後，AI 退或側移重搜。</li></ul></div></details>
     </section>
@@ -650,6 +731,18 @@
         requestAnimationFrame(updateCurrent);
       });
       updateCurrent();
+    })();
+  </script>
+  <script src="assets/tutorial-scenes.iife.js"></script>
+  <script>
+    (()=>{
+      const root=document.getElementById('tutorial-scene-previews');
+      const api=window.CrossyRoadTutorialScenes;
+      if(!root||!api)return;
+      const previews=api.mountAll(root,{selector:'[data-gdd-tutorial-scene]',autoplay:true});
+      root.dataset.tutorialPreview='live';
+      root.querySelectorAll('.tutorial-scene-canvas').forEach(canvas=>canvas.setAttribute('aria-hidden','true'));
+      window.addEventListener('pagehide',()=>previews.dispose(),{once:true});
     })();
   </script>
 </body>

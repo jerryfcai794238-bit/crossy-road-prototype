@@ -8,6 +8,9 @@ import { MapGenerator } from './mechanics/MapGenerator.js';
 import { Physics } from './mechanics/Physics.js';
 import { UIManager } from './ui/UIManager.js';
 
+// 開發驗證開關：只啟用道具生成、獨立道具分與回饋；正式前進分／排行榜不納入道具分。
+const SCORE_ITEM_PROTOTYPE_ENABLED = true;
+
 class Game {
   constructor() {
     this.container = document.getElementById('canvas-container');
@@ -19,6 +22,8 @@ class Game {
 
     // 2. 地圖與物理
     this.mapGenerator = new MapGenerator(this.scene);
+    this.scoreItemsPrototypeEnabled = SCORE_ITEM_PROTOTYPE_ENABLED;
+    this.mapGenerator.scoreItemsEnabled = this.scoreItemsPrototypeEnabled;
     this.physics = new Physics();
 
     // 3. 狀態
@@ -36,12 +41,15 @@ class Game {
     this.casualTimeRemaining = this.casualDuration;
     this.casualCheckpoint = { x: 0, z: 0 };
     this.lastLandedZ = 0;
+    this.scoreRewardEffects = [];
 
     // 4. 小雞主角
     this.chickenMesh = createChicken();
     this.scene.add(this.chickenMesh);
     this.player = new Player(this.chickenMesh);
     this.bots = [];
+    this.mapGenerator.scoreItemCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition));
+    this.mapGenerator.scoreItemReferenceX = () => this.player?.gridX ?? 0;
 
     this.clock = new THREE.Clock();
 
@@ -209,6 +217,7 @@ class Game {
   handlePlayerLanded() {
     if (!this.isGameStarted || this.isGameOver) return;
     this.mapGenerator.update(this.player.gridZ);
+    this.collectScoreItem(this.player);
     this.uiManager.updateScore(this.player.score);
 
     if (this.currentMode !== 'casual') return;
@@ -219,8 +228,52 @@ class Game {
   }
 
   handleBotLanded(bot) {
+    this.collectScoreItem(bot);
     const landedRow = this.mapGenerator.getActiveRows().get(bot.gridZ);
     if (landedRow?.type === CONFIG.ROW_TYPES.GRASS) bot.updateCheckpoint();
+  }
+
+  collectScoreItem(actor) {
+    if (!this.scoreItemsPrototypeEnabled) return false;
+    const item = this.mapGenerator.collectScoreItemAt({ x: actor.gridX, z: actor.gridZ });
+    if (!item) return false;
+    actor.addItemScore(item.points);
+    this.showScoreReward(actor, item.points);
+    if (actor === this.player) this.uiManager.pulseScoreReward();
+    return true;
+  }
+
+  showScoreReward(actor, points) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 64;
+    const context = canvas.getContext('2d');
+    context.font = 'bold 42px sans-serif';
+    context.textAlign = 'center';
+    context.lineWidth = 7;
+    context.strokeStyle = '#5b3300';
+    context.strokeText(`+${points}`, 64, 45);
+    context.fillStyle = '#fff4a3';
+    context.fillText(`+${points}`, 64, 45);
+    const texture = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+    sprite.scale.set(0.9, 0.45, 1);
+    sprite.position.copy(actor.position).add(new THREE.Vector3(0, 1.15, 0));
+    this.scene.add(sprite);
+    this.scoreRewardEffects.push({ sprite, texture, age: 0 });
+  }
+
+  updateScoreRewardEffects(deltaTime) {
+    this.scoreRewardEffects = this.scoreRewardEffects.filter((effect) => {
+      effect.age += deltaTime;
+      effect.sprite.position.y += deltaTime * 1.2;
+      effect.sprite.material.opacity = Math.max(0, 1 - effect.age / 0.65);
+      if (effect.age < 0.65) return true;
+      this.scene.remove(effect.sprite);
+      effect.sprite.material.dispose();
+      effect.texture.dispose();
+      return false;
+    });
   }
 
   respawnBotAtCheckpoint(bot) {
@@ -366,7 +419,9 @@ class Game {
             activeRows,
             this.physics,
             (actor, direction) => this.tryMoveActor(actor, direction),
-            (actor, direction) => this.canMoveActor(actor, direction)
+            (actor, direction) => this.canMoveActor(actor, direction),
+            this.scoreItemsPrototypeEnabled ? [...this.mapGenerator.scoreItems.values()] : [],
+            (actor, gridPosition) => this.canActorEnter(actor, gridPosition)
           );
           bot.update(deltaTime);
           if (wasBotJumping && !bot.isJumping) this.handleBotLanded(bot);
@@ -421,6 +476,7 @@ class Game {
 
       // 5. 馬路車輛 / 河流浮木 / 鐵道火車動態
       this.mapGenerator.animateObstacles(deltaTime);
+      this.updateScoreRewardEffects(deltaTime);
 
       // 6. 即時更新相機 3D 視角位置 (主角保持於螢幕下半部偏後區域，視角與競品 100% 對齊)
       const targetCameraZ = (this.isGameStarted ? this.cameraScrollZ : pZ) + 2.2 * CONFIG.GRID_SIZE;

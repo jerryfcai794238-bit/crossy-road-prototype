@@ -20,10 +20,15 @@ export class MapGenerator {
 
     this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
     this.clusterRemaining = 5;
+    this.forceFirstHazardAtZ8 = true;
     this.currentRiverClusterSubtype = null;
     this.lastLilyPadGridXs = null;
     this.currentHazardChain = null;
     this.hazardChainCounter = 0;
+    this.scoreItems = new Map();
+    this.scoreItemsEnabled = false;
+    this.scoreItemCellBlocked = null;
+    this.scoreItemReferenceX = null;
 
     this.initGeometriesAndMaterials();
   }
@@ -54,11 +59,11 @@ export class MapGenerator {
   initMap() {
     this.reset();
 
-    for (let z = -CONFIG.DESPAWN_BEHIND; z <= 15; z++) {
+    for (let z = -CONFIG.DESPAWN_BEHIND; z <= 7; z++) {
       this.generateRow(z, CONFIG.ROW_TYPES.GRASS, true);
     }
 
-    this.highestZGenerated = 15;
+    this.highestZGenerated = 7;
     this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
 
     this.update(0);
@@ -73,10 +78,12 @@ export class MapGenerator {
     this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
     this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
     this.clusterRemaining = 5;
+    this.forceFirstHazardAtZ8 = true;
     this.currentRiverClusterSubtype = null;
     this.lastLilyPadGridXs = null;
     this.currentHazardChain = null;
     this.hazardChainCounter = 0;
+    this.scoreItems.clear();
   }
 
   update(playerZ) {
@@ -98,6 +105,12 @@ export class MapGenerator {
   }
 
   getNextRowType(targetZ = 0) {
+    if (this.forceFirstHazardAtZ8 && targetZ === 8) {
+      this.forceFirstHazardAtZ8 = false;
+      const hazardTypes = [CONFIG.ROW_TYPES.ROAD, CONFIG.ROW_TYPES.RIVER, CONFIG.ROW_TYPES.RAILROAD];
+      return this.beginCluster(hazardTypes[Math.floor(Math.random() * hazardTypes.length)]);
+    }
+
     if (this.clusterRemaining > 0) {
       this.clusterRemaining--;
       return this.currentClusterType;
@@ -115,6 +128,10 @@ export class MapGenerator {
       nextType = CONFIG.ROW_TYPES.GRASS;
     }
 
+    return this.beginCluster(nextType);
+  }
+
+  beginCluster(nextType) {
     this.currentClusterType = nextType;
 
     switch (nextType) {
@@ -168,6 +185,7 @@ export class MapGenerator {
       rowData.hazardChain = this.currentHazardChain;
       this.currentHazardChain.rows.push(rowData);
     } else {
+      this.finalizeHazardChain(this.currentHazardChain);
       this.currentHazardChain = null;
     }
 
@@ -188,6 +206,76 @@ export class MapGenerator {
 
     this.scene.add(rowGroup);
     this.activeRows.set(z, rowData);
+  }
+
+  // 每個連續危險區只挑一個可落地格；hash 讓同一條地圖生成順序可重現。
+  finalizeHazardChain(chain) {
+    if (!this.scoreItemsEnabled || !chain || chain.scoreItemCreated) return;
+    const candidateRows = chain.rows.filter((row) => (
+      row.z > 3 && (row.type === CONFIG.ROW_TYPES.ROAD || row.type === CONFIG.ROW_TYPES.RAILROAD)
+    ));
+    if (!candidateRows.length) return;
+
+    const rowOffset = (chain.id * 7 + chain.rows.length) % candidateRows.length;
+    const orderedRows = candidateRows.map((_, index) => candidateRows[(index + rowOffset) % candidateRows.length]);
+    const rawReferenceX = this.scoreItemReferenceX ? this.scoreItemReferenceX() : 0;
+    const referenceX = Math.max(
+      -CONFIG.MAP_BOUNDS_X,
+      Math.min(CONFIG.MAP_BOUNDS_X, Math.round(Number.isFinite(rawReferenceX) ? rawReferenceX : 0))
+    );
+    const offsets = [-1, 1, -2, 2];
+
+    for (const row of orderedRows) {
+      for (const offset of offsets) {
+        const x = referenceX + offset;
+        if (Math.abs(x) > CONFIG.MAP_BOUNDS_X || !this.isScoreItemCellClear(row, x)) continue;
+
+        const mesh = this.createScoreItemMesh();
+        mesh.position.set(x * CONFIG.GRID_SIZE, 0.48, 0);
+        row.mesh.add(mesh);
+        const item = { id: `score-${chain.id}`, x, z: row.z, points: 3, mesh, row };
+        row.scoreItem = item;
+        this.scoreItems.set(`${x},${row.z}`, item);
+        chain.scoreItemCreated = true;
+        return;
+      }
+    }
+  }
+
+  isScoreItemCellClear(row, x) {
+    if (this.scoreItemCellBlocked?.({ x, z: row.z })) return false;
+    if (row.type === CONFIG.ROW_TYPES.ROAD) {
+      const targetX = x * CONFIG.GRID_SIZE;
+      return !row.vehicles.some((vehicle) => Math.abs(vehicle.mesh.position.x - targetX) < 1.5);
+    }
+    return row.type === CONFIG.ROW_TYPES.RAILROAD && row.trainState === 'IDLE';
+  }
+
+  createScoreItemMesh() {
+    const group = new THREE.Group();
+    const gem = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.26, 0),
+      new THREE.MeshLambertMaterial({ color: 0xffd34e, emissive: 0x6a4300 })
+    );
+    gem.rotation.y = Math.PI / 4;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.34, 0.045, 6, 12),
+      new THREE.MeshBasicMaterial({ color: 0xfff2a8 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    group.add(gem, ring);
+    return group;
+  }
+
+  collectScoreItemAt(gridPosition) {
+    const key = `${gridPosition.x},${gridPosition.z}`;
+    const item = this.scoreItems.get(key);
+    if (!item) return null;
+    // delete 在移除 mesh 前完成，讓同一影格的競爭者只能有一名成功。
+    this.scoreItems.delete(key);
+    item.row.scoreItem = null;
+    item.row.mesh.remove(item.mesh);
+    return item;
   }
 
   buildGrassRow(rowData, rowGroup, isInitialSafe) {
@@ -493,6 +581,10 @@ export class MapGenerator {
     const boundX = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
 
     for (const [z, row] of this.activeRows.entries()) {
+      if (row.scoreItem?.mesh) {
+        row.scoreItem.mesh.rotation.y += safeDelta * 3.5;
+        row.scoreItem.mesh.position.y = 0.5 + Math.sin(performance.now() * 0.004 + z) * 0.08;
+      }
       if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
         row.vehicles.forEach((veh) => {
           veh.mesh.position.x += row.direction * row.speed * safeDelta;
@@ -600,6 +692,7 @@ export class MapGenerator {
     if (row && row.mesh) {
       this.scene.remove(row.mesh);
     }
+    if (row?.scoreItem) this.scoreItems.delete(`${row.scoreItem.x},${row.scoreItem.z}`);
     this.activeRows.delete(z);
   }
 

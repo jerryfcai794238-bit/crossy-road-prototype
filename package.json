@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "esbuild src/main.js --bundle --outfile=dist/bundle.js --format=iife --target=es2020",
+    "build:game": "esbuild src/main.js --bundle --outfile=dist/bundle.js --format=iife --target=es2020",
+    "build:tutorial-scenes": "esbuild src/embed/tutorial-scenes.js --bundle --outfile=docs/assets/tutorial-scenes.iife.js --format=iife --global-name=CrossyRoadTutorialScenes --target=es2020",
+    "build": "npm run build:game && npm run build:tutorial-scenes",
     "preview": "vite preview"
   },
   "dependencies": {
