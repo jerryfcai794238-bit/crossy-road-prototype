@@ -10,6 +10,7 @@ import { UIManager } from './ui/UIManager.js';
 
 // 開發驗證開關：只啟用道具生成、獨立道具分與回饋；正式前進分／排行榜不納入道具分。
 const SCORE_ITEM_PROTOTYPE_ENABLED = true;
+const DYNAMIC_HOLES_PROTOTYPE_ENABLED = true;
 
 class Game {
   constructor() {
@@ -23,6 +24,7 @@ class Game {
     // 2. 地圖與物理
     this.mapGenerator = new MapGenerator(this.scene);
     this.scoreItemsPrototypeEnabled = SCORE_ITEM_PROTOTYPE_ENABLED;
+    this.dynamicHolesPrototypeEnabled = DYNAMIC_HOLES_PROTOTYPE_ENABLED;
     this.mapGenerator.scoreItemsEnabled = this.scoreItemsPrototypeEnabled;
     this.physics = new Physics();
 
@@ -50,6 +52,13 @@ class Game {
     this.bots = [];
     this.mapGenerator.scoreItemCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition));
     this.mapGenerator.scoreItemReferenceX = () => this.player?.gridX ?? 0;
+    this.mapGenerator.dynamicHoleCellBlocked = (gridPosition) => {
+      const isPlayerCheckpoint = gridPosition.x === this.casualCheckpoint?.x && gridPosition.z === this.casualCheckpoint?.z;
+      const isBotCheckpoint = this.bots.some((bot) => (
+        gridPosition.x === bot.checkpoint?.x && gridPosition.z === bot.checkpoint?.z
+      ));
+      return isPlayerCheckpoint || isBotCheckpoint;
+    };
 
     this.clock = new THREE.Clock();
 
@@ -208,29 +217,35 @@ class Game {
   refreshLeaderboard() {
     if (this.currentMode !== 'casual') return;
     const entries = [
-      { name: '玩家', score: this.player.score, isPlayer: true, order: 0 },
-      ...this.bots.map((bot, index) => ({ name: bot.botName, score: bot.score, isPlayer: false, order: index + 1 }))
+      { name: '玩家', score: this.player.gridZ, isPlayer: true, order: 0 },
+      ...this.bots.map((bot, index) => ({ name: bot.botName, score: bot.gridZ, isPlayer: false, order: index + 1 }))
     ];
     this.uiManager.updateLeaderboard(entries);
   }
 
   handlePlayerLanded() {
     if (!this.isGameStarted || this.isGameOver) return;
+    if (this.currentMode === 'casual' && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
+      this.respawnAtCasualCheckpoint();
+      return;
+    }
     this.mapGenerator.update(this.player.gridZ);
     this.collectScoreItem(this.player);
     this.uiManager.updateScore(this.player.score);
 
     if (this.currentMode !== 'casual') return;
-    const landedRow = this.mapGenerator.getActiveRows().get(this.player.gridZ);
-    if (landedRow?.type === CONFIG.ROW_TYPES.GRASS && this.player.gridZ > this.casualCheckpoint.z) {
+    if (this.mapGenerator.isSafeCheckpointRow(this.player) && this.player.gridZ > this.casualCheckpoint.z) {
       this.casualCheckpoint = { x: this.player.gridX, z: this.player.gridZ };
     }
   }
 
   handleBotLanded(bot) {
+    if (this.currentMode === 'casual' && this.mapGenerator.isDynamicHoleActiveAt(bot)) {
+      this.respawnBotAtCheckpoint(bot);
+      return;
+    }
     this.collectScoreItem(bot);
-    const landedRow = this.mapGenerator.getActiveRows().get(bot.gridZ);
-    if (landedRow?.type === CONFIG.ROW_TYPES.GRASS) bot.updateCheckpoint();
+    if (this.mapGenerator.isSafeCheckpointRow(bot)) bot.updateCheckpoint();
   }
 
   collectScoreItem(actor) {
@@ -283,6 +298,11 @@ class Game {
   updateCasualBotHazards(bot, activeRows, deltaTime) {
     if (bot.isJumping || bot.isDead) return;
 
+    if (this.mapGenerator.isDynamicHoleActiveAt(bot)) {
+      this.respawnBotAtCheckpoint(bot);
+      return;
+    }
+
     const hitObstacle = this.physics.checkObstacleCollision(bot, activeRows);
     if (hitObstacle && !bot.isInvulnerable) {
       this.respawnBotAtCheckpoint(bot);
@@ -328,6 +348,7 @@ class Game {
     this.clearBots();
     this.uiManager.setMode(this.currentMode);
     this.uiManager.updateHealth(this.player.hp);
+    this.mapGenerator.setDynamicHolesEnabled(this.currentMode === 'casual' && this.dynamicHolesPrototypeEnabled);
     this.mapGenerator.initMap();
     if (this.currentMode === 'casual') {
       // 四個角色在同一條起跑線排列，避免開局出現前後錯位。
@@ -421,7 +442,9 @@ class Game {
             (actor, direction) => this.tryMoveActor(actor, direction),
             (actor, direction) => this.canMoveActor(actor, direction),
             this.scoreItemsPrototypeEnabled ? [...this.mapGenerator.scoreItems.values()] : [],
-            (actor, gridPosition) => this.canActorEnter(actor, gridPosition)
+            (actor, gridPosition) => this.canActorEnter(actor, gridPosition),
+            (gridPosition, landingPrediction) => this.mapGenerator.isDynamicHoleUnsafe(gridPosition, landingPrediction),
+            (gridPosition) => this.mapGenerator.getDynamicHoleRepairTime(gridPosition)
           );
           bot.update(deltaTime);
           if (wasBotJumping && !bot.isJumping) this.handleBotLanded(bot);
@@ -477,6 +500,17 @@ class Game {
       // 5. 馬路車輛 / 河流浮木 / 鐵道火車動態
       this.mapGenerator.animateObstacles(deltaTime);
       this.updateScoreRewardEffects(deltaTime);
+
+      // 推擠與跳躍完成後才判定地形，讓被推入洞與主動落洞走同一條休閒復活流程。
+      if (this.isGameStarted && !this.isGameOver && this.currentMode === 'casual') {
+        if (!this.player.isJumping && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
+          this.respawnAtCasualCheckpoint();
+          return;
+        }
+        this.bots.forEach((bot) => {
+          if (!bot.isJumping && this.mapGenerator.isDynamicHoleActiveAt(bot)) this.respawnBotAtCheckpoint(bot);
+        });
+      }
 
       // 6. 即時更新相機 3D 視角位置 (主角保持於螢幕下半部偏後區域，視角與競品 100% 對齊)
       const targetCameraZ = (this.isGameStarted ? this.cameraScrollZ : pZ) + 2.2 * CONFIG.GRID_SIZE;

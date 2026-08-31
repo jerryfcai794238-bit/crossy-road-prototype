@@ -20599,7 +20599,7 @@
         this.checkpoint = { x: this.gridX, z: this.gridZ };
       }
     }
-    updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null) {
+    updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null) {
       if (this.isJumping || this.isRespawning || this.isDead) return;
       this.decisionTimer += deltaTime;
       this.lateralCooldown = Math.max(0, this.lateralCooldown - deltaTime);
@@ -20608,15 +20608,21 @@
       if (this.scoreItemRetryCooldown === 0) this.scoreItemIgnoredId = null;
       if (this.decisionTimer < this.decisionInterval) return;
       this.decisionTimer = 0;
-      const itemDirection = this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell);
-      const direction = itemDirection || this.findPathDirection(activeRows, physics, canMove, canEnterCell);
+      const itemDirection = this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+      const direction = itemDirection || this.findPathDirection(activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
       if (!direction) {
+        const forward = this.getTargetGridPosition("UP");
+        const repairTime = getDynamicHoleRepairTime?.(forward);
+        if (repairTime !== null && repairTime <= 0.7) {
+          this.waitedForPath = true;
+          return;
+        }
         if (!this.waitedForPath) {
           this.waitedForPath = true;
           return;
         }
         this.waitedForPath = false;
-        this.tryRetreat(activeRows, physics, tryMove, canMove);
+        this.tryRetreat(activeRows, physics, tryMove, canMove, isDynamicHoleUnsafe);
         return;
       }
       this.waitedForPath = false;
@@ -20637,7 +20643,7 @@
       if (direction === "LEFT" || direction === "RIGHT") this.lateralCooldown = 0.6;
       if (direction === "DOWN") this.retreatCooldown = 0.7;
     }
-    findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell) {
+    findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
       const candidates = scoreItems.filter((item) => item.id !== this.scoreItemIgnoredId && item.z >= this.gridZ && item.z <= this.gridZ + 5 && Math.abs(item.x - this.gridX) <= 3);
       const itemsByCell = new Map(candidates.map((item) => [`${item.x},${item.z}`, item]));
       const queue = [{ x: this.gridX, z: this.gridZ, firstDirection: null, depth: 0 }];
@@ -20667,7 +20673,7 @@
           const key = `${next.x},${next.z}`;
           if (visited.has(key) || Math.abs(next.x) > CONFIG.MAP_BOUNDS_X) continue;
           const landingPrediction = current.depth === 0 ? CONFIG.JUMP_DURATION || 0.16 : 0;
-          if (!this.isCellSafe(next, activeRows, physics, landingPrediction)) continue;
+          if (!this.isCellSafe(next, activeRows, physics, landingPrediction, isDynamicHoleUnsafe)) continue;
           if (canEnterCell && !canEnterCell(this, next)) continue;
           if (current.depth === 0 && canMove && !canMove(this, move.name)) continue;
           visited.add(key);
@@ -20687,7 +20693,7 @@
       this.scoreItemTarget = best.item.id;
       return best.direction;
     }
-    findPathDirection(activeRows, physics, canMove, canEnterCell) {
+    findPathDirection(activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
       const start = { x: this.gridX, z: this.gridZ };
       const lowestReachableZ = Number.isFinite(this.minAllowedZ) ? this.minAllowedZ : -4;
       const moves = [
@@ -20712,7 +20718,7 @@
           const key = `${next.x},${next.z}`;
           if (visited.has(key)) continue;
           const landingPrediction = current.depth === 0 ? CONFIG.JUMP_DURATION || 0.16 : 0;
-          if (!this.isCellSafe(next, activeRows, physics, landingPrediction)) continue;
+          if (!this.isCellSafe(next, activeRows, physics, landingPrediction, isDynamicHoleUnsafe)) continue;
           if (canEnterCell && !canEnterCell(this, next)) continue;
           if (current.depth === 0 && canMove && !canMove(this, move.name)) continue;
           visited.add(key);
@@ -20725,12 +20731,12 @@
       }
       return best?.direction || null;
     }
-    tryRetreat(activeRows, physics, tryMove, canMove) {
+    tryRetreat(activeRows, physics, tryMove, canMove, isDynamicHoleUnsafe) {
       if (this.retreatCooldown > 0) return false;
       const targetPos = this.getTargetGridPosition("DOWN");
       const lowestReachableZ = Number.isFinite(this.minAllowedZ) ? this.minAllowedZ : -4;
       if (targetPos.z < lowestReachableZ || Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X) return false;
-      if (!this.isCellSafe(targetPos, activeRows, physics, CONFIG.JUMP_DURATION || 0.16)) return false;
+      if (!this.isCellSafe(targetPos, activeRows, physics, CONFIG.JUMP_DURATION || 0.16, isDynamicHoleUnsafe)) return false;
       if (canMove && !canMove(this, "DOWN")) return false;
       const moved = tryMove ? tryMove(this, "DOWN") : this.move("DOWN");
       if (moved) {
@@ -20749,8 +20755,9 @@
       else if (predictedX < -boundX) predictedX = boundX + (predictedX + boundX);
       return predictedX;
     }
-    isCellSafe(targetPos, activeRows, physics, predictionSeconds = 0) {
+    isCellSafe(targetPos, activeRows, physics, predictionSeconds = 0, isDynamicHoleUnsafe = null) {
       if (physics.checkTreeCollision(targetPos, activeRows)) return false;
+      if (isDynamicHoleUnsafe?.(targetPos, predictionSeconds)) return false;
       const row = activeRows.get(targetPos.z);
       if (!row) return true;
       if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
@@ -20785,7 +20792,15 @@
       this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
       this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
       this.clusterRemaining = 5;
+      this.grassClusterSize = 0;
+      this.grassClusterRowIndex = 0;
+      this.currentDynamicHoleCluster = null;
+      this.dynamicHoleClusterCounter = 0;
+      this.dynamicHoleClusterHistory = [];
+      this.completedOrdinaryHazardChainsSinceDynamicHole = 0;
+      this.lastCountedDynamicHoleHazardChainId = null;
       this.forceFirstHazardAtZ8 = true;
+      this.forceDynamicHoleGrassAfterFirstHazard = false;
       this.currentRiverClusterSubtype = null;
       this.lastLilyPadGridXs = null;
       this.currentHazardChain = null;
@@ -20794,6 +20809,19 @@
       this.scoreItemsEnabled = false;
       this.scoreItemCellBlocked = null;
       this.scoreItemReferenceX = null;
+      this.dynamicHolesEnabled = false;
+      this.dynamicHoleCells = /* @__PURE__ */ new Map();
+      this.dynamicHoleCellBlocked = null;
+      this.dynamicHolePlayerZ = 0;
+      this.dynamicHoleWaveCooldown = 1.5;
+      this.dynamicHoleWaveId = 0;
+      this.dynamicHoleConfig = {
+        warningDuration: 1.2,
+        holeDuration: 2.2,
+        repairDuration: 0.6,
+        waveCooldown: 0.8,
+        warningSafetyBuffer: 0.15
+      };
       this.initGeometriesAndMaterials();
     }
     initGeometriesAndMaterials() {
@@ -20824,6 +20852,7 @@
       this.update(0);
     }
     reset() {
+      this.clearDynamicHoles();
       for (const [z, row] of this.activeRows.entries()) {
         this.removeRow(z, row);
       }
@@ -20832,14 +20861,26 @@
       this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
       this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
       this.clusterRemaining = 5;
+      this.grassClusterSize = 0;
+      this.grassClusterRowIndex = 0;
+      this.currentDynamicHoleCluster = null;
+      this.dynamicHoleClusterCounter = 0;
+      this.dynamicHoleClusterHistory = [];
+      this.completedOrdinaryHazardChainsSinceDynamicHole = 0;
+      this.lastCountedDynamicHoleHazardChainId = null;
       this.forceFirstHazardAtZ8 = true;
+      this.forceDynamicHoleGrassAfterFirstHazard = false;
       this.currentRiverClusterSubtype = null;
       this.lastLilyPadGridXs = null;
       this.currentHazardChain = null;
       this.hazardChainCounter = 0;
       this.scoreItems.clear();
+      this.dynamicHolePlayerZ = 0;
+      this.dynamicHoleWaveCooldown = 1.5;
+      this.dynamicHoleWaveId = 0;
     }
     update(playerZ) {
+      this.dynamicHolePlayerZ = playerZ;
       const targetAheadZ = playerZ + CONFIG.GENERATION_AHEAD;
       while (this.highestZGenerated < targetAheadZ) {
         this.highestZGenerated++;
@@ -20856,12 +20897,27 @@
     getNextRowType(targetZ = 0) {
       if (this.forceFirstHazardAtZ8 && targetZ === 8) {
         this.forceFirstHazardAtZ8 = false;
+        this.forceDynamicHoleGrassAfterFirstHazard = true;
         const hazardTypes = [CONFIG.ROW_TYPES.ROAD, CONFIG.ROW_TYPES.RIVER, CONFIG.ROW_TYPES.RAILROAD];
         return this.beginCluster(hazardTypes[Math.floor(Math.random() * hazardTypes.length)]);
       }
       if (this.clusterRemaining > 0) {
         this.clusterRemaining--;
         return this.currentClusterType;
+      }
+      if (this.forceDynamicHoleGrassAfterFirstHazard) {
+        this.forceDynamicHoleGrassAfterFirstHazard = false;
+        return this.beginDynamicHoleGrassCluster();
+      }
+      if (this.currentClusterType !== CONFIG.ROW_TYPES.GRASS) {
+        const completedChainId = this.currentHazardChain?.id;
+        if (completedChainId && completedChainId !== this.lastCountedDynamicHoleHazardChainId) {
+          this.lastCountedDynamicHoleHazardChainId = completedChainId;
+          this.completedOrdinaryHazardChainsSinceDynamicHole++;
+        }
+        if (this.completedOrdinaryHazardChainsSinceDynamicHole >= 2) {
+          return this.beginDynamicHoleGrassCluster();
+        }
       }
       const types = [
         CONFIG.ROW_TYPES.GRASS,
@@ -20877,28 +20933,55 @@
     }
     beginCluster(nextType) {
       this.currentClusterType = nextType;
+      this.currentDynamicHoleCluster = null;
       switch (nextType) {
         case CONFIG.ROW_TYPES.GRASS:
           this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+          this.grassClusterSize = this.clusterRemaining + 1;
+          this.grassClusterRowIndex = 0;
           this.lastLilyPadGridXs = null;
           break;
         case CONFIG.ROW_TYPES.ROAD:
+          this.grassClusterSize = 0;
           this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
           this.lastLilyPadGridXs = null;
           break;
         case CONFIG.ROW_TYPES.RIVER:
+          this.grassClusterSize = 0;
           this.clusterRemaining = Math.floor(Math.random() * 2) + 1;
           this.currentRiverClusterSubtype = Math.random() < 0.3 ? "LILY_PAD" : "LOG";
           this.lastLilyPadGridXs = null;
           break;
         case CONFIG.ROW_TYPES.RAILROAD:
+          this.grassClusterSize = 0;
           this.clusterRemaining = 1;
           this.lastLilyPadGridXs = null;
           break;
       }
       return this.currentClusterType;
     }
+    beginDynamicHoleGrassCluster() {
+      this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
+      this.clusterRemaining = 3;
+      this.grassClusterSize = 4;
+      this.grassClusterRowIndex = 0;
+      this.dynamicHoleClusterCounter++;
+      this.currentDynamicHoleCluster = {
+        id: this.dynamicHoleClusterCounter,
+        precedingHazardChainId: this.currentHazardChain?.id ?? null,
+        entry: null,
+        floors: [],
+        exit: null
+      };
+      this.dynamicHoleClusterHistory.push(this.currentDynamicHoleCluster);
+      this.completedOrdinaryHazardChainsSinceDynamicHole = 0;
+      this.lastCountedDynamicHoleHazardChainId = this.currentHazardChain?.id ?? null;
+      this.lastLilyPadGridXs = null;
+      return this.currentClusterType;
+    }
     generateRow(z, type, isInitialSafe = false) {
+      const dynamicHoleRole = type === CONFIG.ROW_TYPES.GRASS && !isInitialSafe && this.currentDynamicHoleCluster ? ["entry", "floor", "floor", "exit"][this.grassClusterRowIndex] || null : null;
+      const isDynamicHoleFloor = dynamicHoleRole === "floor";
       const rowGroup = new Group();
       rowGroup.position.set(0, -0.2, z * CONFIG.GRID_SIZE);
       const rowData = {
@@ -20913,8 +20996,20 @@
         trainState: "IDLE",
         idleTimer: Math.random() * 4 + 3,
         direction: Math.random() > 0.5 ? 1 : -1,
-        speed: 0
+        speed: 0,
+        isInitialSafe,
+        isDynamicHoleFloor,
+        dynamicHoleCluster: this.currentDynamicHoleCluster,
+        dynamicHoleRole
       };
+      if (rowData.dynamicHoleCluster) {
+        if (dynamicHoleRole === "entry") rowData.dynamicHoleCluster.entry = rowData;
+        else if (dynamicHoleRole === "floor") rowData.dynamicHoleCluster.floors.push(rowData);
+        else if (dynamicHoleRole === "exit") rowData.dynamicHoleCluster.exit = rowData;
+      }
+      if (type === CONFIG.ROW_TYPES.GRASS && !isInitialSafe && this.grassClusterSize > 0) {
+        this.grassClusterRowIndex++;
+      }
       if (type !== CONFIG.ROW_TYPES.GRASS) {
         if (!this.currentHazardChain) {
           this.hazardChainCounter++;
@@ -21009,7 +21104,7 @@
       lane.receiveShadow = true;
       rowGroup.add(lane);
       const playableRange = CONFIG.MAP_BOUNDS_X - 1;
-      const guaranteedOpenCount = Math.floor(Math.random() * 2) + 3;
+      const guaranteedOpenCount = rowData.isDynamicHoleFloor ? 4 : Math.floor(Math.random() * 2) + 3;
       const openXs = /* @__PURE__ */ new Set();
       while (openXs.size < guaranteedOpenCount) {
         const randomX = Math.floor(Math.random() * (playableRange * 2 + 1)) - playableRange;
@@ -21226,6 +21321,7 @@
     animateObstacles(deltaTime) {
       const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
       const boundX = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
+      this.updateDynamicHoles(safeDelta);
       for (const [z, row] of this.activeRows.entries()) {
         if (row.scoreItem?.mesh) {
           row.scoreItem.mesh.rotation.y += safeDelta * 3.5;
@@ -21314,6 +21410,235 @@
             }
           }
         }
+      }
+    }
+    setDynamicHolesEnabled(enabled) {
+      this.dynamicHolesEnabled = Boolean(enabled);
+      if (!this.dynamicHolesEnabled) this.clearDynamicHoles();
+      this.dynamicHoleWaveCooldown = 1.5;
+    }
+    getDynamicHoleState(gridPosition) {
+      const { x, z } = this.normalizeGridPosition(gridPosition);
+      return this.dynamicHoleCells.get(`${x},${z}`)?.state || null;
+    }
+    // 玩家可主動嘗試跳入破洞；BOT 則以落地 ETA 預先把即將塌陷的格子視為不可走。
+    isDynamicHoleUnsafe(gridPosition, landingPrediction = 0) {
+      const { x, z } = this.normalizeGridPosition(gridPosition);
+      const hole = this.dynamicHoleCells.get(`${x},${z}`);
+      if (!hole) return false;
+      if (hole.state === "HOLE" || hole.state === "REPAIR_WARNING") return true;
+      return hole.state === "WARNING" && hole.timer <= Math.max(0, landingPrediction) + this.dynamicHoleConfig.warningSafetyBuffer;
+    }
+    isDynamicHoleActiveAt(gridPosition) {
+      const state = this.getDynamicHoleState(gridPosition);
+      return state === "HOLE" || state === "REPAIR_WARNING";
+    }
+    isSafeCheckpointRow(gridPosition) {
+      const { z } = this.normalizeGridPosition(gridPosition);
+      const row = this.activeRows.get(z);
+      return row?.type === CONFIG.ROW_TYPES.GRASS && !row.isDynamicHoleFloor && row.dynamicHoleRole !== "entry";
+    }
+    getDynamicHoleRepairTime(gridPosition) {
+      const { x, z } = this.normalizeGridPosition(gridPosition);
+      const hole = this.dynamicHoleCells.get(`${x},${z}`);
+      return hole?.state === "REPAIR_WARNING" ? Math.max(0, hole.timer) : null;
+    }
+    normalizeGridPosition(gridPosition) {
+      return {
+        x: gridPosition?.x ?? gridPosition?.gridX,
+        z: gridPosition?.z ?? gridPosition?.gridZ
+      };
+    }
+    clearDynamicHoles() {
+      for (const hole of this.dynamicHoleCells.values()) {
+        this.disposeDynamicHoleVisual(hole);
+      }
+      this.dynamicHoleCells.clear();
+    }
+    disposeDynamicHoleVisual(hole) {
+      hole.row?.mesh?.remove(hole.visual);
+      const geometries = /* @__PURE__ */ new Set();
+      const materials = /* @__PURE__ */ new Set();
+      hole.visual?.traverse((child) => {
+        if (child.geometry) geometries.add(child.geometry);
+        if (child.material) materials.add(child.material);
+      });
+      geometries.forEach((geometry) => geometry.dispose());
+      materials.forEach((material) => material.dispose());
+    }
+    updateDynamicHoles(deltaTime) {
+      if (!this.dynamicHolesEnabled) return;
+      for (const hole of [...this.dynamicHoleCells.values()]) {
+        hole.timer -= deltaTime;
+        if (hole.state === "WARNING" && hole.timer <= 0) {
+          this.setDynamicHoleState(hole, "HOLE", this.dynamicHoleConfig.holeDuration);
+        } else if (hole.state === "HOLE" && hole.timer <= 0) {
+          this.setDynamicHoleState(hole, "REPAIR_WARNING", this.dynamicHoleConfig.repairDuration);
+        } else if (hole.state === "REPAIR_WARNING" && hole.timer <= 0) {
+          this.disposeDynamicHoleVisual(hole);
+          this.dynamicHoleCells.delete(hole.key);
+        } else {
+          this.animateDynamicHoleVisual(hole);
+        }
+      }
+      if (this.dynamicHoleCells.size > 0) return;
+      this.dynamicHoleWaveCooldown -= deltaTime;
+      if (this.dynamicHoleWaveCooldown <= 0) this.beginDynamicHoleWave();
+    }
+    beginDynamicHoleWave() {
+      const placements = this.findDynamicHolePlacements();
+      this.dynamicHoleWaveCooldown = this.dynamicHoleConfig.waveCooldown;
+      if (!placements.length) return;
+      this.dynamicHoleWaveId++;
+      placements.forEach(({ row, x }) => this.createDynamicHole(row, x));
+    }
+    findDynamicHolePlacements() {
+      const minZ = this.dynamicHolePlayerZ + 1;
+      const maxZ = this.dynamicHolePlayerZ + 8;
+      const rows = [...this.activeRows.values()].filter((row) => row.isDynamicHoleFloor && row.z >= minZ && row.z <= maxZ && !row.scoreItem).sort((a, b) => a.z - b.z);
+      for (let index = 0; index < rows.length - 1; index++) {
+        const first = rows[index];
+        const second = rows[index + 1];
+        if (!first.dynamicHoleCluster || first.dynamicHoleCluster !== second.dynamicHoleCluster || first.dynamicHoleRole !== "floor" || second.dynamicHoleRole !== "floor") continue;
+        const firstXs = this.getDynamicHoleCandidateXs(first);
+        const secondXs = this.getDynamicHoleCandidateXs(second);
+        for (const firstX of firstXs) {
+          for (const secondX of secondXs) {
+            if (Math.abs(firstX - secondX) < 2) continue;
+            const placements = [{ row: first, x: firstX }, { row: second, x: secondX }];
+            if (this.hasDynamicHolePath(first, second, placements)) return placements;
+          }
+        }
+      }
+      return [];
+    }
+    getDynamicHoleCandidateXs(row) {
+      const openXs = [];
+      for (let x = -CONFIG.MAP_BOUNDS_X + 1; x <= CONFIG.MAP_BOUNDS_X - 1; x++) {
+        if (!row.trees.some((tree) => tree.gridX === x) && !this.dynamicHoleCellBlocked?.({ x, z: row.z })) openXs.push(x);
+      }
+      if (openXs.length < 4) return [];
+      const offset = (this.dynamicHoleWaveId + row.z * 3) % openXs.length;
+      return openXs.map((_, index) => openXs[(index + offset + openXs.length) % openXs.length]);
+    }
+    hasDynamicHolePath(firstRow, secondRow, placements) {
+      const cluster = firstRow.dynamicHoleCluster;
+      if (!cluster || cluster !== secondRow.dynamicHoleCluster || cluster.floors.length !== 2 || cluster.floors[0] !== firstRow || cluster.floors[1] !== secondRow) return false;
+      const { entry: entryRow, exit: exitRow } = cluster;
+      if (!entryRow || !exitRow || this.activeRows.get(entryRow.z) !== entryRow || this.activeRows.get(exitRow.z) !== exitRow || entryRow.type !== CONFIG.ROW_TYPES.GRASS || exitRow.type !== CONFIG.ROW_TYPES.GRASS || entryRow.isDynamicHoleFloor || exitRow.isDynamicHoleFloor || entryRow.dynamicHoleCluster !== cluster || exitRow.dynamicHoleCluster !== cluster || entryRow.dynamicHoleRole !== "entry" || exitRow.dynamicHoleRole !== "exit") return false;
+      const blocked = new Set(placements.map(({ x, row }) => `${x},${row.z}`));
+      const rowsByZ = /* @__PURE__ */ new Map([
+        [entryRow.z, entryRow],
+        [firstRow.z, firstRow],
+        [secondRow.z, secondRow],
+        [exitRow.z, exitRow]
+      ]);
+      const isOpen = (x, z) => Math.abs(x) < CONFIG.MAP_BOUNDS_X && !blocked.has(`${x},${z}`) && !rowsByZ.get(z)?.trees.some((tree) => tree.gridX === x);
+      const queue = [];
+      const visited = /* @__PURE__ */ new Set();
+      for (let x = -CONFIG.MAP_BOUNDS_X + 1; x < CONFIG.MAP_BOUNDS_X; x++) {
+        if (isOpen(x, entryRow.z)) {
+          queue.push({ x, z: entryRow.z });
+          visited.add(`${x},${entryRow.z}`);
+        }
+      }
+      while (queue.length) {
+        const current = queue.shift();
+        if (current.z === exitRow.z) return true;
+        for (const [dx, dz] of [[-1, 0], [1, 0], [0, 1]]) {
+          const next = { x: current.x + dx, z: current.z + dz };
+          const key = `${next.x},${next.z}`;
+          if (next.z > exitRow.z || visited.has(key) || !isOpen(next.x, next.z)) continue;
+          visited.add(key);
+          queue.push(next);
+        }
+      }
+      return false;
+    }
+    createDynamicHole(row, x) {
+      const visual = this.createDynamicHoleVisual();
+      visual.position.set(x * CONFIG.GRID_SIZE, 0.215, 0);
+      row.mesh.add(visual);
+      const hole = {
+        key: `${x},${row.z}`,
+        row,
+        x,
+        z: row.z,
+        visual,
+        state: "WARNING",
+        timer: this.dynamicHoleConfig.warningDuration
+      };
+      this.dynamicHoleCells.set(hole.key, hole);
+      this.applyDynamicHoleVisual(hole);
+    }
+    createDynamicHoleVisual() {
+      const group = new Group();
+      const size = CONFIG.GRID_SIZE * 0.78;
+      const warning = new Mesh(
+        new PlaneGeometry(size, size),
+        new MeshBasicMaterial({ color: 16753967, transparent: true, opacity: 0.7, depthWrite: false })
+      );
+      warning.rotation.x = -Math.PI / 2;
+      const crackA = new Mesh(
+        new BoxGeometry(size * 0.08, 0.025, size * 0.78),
+        new MeshBasicMaterial({ color: 7152896 })
+      );
+      crackA.position.y = 0.02;
+      crackA.rotation.y = 0.58;
+      const crackB = crackA.clone();
+      crackB.scale.z = 0.58;
+      crackB.rotation.y = -0.72;
+      const hole = new Mesh(
+        new BoxGeometry(size, 0.16, size),
+        new MeshLambertMaterial({ color: 1052696, emissive: 197382 })
+      );
+      hole.position.y = 0.05;
+      const brokenEdge = new Group();
+      const edgeMaterial = new MeshLambertMaterial({ color: 7156758, emissive: 2493698 });
+      const edgeLength = size * 0.9;
+      [
+        [0, 0.125, -size * 0.48, edgeLength, 0.07],
+        [0, 0.125, size * 0.48, edgeLength, 0.07],
+        [-size * 0.48, 0.125, 0, 0.07, edgeLength],
+        [size * 0.48, 0.125, 0, 0.07, edgeLength]
+      ].forEach(([x, y, z, width, depth]) => {
+        const edge = new Mesh(new BoxGeometry(width, 0.05, depth), edgeMaterial);
+        edge.position.set(x, y, z);
+        edge.rotation.y = x === 0 ? 0.08 : -0.08;
+        brokenEdge.add(edge);
+      });
+      const repair = new Mesh(
+        new PlaneGeometry(size, size),
+        new MeshBasicMaterial({ color: 3731932, transparent: true, opacity: 0.55, depthWrite: false })
+      );
+      repair.rotation.x = -Math.PI / 2;
+      group.add(warning, crackA, crackB, hole, brokenEdge, repair);
+      group.userData = { warning, crackA, crackB, hole, brokenEdge, repair };
+      return group;
+    }
+    setDynamicHoleState(hole, state, duration) {
+      hole.state = state;
+      hole.timer = duration;
+      this.applyDynamicHoleVisual(hole);
+    }
+    applyDynamicHoleVisual(hole) {
+      const { warning, crackA, crackB, hole: holeMesh, brokenEdge, repair } = hole.visual.userData;
+      warning.visible = hole.state === "WARNING";
+      crackA.visible = hole.state === "WARNING";
+      crackB.visible = hole.state === "WARNING";
+      holeMesh.visible = hole.state === "HOLE" || hole.state === "REPAIR_WARNING";
+      brokenEdge.visible = hole.state === "HOLE" || hole.state === "REPAIR_WARNING";
+      repair.visible = hole.state === "REPAIR_WARNING";
+      this.animateDynamicHoleVisual(hole);
+    }
+    animateDynamicHoleVisual(hole) {
+      const { warning, repair } = hole.visual.userData;
+      if (hole.state === "WARNING") {
+        const pulse = 0.72 + Math.sin(performance.now() * 0.018) * 0.22;
+        warning.material.opacity = pulse;
+        warning.scale.setScalar(0.9 + pulse * 0.12);
+      } else if (hole.state === "REPAIR_WARNING") {
+        repair.material.opacity = 0.45 + Math.sin(performance.now() * 0.02) * 0.2;
       }
     }
     checkSafeZoneReset(playerZ) {
@@ -21904,6 +22229,7 @@
 
   // src/main.js
   var SCORE_ITEM_PROTOTYPE_ENABLED = true;
+  var DYNAMIC_HOLES_PROTOTYPE_ENABLED = true;
   var Game = class {
     constructor() {
       this.container = document.getElementById("canvas-container");
@@ -21912,6 +22238,7 @@
       this.scene = this.sceneSetup.scene;
       this.mapGenerator = new MapGenerator(this.scene);
       this.scoreItemsPrototypeEnabled = SCORE_ITEM_PROTOTYPE_ENABLED;
+      this.dynamicHolesPrototypeEnabled = DYNAMIC_HOLES_PROTOTYPE_ENABLED;
       this.mapGenerator.scoreItemsEnabled = this.scoreItemsPrototypeEnabled;
       this.physics = new Physics();
       this.isGameStarted = false;
@@ -21932,6 +22259,11 @@
       this.bots = [];
       this.mapGenerator.scoreItemCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition));
       this.mapGenerator.scoreItemReferenceX = () => this.player?.gridX ?? 0;
+      this.mapGenerator.dynamicHoleCellBlocked = (gridPosition) => {
+        const isPlayerCheckpoint = gridPosition.x === this.casualCheckpoint?.x && gridPosition.z === this.casualCheckpoint?.z;
+        const isBotCheckpoint = this.bots.some((bot) => gridPosition.x === bot.checkpoint?.x && gridPosition.z === bot.checkpoint?.z);
+        return isPlayerCheckpoint || isBotCheckpoint;
+      };
       this.clock = new Clock();
       this.setupInputListeners();
       this.uiManager.init(
@@ -22054,26 +22386,32 @@
     refreshLeaderboard() {
       if (this.currentMode !== "casual") return;
       const entries = [
-        { name: "\u73A9\u5BB6", score: this.player.score, isPlayer: true, order: 0 },
-        ...this.bots.map((bot, index) => ({ name: bot.botName, score: bot.score, isPlayer: false, order: index + 1 }))
+        { name: "\u73A9\u5BB6", score: this.player.gridZ, isPlayer: true, order: 0 },
+        ...this.bots.map((bot, index) => ({ name: bot.botName, score: bot.gridZ, isPlayer: false, order: index + 1 }))
       ];
       this.uiManager.updateLeaderboard(entries);
     }
     handlePlayerLanded() {
       if (!this.isGameStarted || this.isGameOver) return;
+      if (this.currentMode === "casual" && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
+        this.respawnAtCasualCheckpoint();
+        return;
+      }
       this.mapGenerator.update(this.player.gridZ);
       this.collectScoreItem(this.player);
       this.uiManager.updateScore(this.player.score);
       if (this.currentMode !== "casual") return;
-      const landedRow = this.mapGenerator.getActiveRows().get(this.player.gridZ);
-      if (landedRow?.type === CONFIG.ROW_TYPES.GRASS && this.player.gridZ > this.casualCheckpoint.z) {
+      if (this.mapGenerator.isSafeCheckpointRow(this.player) && this.player.gridZ > this.casualCheckpoint.z) {
         this.casualCheckpoint = { x: this.player.gridX, z: this.player.gridZ };
       }
     }
     handleBotLanded(bot) {
+      if (this.currentMode === "casual" && this.mapGenerator.isDynamicHoleActiveAt(bot)) {
+        this.respawnBotAtCheckpoint(bot);
+        return;
+      }
       this.collectScoreItem(bot);
-      const landedRow = this.mapGenerator.getActiveRows().get(bot.gridZ);
-      if (landedRow?.type === CONFIG.ROW_TYPES.GRASS) bot.updateCheckpoint();
+      if (this.mapGenerator.isSafeCheckpointRow(bot)) bot.updateCheckpoint();
     }
     collectScoreItem(actor) {
       if (!this.scoreItemsPrototypeEnabled) return false;
@@ -22120,6 +22458,10 @@
     }
     updateCasualBotHazards(bot, activeRows, deltaTime) {
       if (bot.isJumping || bot.isDead) return;
+      if (this.mapGenerator.isDynamicHoleActiveAt(bot)) {
+        this.respawnBotAtCheckpoint(bot);
+        return;
+      }
       const hitObstacle = this.physics.checkObstacleCollision(bot, activeRows);
       if (hitObstacle && !bot.isInvulnerable) {
         this.respawnBotAtCheckpoint(bot);
@@ -22158,6 +22500,7 @@
       this.clearBots();
       this.uiManager.setMode(this.currentMode);
       this.uiManager.updateHealth(this.player.hp);
+      this.mapGenerator.setDynamicHolesEnabled(this.currentMode === "casual" && this.dynamicHolesPrototypeEnabled);
       this.mapGenerator.initMap();
       if (this.currentMode === "casual") {
         this.player.respawnAt(-3, 0, 0.1);
@@ -22237,7 +22580,9 @@
               (actor, direction) => this.tryMoveActor(actor, direction),
               (actor, direction) => this.canMoveActor(actor, direction),
               this.scoreItemsPrototypeEnabled ? [...this.mapGenerator.scoreItems.values()] : [],
-              (actor, gridPosition) => this.canActorEnter(actor, gridPosition)
+              (actor, gridPosition) => this.canActorEnter(actor, gridPosition),
+              (gridPosition, landingPrediction) => this.mapGenerator.isDynamicHoleUnsafe(gridPosition, landingPrediction),
+              (gridPosition) => this.mapGenerator.getDynamicHoleRepairTime(gridPosition)
             );
             bot.update(deltaTime);
             if (wasBotJumping && !bot.isJumping) this.handleBotLanded(bot);
@@ -22279,6 +22624,15 @@
         }
         this.mapGenerator.animateObstacles(deltaTime);
         this.updateScoreRewardEffects(deltaTime);
+        if (this.isGameStarted && !this.isGameOver && this.currentMode === "casual") {
+          if (!this.player.isJumping && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
+            this.respawnAtCasualCheckpoint();
+            return;
+          }
+          this.bots.forEach((bot) => {
+            if (!bot.isJumping && this.mapGenerator.isDynamicHoleActiveAt(bot)) this.respawnBotAtCheckpoint(bot);
+          });
+        }
         const targetCameraZ = (this.isGameStarted ? this.cameraScrollZ : pZ) + 2.2 * CONFIG.GRID_SIZE;
         this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ });
         if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking) {

@@ -20,7 +20,15 @@ export class MapGenerator {
 
     this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
     this.clusterRemaining = 5;
+    this.grassClusterSize = 0;
+    this.grassClusterRowIndex = 0;
+    this.currentDynamicHoleCluster = null;
+    this.dynamicHoleClusterCounter = 0;
+    this.dynamicHoleClusterHistory = [];
+    this.completedOrdinaryHazardChainsSinceDynamicHole = 0;
+    this.lastCountedDynamicHoleHazardChainId = null;
     this.forceFirstHazardAtZ8 = true;
+    this.forceDynamicHoleGrassAfterFirstHazard = false;
     this.currentRiverClusterSubtype = null;
     this.lastLilyPadGridXs = null;
     this.currentHazardChain = null;
@@ -29,6 +37,19 @@ export class MapGenerator {
     this.scoreItemsEnabled = false;
     this.scoreItemCellBlocked = null;
     this.scoreItemReferenceX = null;
+    this.dynamicHolesEnabled = false;
+    this.dynamicHoleCells = new Map();
+    this.dynamicHoleCellBlocked = null;
+    this.dynamicHolePlayerZ = 0;
+    this.dynamicHoleWaveCooldown = 1.5;
+    this.dynamicHoleWaveId = 0;
+    this.dynamicHoleConfig = {
+      warningDuration: 1.2,
+      holeDuration: 2.2,
+      repairDuration: 0.6,
+      waveCooldown: 0.8,
+      warningSafetyBuffer: 0.15
+    };
 
     this.initGeometriesAndMaterials();
   }
@@ -70,6 +91,7 @@ export class MapGenerator {
   }
 
   reset() {
+    this.clearDynamicHoles();
     for (const [z, row] of this.activeRows.entries()) {
       this.removeRow(z, row);
     }
@@ -78,15 +100,27 @@ export class MapGenerator {
     this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
     this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
     this.clusterRemaining = 5;
+    this.grassClusterSize = 0;
+    this.grassClusterRowIndex = 0;
+    this.currentDynamicHoleCluster = null;
+    this.dynamicHoleClusterCounter = 0;
+    this.dynamicHoleClusterHistory = [];
+    this.completedOrdinaryHazardChainsSinceDynamicHole = 0;
+    this.lastCountedDynamicHoleHazardChainId = null;
     this.forceFirstHazardAtZ8 = true;
+    this.forceDynamicHoleGrassAfterFirstHazard = false;
     this.currentRiverClusterSubtype = null;
     this.lastLilyPadGridXs = null;
     this.currentHazardChain = null;
     this.hazardChainCounter = 0;
     this.scoreItems.clear();
+    this.dynamicHolePlayerZ = 0;
+    this.dynamicHoleWaveCooldown = 1.5;
+    this.dynamicHoleWaveId = 0;
   }
 
   update(playerZ) {
+    this.dynamicHolePlayerZ = playerZ;
     const targetAheadZ = playerZ + CONFIG.GENERATION_AHEAD;
 
     while (this.highestZGenerated < targetAheadZ) {
@@ -107,6 +141,7 @@ export class MapGenerator {
   getNextRowType(targetZ = 0) {
     if (this.forceFirstHazardAtZ8 && targetZ === 8) {
       this.forceFirstHazardAtZ8 = false;
+      this.forceDynamicHoleGrassAfterFirstHazard = true;
       const hazardTypes = [CONFIG.ROW_TYPES.ROAD, CONFIG.ROW_TYPES.RIVER, CONFIG.ROW_TYPES.RAILROAD];
       return this.beginCluster(hazardTypes[Math.floor(Math.random() * hazardTypes.length)]);
     }
@@ -114,6 +149,23 @@ export class MapGenerator {
     if (this.clusterRemaining > 0) {
       this.clusterRemaining--;
       return this.currentClusterType;
+    }
+
+    if (this.forceDynamicHoleGrassAfterFirstHazard) {
+      this.forceDynamicHoleGrassAfterFirstHazard = false;
+      return this.beginDynamicHoleGrassCluster();
+    }
+
+    // 首段之後，每完成兩個普通危險群才插入一次破洞區，兩個破洞區之間必定隔著危險群。
+    if (this.currentClusterType !== CONFIG.ROW_TYPES.GRASS) {
+      const completedChainId = this.currentHazardChain?.id;
+      if (completedChainId && completedChainId !== this.lastCountedDynamicHoleHazardChainId) {
+        this.lastCountedDynamicHoleHazardChainId = completedChainId;
+        this.completedOrdinaryHazardChainsSinceDynamicHole++;
+      }
+      if (this.completedOrdinaryHazardChainsSinceDynamicHole >= 2) {
+        return this.beginDynamicHoleGrassCluster();
+      }
     }
 
     const types = [
@@ -133,23 +185,29 @@ export class MapGenerator {
 
   beginCluster(nextType) {
     this.currentClusterType = nextType;
+    this.currentDynamicHoleCluster = null;
 
     switch (nextType) {
       case CONFIG.ROW_TYPES.GRASS:
         this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+        this.grassClusterSize = this.clusterRemaining + 1;
+        this.grassClusterRowIndex = 0;
         this.lastLilyPadGridXs = null;
         break;
       case CONFIG.ROW_TYPES.ROAD:
+        this.grassClusterSize = 0;
         this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
         this.lastLilyPadGridXs = null;
         break;
       case CONFIG.ROW_TYPES.RIVER:
+        this.grassClusterSize = 0;
         this.clusterRemaining = Math.floor(Math.random() * 2) + 1;
         // 以區域為單位定案當前河道區域子類型 (30% LILY_PAD, 70% LOG)
         this.currentRiverClusterSubtype = Math.random() < 0.3 ? 'LILY_PAD' : 'LOG';
         this.lastLilyPadGridXs = null;
         break;
       case CONFIG.ROW_TYPES.RAILROAD:
+        this.grassClusterSize = 0;
         this.clusterRemaining = 1;
         this.lastLilyPadGridXs = null;
         break;
@@ -158,7 +216,31 @@ export class MapGenerator {
     return this.currentClusterType;
   }
 
+  beginDynamicHoleGrassCluster() {
+    this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
+    this.clusterRemaining = 3;
+    this.grassClusterSize = 4;
+    this.grassClusterRowIndex = 0;
+    this.dynamicHoleClusterCounter++;
+    this.currentDynamicHoleCluster = {
+      id: this.dynamicHoleClusterCounter,
+      precedingHazardChainId: this.currentHazardChain?.id ?? null,
+      entry: null,
+      floors: [],
+      exit: null
+    };
+    this.dynamicHoleClusterHistory.push(this.currentDynamicHoleCluster);
+    this.completedOrdinaryHazardChainsSinceDynamicHole = 0;
+    this.lastCountedDynamicHoleHazardChainId = this.currentHazardChain?.id ?? null;
+    this.lastLilyPadGridXs = null;
+    return this.currentClusterType;
+  }
+
   generateRow(z, type, isInitialSafe = false) {
+    const dynamicHoleRole = type === CONFIG.ROW_TYPES.GRASS && !isInitialSafe && this.currentDynamicHoleCluster
+      ? ['entry', 'floor', 'floor', 'exit'][this.grassClusterRowIndex] || null
+      : null;
+    const isDynamicHoleFloor = dynamicHoleRole === 'floor';
     const rowGroup = new THREE.Group();
     rowGroup.position.set(0, -0.2, z * CONFIG.GRID_SIZE);
 
@@ -174,8 +256,22 @@ export class MapGenerator {
       trainState: 'IDLE',
       idleTimer: Math.random() * 4 + 3.0,
       direction: Math.random() > 0.5 ? 1 : -1,
-      speed: 0
+      speed: 0,
+      isInitialSafe,
+      isDynamicHoleFloor,
+      dynamicHoleCluster: this.currentDynamicHoleCluster,
+      dynamicHoleRole
     };
+
+    if (rowData.dynamicHoleCluster) {
+      if (dynamicHoleRole === 'entry') rowData.dynamicHoleCluster.entry = rowData;
+      else if (dynamicHoleRole === 'floor') rowData.dynamicHoleCluster.floors.push(rowData);
+      else if (dynamicHoleRole === 'exit') rowData.dynamicHoleCluster.exit = rowData;
+    }
+
+    if (type === CONFIG.ROW_TYPES.GRASS && !isInitialSafe && this.grassClusterSize > 0) {
+      this.grassClusterRowIndex++;
+    }
 
     if (type !== CONFIG.ROW_TYPES.GRASS) {
       if (!this.currentHazardChain) {
@@ -286,7 +382,7 @@ export class MapGenerator {
 
     // 1. 每一列草地 100% 保證至少有 3 ~ 4 個絕對無樹木的開放通行缺口 (根除死路)
     const playableRange = CONFIG.MAP_BOUNDS_X - 1; // -5 ~ +5
-    const guaranteedOpenCount = Math.floor(Math.random() * 2) + 3; // 3 ~ 4 個通道
+    const guaranteedOpenCount = rowData.isDynamicHoleFloor ? 4 : Math.floor(Math.random() * 2) + 3;
     const openXs = new Set();
 
     while (openXs.size < guaranteedOpenCount) {
@@ -580,6 +676,8 @@ export class MapGenerator {
     const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
     const boundX = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
 
+    this.updateDynamicHoles(safeDelta);
+
     for (const [z, row] of this.activeRows.entries()) {
       if (row.scoreItem?.mesh) {
         row.scoreItem.mesh.rotation.y += safeDelta * 3.5;
@@ -677,6 +775,284 @@ export class MapGenerator {
           }
         }
       }
+    }
+  }
+
+  setDynamicHolesEnabled(enabled) {
+    this.dynamicHolesEnabled = Boolean(enabled);
+    if (!this.dynamicHolesEnabled) this.clearDynamicHoles();
+    this.dynamicHoleWaveCooldown = 1.5;
+  }
+
+  getDynamicHoleState(gridPosition) {
+    const { x, z } = this.normalizeGridPosition(gridPosition);
+    return this.dynamicHoleCells.get(`${x},${z}`)?.state || null;
+  }
+
+  // 玩家可主動嘗試跳入破洞；BOT 則以落地 ETA 預先把即將塌陷的格子視為不可走。
+  isDynamicHoleUnsafe(gridPosition, landingPrediction = 0) {
+    const { x, z } = this.normalizeGridPosition(gridPosition);
+    const hole = this.dynamicHoleCells.get(`${x},${z}`);
+    if (!hole) return false;
+    if (hole.state === 'HOLE' || hole.state === 'REPAIR_WARNING') return true;
+    return hole.state === 'WARNING'
+      && hole.timer <= Math.max(0, landingPrediction) + this.dynamicHoleConfig.warningSafetyBuffer;
+  }
+
+  isDynamicHoleActiveAt(gridPosition) {
+    const state = this.getDynamicHoleState(gridPosition);
+    return state === 'HOLE' || state === 'REPAIR_WARNING';
+  }
+
+  isSafeCheckpointRow(gridPosition) {
+    const { z } = this.normalizeGridPosition(gridPosition);
+    const row = this.activeRows.get(z);
+    // 動態破洞區的入口只提供通行，不覆寫上一個安全區 checkpoint；
+    // 角色必須完整通過洞區，抵達 exit 才能取得新的重生點。
+    return row?.type === CONFIG.ROW_TYPES.GRASS
+      && !row.isDynamicHoleFloor
+      && row.dynamicHoleRole !== 'entry';
+  }
+
+  getDynamicHoleRepairTime(gridPosition) {
+    const { x, z } = this.normalizeGridPosition(gridPosition);
+    const hole = this.dynamicHoleCells.get(`${x},${z}`);
+    return hole?.state === 'REPAIR_WARNING' ? Math.max(0, hole.timer) : null;
+  }
+
+  normalizeGridPosition(gridPosition) {
+    return {
+      x: gridPosition?.x ?? gridPosition?.gridX,
+      z: gridPosition?.z ?? gridPosition?.gridZ
+    };
+  }
+
+  clearDynamicHoles() {
+    for (const hole of this.dynamicHoleCells.values()) {
+      this.disposeDynamicHoleVisual(hole);
+    }
+    this.dynamicHoleCells.clear();
+  }
+
+  disposeDynamicHoleVisual(hole) {
+    hole.row?.mesh?.remove(hole.visual);
+    const geometries = new Set();
+    const materials = new Set();
+    hole.visual?.traverse((child) => {
+      if (child.geometry) geometries.add(child.geometry);
+      if (child.material) materials.add(child.material);
+    });
+    geometries.forEach((geometry) => geometry.dispose());
+    materials.forEach((material) => material.dispose());
+  }
+
+  updateDynamicHoles(deltaTime) {
+    if (!this.dynamicHolesEnabled) return;
+
+    for (const hole of [...this.dynamicHoleCells.values()]) {
+      hole.timer -= deltaTime;
+      if (hole.state === 'WARNING' && hole.timer <= 0) {
+        this.setDynamicHoleState(hole, 'HOLE', this.dynamicHoleConfig.holeDuration);
+      } else if (hole.state === 'HOLE' && hole.timer <= 0) {
+        this.setDynamicHoleState(hole, 'REPAIR_WARNING', this.dynamicHoleConfig.repairDuration);
+      } else if (hole.state === 'REPAIR_WARNING' && hole.timer <= 0) {
+        this.disposeDynamicHoleVisual(hole);
+        this.dynamicHoleCells.delete(hole.key);
+      } else {
+        this.animateDynamicHoleVisual(hole);
+      }
+    }
+
+    if (this.dynamicHoleCells.size > 0) return;
+    this.dynamicHoleWaveCooldown -= deltaTime;
+    if (this.dynamicHoleWaveCooldown <= 0) this.beginDynamicHoleWave();
+  }
+
+  beginDynamicHoleWave() {
+    const placements = this.findDynamicHolePlacements();
+    this.dynamicHoleWaveCooldown = this.dynamicHoleConfig.waveCooldown;
+    if (!placements.length) return;
+    this.dynamicHoleWaveId++;
+    placements.forEach(({ row, x }) => this.createDynamicHole(row, x));
+  }
+
+  findDynamicHolePlacements() {
+    // 第一個危險地板可在玩家前一格，讓 playerZ=入口附近時仍能選到完整 floor pair。
+    const minZ = this.dynamicHolePlayerZ + 1;
+    const maxZ = this.dynamicHolePlayerZ + 8;
+    const rows = [...this.activeRows.values()]
+      .filter((row) => row.isDynamicHoleFloor
+        && row.z >= minZ
+        && row.z <= maxZ
+        && !row.scoreItem)
+      .sort((a, b) => a.z - b.z);
+
+    // 僅接受同一個明確 cluster 的 floor pair，避免以列號相鄰推測入口／出口。
+    for (let index = 0; index < rows.length - 1; index++) {
+      const first = rows[index];
+      const second = rows[index + 1];
+      if (!first.dynamicHoleCluster
+        || first.dynamicHoleCluster !== second.dynamicHoleCluster
+        || first.dynamicHoleRole !== 'floor' || second.dynamicHoleRole !== 'floor') continue;
+      const firstXs = this.getDynamicHoleCandidateXs(first);
+      const secondXs = this.getDynamicHoleCandidateXs(second);
+      for (const firstX of firstXs) {
+        for (const secondX of secondXs) {
+          if (Math.abs(firstX - secondX) < 2) continue;
+          const placements = [{ row: first, x: firstX }, { row: second, x: secondX }];
+          if (this.hasDynamicHolePath(first, second, placements)) return placements;
+        }
+      }
+    }
+
+    // 結構不完整時直接跳過本波；不將一般安全草地降級為危險地板。
+    return [];
+  }
+
+  getDynamicHoleCandidateXs(row) {
+    const openXs = [];
+    for (let x = -CONFIG.MAP_BOUNDS_X + 1; x <= CONFIG.MAP_BOUNDS_X - 1; x++) {
+      if (!row.trees.some((tree) => tree.gridX === x)
+        && !this.dynamicHoleCellBlocked?.({ x, z: row.z })) openXs.push(x);
+    }
+    // 草地原本保證 3~4 個開口；保留 3 個才允許抽成洞。
+    if (openXs.length < 4) return [];
+    const offset = (this.dynamicHoleWaveId + row.z * 3) % openXs.length;
+    return openXs.map((_, index) => openXs[(index + offset + openXs.length) % openXs.length]);
+  }
+
+  hasDynamicHolePath(firstRow, secondRow, placements) {
+    const cluster = firstRow.dynamicHoleCluster;
+    if (!cluster || cluster !== secondRow.dynamicHoleCluster
+      || cluster.floors.length !== 2
+      || cluster.floors[0] !== firstRow || cluster.floors[1] !== secondRow) return false;
+
+    const { entry: entryRow, exit: exitRow } = cluster;
+    if (!entryRow || !exitRow
+      || this.activeRows.get(entryRow.z) !== entryRow || this.activeRows.get(exitRow.z) !== exitRow
+      || entryRow.type !== CONFIG.ROW_TYPES.GRASS || exitRow.type !== CONFIG.ROW_TYPES.GRASS
+      || entryRow.isDynamicHoleFloor || exitRow.isDynamicHoleFloor
+      || entryRow.dynamicHoleCluster !== cluster || exitRow.dynamicHoleCluster !== cluster
+      || entryRow.dynamicHoleRole !== 'entry' || exitRow.dynamicHoleRole !== 'exit') return false;
+
+    const blocked = new Set(placements.map(({ x, row }) => `${x},${row.z}`));
+    const rowsByZ = new Map([
+      [entryRow.z, entryRow],
+      [firstRow.z, firstRow],
+      [secondRow.z, secondRow],
+      [exitRow.z, exitRow]
+    ]);
+    const isOpen = (x, z) => Math.abs(x) < CONFIG.MAP_BOUNDS_X
+      && !blocked.has(`${x},${z}`)
+      && !rowsByZ.get(z)?.trees.some((tree) => tree.gridX === x);
+    const queue = [];
+    const visited = new Set();
+    for (let x = -CONFIG.MAP_BOUNDS_X + 1; x < CONFIG.MAP_BOUNDS_X; x++) {
+      if (isOpen(x, entryRow.z)) {
+        queue.push({ x, z: entryRow.z });
+        visited.add(`${x},${entryRow.z}`);
+      }
+    }
+    while (queue.length) {
+      const current = queue.shift();
+      if (current.z === exitRow.z) return true;
+      for (const [dx, dz] of [[-1, 0], [1, 0], [0, 1]]) {
+        const next = { x: current.x + dx, z: current.z + dz };
+        const key = `${next.x},${next.z}`;
+        if (next.z > exitRow.z || visited.has(key) || !isOpen(next.x, next.z)) continue;
+        visited.add(key);
+        queue.push(next);
+      }
+    }
+    return false;
+  }
+
+  createDynamicHole(row, x) {
+    const visual = this.createDynamicHoleVisual();
+    visual.position.set(x * CONFIG.GRID_SIZE, 0.215, 0);
+    row.mesh.add(visual);
+    const hole = {
+      key: `${x},${row.z}`,
+      row,
+      x,
+      z: row.z,
+      visual,
+      state: 'WARNING',
+      timer: this.dynamicHoleConfig.warningDuration
+    };
+    this.dynamicHoleCells.set(hole.key, hole);
+    this.applyDynamicHoleVisual(hole);
+  }
+
+  createDynamicHoleVisual() {
+    const group = new THREE.Group();
+    const size = CONFIG.GRID_SIZE * 0.78;
+    const warning = new THREE.Mesh(
+      new THREE.PlaneGeometry(size, size),
+      new THREE.MeshBasicMaterial({ color: 0xffa52f, transparent: true, opacity: 0.7, depthWrite: false })
+    );
+    warning.rotation.x = -Math.PI / 2;
+    const crackA = new THREE.Mesh(
+      new THREE.BoxGeometry(size * 0.08, 0.025, size * 0.78),
+      new THREE.MeshBasicMaterial({ color: 0x6d2500 })
+    );
+    crackA.position.y = 0.02;
+    crackA.rotation.y = 0.58;
+    const crackB = crackA.clone();
+    crackB.scale.z = 0.58;
+    crackB.rotation.y = -0.72;
+    const hole = new THREE.Mesh(
+      new THREE.BoxGeometry(size, 0.16, size),
+      new THREE.MeshLambertMaterial({ color: 0x101018, emissive: 0x030306 })
+    );
+    // lane 頂面在 world Y=0；黑洞面與碎裂邊緣刻意高於它，避免被草地方塊遮住。
+    hole.position.y = 0.05;
+    const brokenEdge = new THREE.Group();
+    const edgeMaterial = new THREE.MeshLambertMaterial({ color: 0x6d3416, emissive: 0x260d02 });
+    const edgeLength = size * 0.9;
+    [[0, 0.125, -size * 0.48, edgeLength, 0.07], [0, 0.125, size * 0.48, edgeLength, 0.07],
+      [-size * 0.48, 0.125, 0, 0.07, edgeLength], [size * 0.48, 0.125, 0, 0.07, edgeLength]]
+      .forEach(([x, y, z, width, depth]) => {
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(width, 0.05, depth), edgeMaterial);
+        edge.position.set(x, y, z);
+        edge.rotation.y = (x === 0 ? 0.08 : -0.08);
+        brokenEdge.add(edge);
+      });
+    const repair = new THREE.Mesh(
+      new THREE.PlaneGeometry(size, size),
+      new THREE.MeshBasicMaterial({ color: 0x38f1dc, transparent: true, opacity: 0.55, depthWrite: false })
+    );
+    repair.rotation.x = -Math.PI / 2;
+    group.add(warning, crackA, crackB, hole, brokenEdge, repair);
+    group.userData = { warning, crackA, crackB, hole, brokenEdge, repair };
+    return group;
+  }
+
+  setDynamicHoleState(hole, state, duration) {
+    hole.state = state;
+    hole.timer = duration;
+    this.applyDynamicHoleVisual(hole);
+  }
+
+  applyDynamicHoleVisual(hole) {
+    const { warning, crackA, crackB, hole: holeMesh, brokenEdge, repair } = hole.visual.userData;
+    warning.visible = hole.state === 'WARNING';
+    crackA.visible = hole.state === 'WARNING';
+    crackB.visible = hole.state === 'WARNING';
+    holeMesh.visible = hole.state === 'HOLE' || hole.state === 'REPAIR_WARNING';
+    brokenEdge.visible = hole.state === 'HOLE' || hole.state === 'REPAIR_WARNING';
+    repair.visible = hole.state === 'REPAIR_WARNING';
+    this.animateDynamicHoleVisual(hole);
+  }
+
+  animateDynamicHoleVisual(hole) {
+    const { warning, repair } = hole.visual.userData;
+    if (hole.state === 'WARNING') {
+      const pulse = 0.72 + Math.sin(performance.now() * 0.018) * 0.22;
+      warning.material.opacity = pulse;
+      warning.scale.setScalar(0.9 + pulse * 0.12);
+    } else if (hole.state === 'REPAIR_WARNING') {
+      repair.material.opacity = 0.45 + Math.sin(performance.now() * 0.02) * 0.2;
     }
   }
 

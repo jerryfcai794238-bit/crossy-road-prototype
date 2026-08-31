@@ -52,7 +52,7 @@ export class AIBot extends Player {
     }
   }
 
-  updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null) {
+  updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null) {
     if (this.isJumping || this.isRespawning || this.isDead) return;
 
     this.decisionTimer += deltaTime;
@@ -63,15 +63,22 @@ export class AIBot extends Player {
     if (this.decisionTimer < this.decisionInterval) return;
     this.decisionTimer = 0;
 
-    const itemDirection = this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell);
-    const direction = itemDirection || this.findPathDirection(activeRows, physics, canMove, canEnterCell);
+    const itemDirection = this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+    const direction = itemDirection || this.findPathDirection(activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
     if (!direction) {
+      // 無可行替代路時，短暫等待前方即將修復的唯一通道，避免一個 decision tick 後無謂後退。
+      const forward = this.getTargetGridPosition('UP');
+      const repairTime = getDynamicHoleRepairTime?.(forward);
+      if (repairTime !== null && repairTime <= 0.7) {
+        this.waitedForPath = true;
+        return;
+      }
       if (!this.waitedForPath) {
         this.waitedForPath = true;
         return;
       }
       this.waitedForPath = false;
-      this.tryRetreat(activeRows, physics, tryMove, canMove);
+      this.tryRetreat(activeRows, physics, tryMove, canMove, isDynamicHoleUnsafe);
       return;
     }
     this.waitedForPath = false;
@@ -96,7 +103,7 @@ export class AIBot extends Player {
     if (direction === 'DOWN') this.retreatCooldown = 0.7;
   }
 
-  findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell) {
+  findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
     const candidates = scoreItems.filter((item) => (
       item.id !== this.scoreItemIgnoredId
       && item.z >= this.gridZ
@@ -135,7 +142,7 @@ export class AIBot extends Player {
         const key = `${next.x},${next.z}`;
         if (visited.has(key) || Math.abs(next.x) > CONFIG.MAP_BOUNDS_X) continue;
         const landingPrediction = current.depth === 0 ? (CONFIG.JUMP_DURATION || 0.16) : 0;
-        if (!this.isCellSafe(next, activeRows, physics, landingPrediction)) continue;
+        if (!this.isCellSafe(next, activeRows, physics, landingPrediction, isDynamicHoleUnsafe)) continue;
         // 道具繞路的每一步都沿用現有角色占位／跳躍預約，避免規劃穿過競爭者。
         if (canEnterCell && !canEnterCell(this, next)) continue;
         if (current.depth === 0 && canMove && !canMove(this, move.name)) continue;
@@ -157,7 +164,7 @@ export class AIBot extends Player {
     return best.direction;
   }
 
-  findPathDirection(activeRows, physics, canMove, canEnterCell) {
+  findPathDirection(activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
     const start = { x: this.gridX, z: this.gridZ };
     // 路徑搜尋可以退回目前允許的最小列，讓 AI 在死路時先退幾格再繞路，
     // 而不是被「上一個安全區」鎖死在原地。
@@ -186,7 +193,7 @@ export class AIBot extends Player {
         const key = `${next.x},${next.z}`;
         if (visited.has(key)) continue;
         const landingPrediction = current.depth === 0 ? (CONFIG.JUMP_DURATION || 0.16) : 0;
-        if (!this.isCellSafe(next, activeRows, physics, landingPrediction)) continue;
+        if (!this.isCellSafe(next, activeRows, physics, landingPrediction, isDynamicHoleUnsafe)) continue;
         if (canEnterCell && !canEnterCell(this, next)) continue;
         if (current.depth === 0 && canMove && !canMove(this, move.name)) continue;
 
@@ -202,12 +209,12 @@ export class AIBot extends Player {
     return best?.direction || null;
   }
 
-  tryRetreat(activeRows, physics, tryMove, canMove) {
+  tryRetreat(activeRows, physics, tryMove, canMove, isDynamicHoleUnsafe) {
     if (this.retreatCooldown > 0) return false;
     const targetPos = this.getTargetGridPosition('DOWN');
     const lowestReachableZ = Number.isFinite(this.minAllowedZ) ? this.minAllowedZ : -4;
     if (targetPos.z < lowestReachableZ || Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X) return false;
-    if (!this.isCellSafe(targetPos, activeRows, physics, CONFIG.JUMP_DURATION || 0.16)) return false;
+    if (!this.isCellSafe(targetPos, activeRows, physics, CONFIG.JUMP_DURATION || 0.16, isDynamicHoleUnsafe)) return false;
     if (canMove && !canMove(this, 'DOWN')) return false;
 
     const moved = tryMove ? tryMove(this, 'DOWN') : this.move('DOWN');
@@ -229,8 +236,9 @@ export class AIBot extends Player {
     return predictedX;
   }
 
-  isCellSafe(targetPos, activeRows, physics, predictionSeconds = 0) {
+  isCellSafe(targetPos, activeRows, physics, predictionSeconds = 0, isDynamicHoleUnsafe = null) {
     if (physics.checkTreeCollision(targetPos, activeRows)) return false;
+    if (isDynamicHoleUnsafe?.(targetPos, predictionSeconds)) return false;
     const row = activeRows.get(targetPos.z);
     if (!row) return true;
 
