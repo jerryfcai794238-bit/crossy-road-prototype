@@ -117,13 +117,18 @@ class Game {
     this.handlePlayerMove(direction, distance);
   }
 
-  handlePlayerMove(direction, distance = 1) {
+  handlePlayerMove(direction, distance = 1, isBuffered = false) {
     if (!this.isGameStarted || this.isGameOver) return;
 
-    if (!this.tryMoveActor(this.player, direction, distance)) {
+    const movePlan = this.planActorMove(this.player, direction, distance);
+    if (!movePlan.canMove) {
       this.player.setFacingDirection(direction);
-      this.player.inputBuffer = [];
+      // 前方角色尚在跳躍時，保留本次有效意圖，等其落地後優先重判；
+      // 靜態牆／危險格只拒絕這一步，不吞掉已排隊的後續輸入。
+      if (movePlan.waitForActor && !isBuffered) this.player.queueInput(direction, distance);
+      return movePlan.waitForActor ? 'waiting' : 'blocked';
     } else {
+      this.startActorMovePlan(movePlan);
       // 玩家跳躍時底邊界對齊
       const maxZ = Number.isFinite(this.player.maxReachedZ) ? this.player.maxReachedZ : 0;
       const catchupZ = (maxZ - 3.0) * CONFIG.GRID_SIZE;
@@ -132,6 +137,7 @@ class Game {
 
       this.mapGenerator.update(this.player.gridZ);
       this.uiManager.updateScore(this.player.score);
+      return 'moved';
     }
   }
 
@@ -155,37 +161,51 @@ class Game {
     return !this.getActorAtGrid(gridPosition, [actor, ...excludedActors]);
   }
 
-  tryMoveActor(actor, direction, distance = 1) {
-    if (actor.isJumping || actor.isDead) return false;
-    const targetPos = actor.getTargetGridPosition(direction, distance);
-    if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X || targetPos.z < actor.minAllowedZ) return false;
-    if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) return false;
+  planActorMove(actor, direction, distance = 1) {
+    if (actor.isJumping || actor.isDead || actor.isRespawning) return { canMove: false };
 
-    const pushedActor = this.getActorAtGrid(targetPos, [actor]);
-    if (pushedActor) {
-      if (pushedActor.isJumping || !this.tryPushActor(pushedActor, direction, actor)) return false;
+    const chain = [actor];
+    let target = actor.getTargetGridPosition(direction, distance);
+    while (true) {
+      const occupant = this.getActorAtGrid(target, chain);
+      if (!occupant) break;
+      // 目的格已被跳躍預約（包含同向離開）時不能穿插；玩家意圖會在落地後重判。
+      if (occupant.isJumping) return { canMove: false, waitForActor: occupant };
+      if (chain.length >= 4) return { canMove: false };
+      chain.push(occupant);
+      target = occupant.getTargetGridPosition(direction);
     }
 
-    return actor.move(direction, distance);
+    // 原子式：所有角色目的格均先通過邊界、樹木、占位與預約檢查，才開始任一跳躍；
+    // 道路、鐵路、河面與動態洞仍沿用既有落地後危險／復活流程。
+    const destinations = chain.map((chainActor, index) => (
+      index === 0
+        ? chainActor.getTargetGridPosition(direction, distance)
+        : chainActor.getTargetGridPosition(direction)
+    ));
+    if (!destinations.every((destination, index) => this.canActorEnter(chain[index], destination, chain))) {
+      return { canMove: false };
+    }
+    return { canMove: true, chain, direction, distance };
+  }
+
+  startActorMovePlan(plan) {
+    // 先讓最前方角色預約終點，再依序啟動後方，避免同幀中被其他決策插隊。
+    for (let index = plan.chain.length - 1; index >= 0; index--) {
+      const chainActor = plan.chain[index];
+      const stepDistance = index === 0 ? plan.distance : 1;
+      if (!chainActor.move(plan.direction, stepDistance)) return false;
+    }
+    return true;
+  }
+
+  tryMoveActor(actor, direction, distance = 1) {
+    const plan = this.planActorMove(actor, direction, distance);
+    return plan.canMove && this.startActorMovePlan(plan);
   }
 
   canMoveActor(actor, direction, distance = 1) {
-    if (actor.isJumping || actor.isDead) return false;
-    const targetPos = actor.getTargetGridPosition(direction, distance);
-    if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X || targetPos.z < actor.minAllowedZ) return false;
-    if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) return false;
-
-    const pushedActor = this.getActorAtGrid(targetPos, [actor]);
-    if (!pushedActor) return true;
-    if (pushedActor.isJumping) return false;
-    const pushTarget = pushedActor.getTargetGridPosition(direction);
-    return this.canActorEnter(pushedActor, pushTarget, [actor]);
-  }
-
-  tryPushActor(actor, direction, pushingActor) {
-    const pushTarget = actor.getTargetGridPosition(direction);
-    if (!this.canActorEnter(actor, pushTarget, [pushingActor])) return false;
-    return actor.move(direction);
+    return this.planActorMove(actor, direction, distance).canMove;
   }
 
   createCasualBots() {
@@ -432,6 +452,13 @@ class Game {
       this.player.update(deltaTime);
       if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
 
+      // 玩家暫存的推擠意圖先於 BOT 決策重判：BOT 落地後不會在同一 tick 搶回空格。
+      if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
+        const nextInput = this.player.inputBuffer[0];
+        const inputResult = this.handlePlayerMove(nextInput.direction, nextInput.distance, true);
+        if (inputResult !== 'waiting') this.player.inputBuffer.shift();
+      }
+
       if (this.isGameStarted && !this.isGameOver && this.currentMode === 'casual') {
         this.bots.forEach((bot) => {
           const wasBotJumping = bot.isJumping;
@@ -451,12 +478,6 @@ class Game {
           this.updateCasualBotHazards(bot, activeRows, deltaTime);
         });
         this.refreshLeaderboard();
-      }
-
-      // 安全消耗連續跳躍緩衝隊列 (100% 通過 checkTreeCollision 嚴格碰撞檢測，徹底根除穿樹 Bug)
-      if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
-        const nextInput = this.player.inputBuffer.shift();
-        this.handlePlayerMove(nextInput.direction, nextInput.distance);
       }
 
       // 🎥 經典 Crossy Road 競品 1:1 相機自主恆速推進系統 (對齊競品 7~8 秒老鷹抓走時間)

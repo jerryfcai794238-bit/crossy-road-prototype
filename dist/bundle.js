@@ -20435,14 +20435,11 @@
     }
     queueInput(direction, distance = 1) {
       if (this.isRespawning || this.isDead) return false;
-      if (this.isJumping) {
-        if (this.inputBuffer.length < 2) {
-          this.inputBuffer.push({ direction, distance });
-          return true;
-        }
-        return false;
+      if (this.inputBuffer.length < 2) {
+        this.inputBuffer.push({ direction, distance });
+        return true;
       }
-      return this.move(direction, distance);
+      return false;
     }
     setFacingDirection(direction) {
       switch (direction) {
@@ -22302,18 +22299,22 @@
       }
       this.handlePlayerMove(direction, distance);
     }
-    handlePlayerMove(direction, distance = 1) {
+    handlePlayerMove(direction, distance = 1, isBuffered = false) {
       if (!this.isGameStarted || this.isGameOver) return;
-      if (!this.tryMoveActor(this.player, direction, distance)) {
+      const movePlan = this.planActorMove(this.player, direction, distance);
+      if (!movePlan.canMove) {
         this.player.setFacingDirection(direction);
-        this.player.inputBuffer = [];
+        if (movePlan.waitForActor && !isBuffered) this.player.queueInput(direction, distance);
+        return movePlan.waitForActor ? "waiting" : "blocked";
       } else {
+        this.startActorMovePlan(movePlan);
         const maxZ = Number.isFinite(this.player.maxReachedZ) ? this.player.maxReachedZ : 0;
         const catchupZ = (maxZ - 3) * CONFIG.GRID_SIZE;
         this.cameraAutoScrollZ = Math.max(this.cameraAutoScrollZ, catchupZ);
         this.player.minAllowedZ = Math.floor(this.cameraAutoScrollZ / CONFIG.GRID_SIZE);
         this.mapGenerator.update(this.player.gridZ);
         this.uiManager.updateScore(this.player.score);
+        return "moved";
       }
     }
     getActiveActors() {
@@ -22333,32 +22334,38 @@
       if (this.physics.checkTreeCollision(gridPosition, this.mapGenerator.getActiveRows())) return false;
       return !this.getActorAtGrid(gridPosition, [actor, ...excludedActors]);
     }
-    tryMoveActor(actor, direction, distance = 1) {
-      if (actor.isJumping || actor.isDead) return false;
-      const targetPos = actor.getTargetGridPosition(direction, distance);
-      if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X || targetPos.z < actor.minAllowedZ) return false;
-      if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) return false;
-      const pushedActor = this.getActorAtGrid(targetPos, [actor]);
-      if (pushedActor) {
-        if (pushedActor.isJumping || !this.tryPushActor(pushedActor, direction, actor)) return false;
+    planActorMove(actor, direction, distance = 1) {
+      if (actor.isJumping || actor.isDead || actor.isRespawning) return { canMove: false };
+      const chain = [actor];
+      let target = actor.getTargetGridPosition(direction, distance);
+      while (true) {
+        const occupant = this.getActorAtGrid(target, chain);
+        if (!occupant) break;
+        if (occupant.isJumping) return { canMove: false, waitForActor: occupant };
+        if (chain.length >= 4) return { canMove: false };
+        chain.push(occupant);
+        target = occupant.getTargetGridPosition(direction);
       }
-      return actor.move(direction, distance);
+      const destinations = chain.map((chainActor, index) => index === 0 ? chainActor.getTargetGridPosition(direction, distance) : chainActor.getTargetGridPosition(direction));
+      if (!destinations.every((destination, index) => this.canActorEnter(chain[index], destination, chain))) {
+        return { canMove: false };
+      }
+      return { canMove: true, chain, direction, distance };
+    }
+    startActorMovePlan(plan) {
+      for (let index = plan.chain.length - 1; index >= 0; index--) {
+        const chainActor = plan.chain[index];
+        const stepDistance = index === 0 ? plan.distance : 1;
+        if (!chainActor.move(plan.direction, stepDistance)) return false;
+      }
+      return true;
+    }
+    tryMoveActor(actor, direction, distance = 1) {
+      const plan = this.planActorMove(actor, direction, distance);
+      return plan.canMove && this.startActorMovePlan(plan);
     }
     canMoveActor(actor, direction, distance = 1) {
-      if (actor.isJumping || actor.isDead) return false;
-      const targetPos = actor.getTargetGridPosition(direction, distance);
-      if (Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X || targetPos.z < actor.minAllowedZ) return false;
-      if (this.physics.checkTreeCollision(targetPos, this.mapGenerator.getActiveRows())) return false;
-      const pushedActor = this.getActorAtGrid(targetPos, [actor]);
-      if (!pushedActor) return true;
-      if (pushedActor.isJumping) return false;
-      const pushTarget = pushedActor.getTargetGridPosition(direction);
-      return this.canActorEnter(pushedActor, pushTarget, [actor]);
-    }
-    tryPushActor(actor, direction, pushingActor) {
-      const pushTarget = actor.getTargetGridPosition(direction);
-      if (!this.canActorEnter(actor, pushTarget, [pushingActor])) return false;
-      return actor.move(direction);
+      return this.planActorMove(actor, direction, distance).canMove;
     }
     createCasualBots() {
       const botSpawns = [
@@ -22570,6 +22577,11 @@
         const wasJumping = this.player.isJumping;
         this.player.update(deltaTime);
         if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
+        if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
+          const nextInput = this.player.inputBuffer[0];
+          const inputResult = this.handlePlayerMove(nextInput.direction, nextInput.distance, true);
+          if (inputResult !== "waiting") this.player.inputBuffer.shift();
+        }
         if (this.isGameStarted && !this.isGameOver && this.currentMode === "casual") {
           this.bots.forEach((bot) => {
             const wasBotJumping = bot.isJumping;
@@ -22589,10 +22601,6 @@
             this.updateCasualBotHazards(bot, activeRows, deltaTime);
           });
           this.refreshLeaderboard();
-        }
-        if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
-          const nextInput = this.player.inputBuffer.shift();
-          this.handlePlayerMove(nextInput.direction, nextInput.distance);
         }
         const pZ = Number.isFinite(this.player.position.z) ? this.player.position.z : this.player.gridZ * CONFIG.GRID_SIZE;
         const pX = Number.isFinite(this.player.position.x) ? this.player.position.x : this.player.gridX * CONFIG.GRID_SIZE;

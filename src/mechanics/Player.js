@@ -145,14 +145,11 @@ export class Player {
 
   queueInput(direction, distance = 1) {
     if (this.isRespawning || this.isDead) return false;
-    if (this.isJumping) {
-      if (this.inputBuffer.length < 2) {
-        this.inputBuffer.push({ direction, distance });
-        return true;
-      }
-      return false;
+    if (this.inputBuffer.length < 2) {
+      this.inputBuffer.push({ direction, distance });
+      return true;
     }
-    return this.move(direction, distance);
+    return false;
   }
 
   setFacingDirection(direction) {
