@@ -18197,6 +18197,53 @@
       this.needsUpdate = true;
     }
   };
+  var CircleGeometry = class _CircleGeometry extends BufferGeometry {
+    constructor(radius = 1, segments = 32, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super();
+      this.type = "CircleGeometry";
+      this.parameters = {
+        radius,
+        segments,
+        thetaStart,
+        thetaLength
+      };
+      segments = Math.max(3, segments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const vertex2 = new Vector3();
+      const uv = new Vector2();
+      vertices.push(0, 0, 0);
+      normals.push(0, 0, 1);
+      uvs.push(0.5, 0.5);
+      for (let s = 0, i = 3; s <= segments; s++, i += 3) {
+        const segment = thetaStart + s / segments * thetaLength;
+        vertex2.x = radius * Math.cos(segment);
+        vertex2.y = radius * Math.sin(segment);
+        vertices.push(vertex2.x, vertex2.y, vertex2.z);
+        normals.push(0, 0, 1);
+        uv.x = (vertices[i] / radius + 1) / 2;
+        uv.y = (vertices[i + 1] / radius + 1) / 2;
+        uvs.push(uv.x, uv.y);
+      }
+      for (let i = 1; i <= segments; i++) {
+        indices.push(i, i + 1, 0);
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    static fromJSON(data) {
+      return new _CircleGeometry(data.radius, data.segments, data.thetaStart, data.thetaLength);
+    }
+  };
   var CylinderGeometry = class _CylinderGeometry extends BufferGeometry {
     constructor(radiusTop = 1, radiusBottom = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2) {
       super();
@@ -18320,6 +18367,24 @@
     }
     static fromJSON(data) {
       return new _CylinderGeometry(data.radiusTop, data.radiusBottom, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
+    }
+  };
+  var ConeGeometry = class _ConeGeometry extends CylinderGeometry {
+    constructor(radius = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super(0, radius, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength);
+      this.type = "ConeGeometry";
+      this.parameters = {
+        radius,
+        height,
+        radialSegments,
+        heightSegments,
+        openEnded,
+        thetaStart,
+        thetaLength
+      };
+    }
+    static fromJSON(data) {
+      return new _ConeGeometry(data.radius, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
     }
   };
   var PolyhedronGeometry = class _PolyhedronGeometry extends BufferGeometry {
@@ -18538,6 +18603,76 @@
     }
     static fromJSON(data) {
       return new _OctahedronGeometry(data.radius, data.detail);
+    }
+  };
+  var SphereGeometry = class _SphereGeometry extends BufferGeometry {
+    constructor(radius = 1, widthSegments = 32, heightSegments = 16, phiStart = 0, phiLength = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI) {
+      super();
+      this.type = "SphereGeometry";
+      this.parameters = {
+        radius,
+        widthSegments,
+        heightSegments,
+        phiStart,
+        phiLength,
+        thetaStart,
+        thetaLength
+      };
+      widthSegments = Math.max(3, Math.floor(widthSegments));
+      heightSegments = Math.max(2, Math.floor(heightSegments));
+      const thetaEnd = Math.min(thetaStart + thetaLength, Math.PI);
+      let index = 0;
+      const grid = [];
+      const vertex2 = new Vector3();
+      const normal = new Vector3();
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      for (let iy = 0; iy <= heightSegments; iy++) {
+        const verticesRow = [];
+        const v = iy / heightSegments;
+        let uOffset = 0;
+        if (iy === 0 && thetaStart === 0) {
+          uOffset = 0.5 / widthSegments;
+        } else if (iy === heightSegments && thetaEnd === Math.PI) {
+          uOffset = -0.5 / widthSegments;
+        }
+        for (let ix = 0; ix <= widthSegments; ix++) {
+          const u = ix / widthSegments;
+          vertex2.x = -radius * Math.cos(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength);
+          vertex2.y = radius * Math.cos(thetaStart + v * thetaLength);
+          vertex2.z = radius * Math.sin(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength);
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          normal.copy(vertex2).normalize();
+          normals.push(normal.x, normal.y, normal.z);
+          uvs.push(u + uOffset, 1 - v);
+          verticesRow.push(index++);
+        }
+        grid.push(verticesRow);
+      }
+      for (let iy = 0; iy < heightSegments; iy++) {
+        for (let ix = 0; ix < widthSegments; ix++) {
+          const a = grid[iy][ix + 1];
+          const b = grid[iy][ix];
+          const c = grid[iy + 1][ix];
+          const d = grid[iy + 1][ix + 1];
+          if (iy !== 0 || thetaStart > 0) indices.push(a, b, d);
+          if (iy !== heightSegments - 1 || thetaEnd < Math.PI) indices.push(b, c, d);
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    static fromJSON(data) {
+      return new _SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
     }
   };
   var TorusGeometry = class _TorusGeometry extends BufferGeometry {
@@ -19964,6 +20099,18 @@
     // 跳躍時間 (秒)
     JUMP_HEIGHT: 0.5,
     // 跳躍高度
+    SPRING_PUNCH: {
+      WINDUP: 0.3,
+      SPEED: 6 * 1.2,
+      RANGE: 6 * 1.2,
+      HIT_RADIUS: 0.42 * 1.2,
+      STUN_DURATION: 1,
+      IMMUNITY_DURATION: 1
+    },
+    LEADER_STRIKE: {
+      WARNING_DURATION: 0.8,
+      STUN_DURATION: 3
+    },
     ROW_TYPES: {
       GRASS: "grass",
       ROAD: "road",
@@ -20336,6 +20483,8 @@
       this.maxHp = 100;
       this.isInvulnerable = false;
       this.invulnerableTimer = 0;
+      this.stunTimer = 0;
+      this.controlImmunityTimer = 0;
       this.inputBuffer = [];
     }
     reset() {
@@ -20354,6 +20503,8 @@
       this.hp = 100;
       this.isInvulnerable = false;
       this.invulnerableTimer = 0;
+      this.stunTimer = 0;
+      this.controlImmunityTimer = 0;
       this.inputBuffer = [];
       this.position.set(0, 0, 0);
       this.startPosition.set(0, 0, 0);
@@ -20386,7 +20537,7 @@
       return { x: targetX, z: targetZ };
     }
     move(direction, distance = 1) {
-      if (this.isJumping || this.isRespawning || this.isDead) return false;
+      if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return false;
       this.gridX = Math.round(this.position.x / CONFIG.GRID_SIZE);
       this.gridZ = Math.round(this.position.z / CONFIG.GRID_SIZE);
       let newGridX = this.gridX;
@@ -20434,7 +20585,7 @@
       return this.itemScore;
     }
     queueInput(direction, distance = 1) {
-      if (this.isRespawning || this.isDead) return false;
+      if (this.isRespawning || this.isDead || this.stunTimer > 0) return false;
       if (this.inputBuffer.length < 2) {
         this.inputBuffer.push({ direction, distance });
         return true;
@@ -20490,6 +20641,16 @@
           this.mesh.visible = Math.floor(this.invulnerableTimer * 20) % 2 === 0;
         }
       }
+      if (this.stunTimer > 0) {
+        this.stunTimer = Math.max(0, this.stunTimer - safeDelta);
+        this.inputBuffer = [];
+        if (this.stunTimer <= 1e-6) {
+          this.stunTimer = 0;
+          this.controlImmunityTimer = CONFIG.SPRING_PUNCH.IMMUNITY_DURATION;
+        }
+      } else if (this.controlImmunityTimer > 0) {
+        this.controlImmunityTimer = Math.max(0, this.controlImmunityTimer - safeDelta);
+      }
       if (!Number.isFinite(this.position.x)) this.position.x = this.gridX * CONFIG.GRID_SIZE;
       if (!Number.isFinite(this.position.y)) this.position.y = 0;
       if (!Number.isFinite(this.position.z)) this.position.z = this.gridZ * CONFIG.GRID_SIZE;
@@ -20507,6 +20668,15 @@
       this.invulnerableTimer = 2;
       return false;
     }
+    applySpringPunchStun() {
+      return this.applyStun(CONFIG.SPRING_PUNCH.STUN_DURATION);
+    }
+    applyStun(duration) {
+      if (this.isDead || this.isRespawning || this.stunTimer > 0 || this.controlImmunityTimer > 0) return false;
+      this.stunTimer = duration;
+      this.inputBuffer = [];
+      return true;
+    }
     respawnAt(gridX, gridZ, invulnerableDuration = 1) {
       this.gridX = gridX;
       this.gridZ = gridZ;
@@ -20521,6 +20691,8 @@
       this.inputBuffer = [];
       this.isInvulnerable = true;
       this.invulnerableTimer = invulnerableDuration;
+      this.stunTimer = 0;
+      this.controlImmunityTimer = 0;
       if (this.mesh) {
         this.mesh.position.copy(this.position);
         this.mesh.scale.set(0.95, 0.95, 0.95);
@@ -20547,6 +20719,15 @@
     }
   };
 
+  // src/mechanics/LeaderStrikeTargeting.js
+  function getHighestOtherLeaderStrikeTarget(owner, actors, random = Math.random) {
+    const eligible = actors.filter((actor) => actor && actor !== owner && !actor.isDead && !actor.isRespawning);
+    if (!eligible.length) return null;
+    const highestZ = Math.max(...eligible.map((actor) => actor.gridZ));
+    const leaders = eligible.filter((actor) => actor.gridZ === highestZ);
+    return leaders[Math.floor(random() * leaders.length)] || null;
+  }
+
   // src/mechanics/AIBot.js
   var AIBot = class extends Player {
     constructor(mesh, botName, startX = 0, startZ = 0, baseAggression = 0.38) {
@@ -20565,6 +20746,8 @@
       this.scoreItemBlockedAttempts = 0;
       this.scoreItemIgnoredId = null;
       this.scoreItemRetryCooldown = 0;
+      this.springPunchDodgeCooldown = 0;
+      this.lastDodgedPunchId = null;
       this.resetAt(startX, startZ);
     }
     resetAt(startX, startZ) {
@@ -20586,6 +20769,8 @@
       this.scoreItemBlockedAttempts = 0;
       this.scoreItemIgnoredId = null;
       this.scoreItemRetryCooldown = 0;
+      this.springPunchDodgeCooldown = 0;
+      this.lastDodgedPunchId = null;
       if (this.mesh) {
         this.mesh.position.copy(this.position);
         this.mesh.visible = true;
@@ -20596,16 +20781,18 @@
         this.checkpoint = { x: this.gridX, z: this.gridZ };
       }
     }
-    updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null) {
-      if (this.isJumping || this.isRespawning || this.isDead) return;
+    updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null, springPunchItems = [], leaderStrikeItems = [], springPunches = [], actors = []) {
+      if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return;
       this.decisionTimer += deltaTime;
       this.lateralCooldown = Math.max(0, this.lateralCooldown - deltaTime);
       this.retreatCooldown = Math.max(0, this.retreatCooldown - deltaTime);
       this.scoreItemRetryCooldown = Math.max(0, this.scoreItemRetryCooldown - deltaTime);
+      this.springPunchDodgeCooldown = Math.max(0, this.springPunchDodgeCooldown - deltaTime);
       if (this.scoreItemRetryCooldown === 0) this.scoreItemIgnoredId = null;
       if (this.decisionTimer < this.decisionInterval) return;
       this.decisionTimer = 0;
-      const itemDirection = this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+      const dodgeDirection = this.findSpringPunchDodgeDirection(springPunches, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+      const itemDirection = dodgeDirection || this.findLeaderStrikeItemDirection(leaderStrikeItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findSpringPunchItemDirection(springPunchItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
       const direction = itemDirection || this.findPathDirection(activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
       if (!direction) {
         const forward = this.getTargetGridPosition("UP");
@@ -20640,6 +20827,52 @@
       if (direction === "LEFT" || direction === "RIGHT") this.lateralCooldown = 0.6;
       if (direction === "DOWN") this.retreatCooldown = 0.7;
     }
+    findSpringPunchItemDirection(items, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
+      const valuable = items.filter((item) => this.isSpringPunchUsefulFrom(item, actors));
+      if (!valuable.length) return null;
+      return this.findScoreItemDirection(valuable, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+    }
+    findLeaderStrikeItemDirection(items, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
+      const valuable = items.filter((item) => this.getLeaderStrikeTarget(actors));
+      if (!valuable.length) return null;
+      return this.findScoreItemDirection(valuable, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+    }
+    getLeaderStrikeTarget(actors) {
+      const target = getHighestOtherLeaderStrikeTarget(this, actors);
+      return target && target.stunTimer <= 0 && target.controlImmunityTimer <= 0 ? target : null;
+    }
+    isSpringPunchUsefulFrom(item, actors) {
+      const dx = item.x - this.gridX;
+      const dz = item.z - this.gridZ;
+      if (Math.abs(dx) + Math.abs(dz) > 5) return false;
+      const arrivalFacing = Math.abs(dx) > Math.abs(dz) ? dx > 0 ? "LEFT" : "RIGHT" : "UP";
+      const vector = arrivalFacing === "UP" ? { x: 0, z: 1 } : arrivalFacing === "LEFT" ? { x: 1, z: 0 } : { x: -1, z: 0 };
+      return actors.some((actor) => actor !== this && !actor.isDead && !actor.isRespawning && actor.stunTimer <= 0 && actor.controlImmunityTimer <= 0 && (Math.abs((actor.gridX - item.x) * vector.z - (actor.gridZ - item.z) * vector.x) < 0.01 && (actor.gridX - item.x) * vector.x + (actor.gridZ - item.z) * vector.z >= 1 && (actor.gridX - item.x) * vector.x + (actor.gridZ - item.z) * vector.z <= 6));
+    }
+    findSpringPunchDodgeDirection(punches, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
+      if (this.springPunchDodgeCooldown > 0) return null;
+      const threat = punches.find((punch) => {
+        if (punch.owner === this) return false;
+        const dx = this.position.x - punch.position.x;
+        const dz = this.position.z - punch.position.z;
+        const along = dx * punch.direction.x + dz * punch.direction.z;
+        const lateral = Math.abs(dx * punch.direction.z - dz * punch.direction.x);
+        return along >= 0 && lateral <= CONFIG.SPRING_PUNCH.HIT_RADIUS && along / CONFIG.SPRING_PUNCH.SPEED <= 0.65;
+      });
+      if (!threat) return null;
+      const choices = Math.abs(threat.direction.z) > 0 ? ["LEFT", "RIGHT", "UP", "DOWN"] : ["UP", "DOWN", "LEFT", "RIGHT"];
+      for (const direction of choices) {
+        const target = this.getTargetGridPosition(direction);
+        if (!this.isCellSafe(target, activeRows, physics, 0.16, isDynamicHoleUnsafe) || canEnterCell && !canEnterCell(this, target) || canMove && !canMove(this, direction)) continue;
+        const targetX = target.x * CONFIG.GRID_SIZE - threat.position.x;
+        const targetZ = target.z * CONFIG.GRID_SIZE - threat.position.z;
+        if (Math.abs(targetX * threat.direction.z - targetZ * threat.direction.x) <= CONFIG.SPRING_PUNCH.HIT_RADIUS) continue;
+        this.springPunchDodgeCooldown = 0.35;
+        this.lastDodgedPunchId = threat.id;
+        return direction;
+      }
+      return null;
+    }
     findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
       const candidates = scoreItems.filter((item) => item.id !== this.scoreItemIgnoredId && item.z >= this.gridZ && item.z <= this.gridZ + 5 && Math.abs(item.x - this.gridX) <= 3);
       const itemsByCell = new Map(candidates.map((item) => [`${item.x},${item.z}`, item]));
@@ -20655,6 +20888,7 @@
           const risk = row?.type === CONFIG.ROW_TYPES.ROAD ? 0.6 : row?.type === CONFIG.ROW_TYPES.RAILROAD ? 0.9 : 0;
           const forwardSteps = Math.max(0, item.z - this.gridZ);
           const extraSteps = Math.max(0, current.depth - forwardSteps);
+          if ((item.type === "springPunch" || item.type === "leaderStrike") && extraSteps > 2) continue;
           const utility = 3 - extraSteps * 0.75 - risk;
           if (utility >= 0.6) {
             const target = { item, direction: current.firstDirection, utility };
@@ -20704,7 +20938,7 @@
       let best = null;
       while (queue.length > 0) {
         const current = queue.shift();
-        if (current.depth > 0 && current.z > start.z) {
+        if (current.depth > 0 && current.z > this.maxReachedZ) {
           const score = current.z * 100 - current.depth * 3 - Math.abs(current.x - start.x);
           if (!best || score > best.score) best = { direction: current.firstDirection, score };
         }
@@ -20782,8 +21016,9 @@
 
   // src/mechanics/MapGenerator.js
   var MapGenerator = class {
-    constructor(scene) {
+    constructor(scene, random = Math.random) {
       this.scene = scene;
+      this.random = typeof random === "function" ? random : Math.random;
       this.activeRows = /* @__PURE__ */ new Map();
       this.highestZGenerated = -CONFIG.DESPAWN_BEHIND;
       this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
@@ -20806,12 +21041,27 @@
       this.scoreItemsEnabled = false;
       this.scoreItemCellBlocked = null;
       this.scoreItemReferenceX = null;
+      this.springPunchItems = /* @__PURE__ */ new Map();
+      this.springPunchItemsEnabled = false;
+      this.springPunchCellBlocked = null;
+      this.leaderStrikeItems = /* @__PURE__ */ new Map();
+      this.leaderStrikeItemsEnabled = false;
+      this.leaderStrikeCellBlocked = null;
+      this.leaderStrikeReferenceX = null;
+      this.leaderStrikeBlockIndex = 0;
+      this.leaderStrikePendingBlockIndex = null;
+      this.leaderStrikeSpawnHistory = [];
       this.dynamicHolesEnabled = false;
       this.dynamicHoleCells = /* @__PURE__ */ new Map();
       this.dynamicHoleCellBlocked = null;
       this.dynamicHolePlayerZ = 0;
       this.dynamicHoleWaveCooldown = 1.5;
       this.dynamicHoleWaveId = 0;
+      this.reachableXs = /* @__PURE__ */ new Set();
+      this.reachabilityInitialized = false;
+      this.carrierFrontier = null;
+      this.carrierHorizon = 12;
+      this.carrierStep = 0.08;
       this.dynamicHoleConfig = {
         warningDuration: 1.2,
         holeDuration: 2.2,
@@ -20872,9 +21122,17 @@
       this.currentHazardChain = null;
       this.hazardChainCounter = 0;
       this.scoreItems.clear();
+      this.springPunchItems.clear();
+      this.leaderStrikeItems.clear();
+      this.leaderStrikeBlockIndex = 0;
+      this.leaderStrikePendingBlockIndex = null;
+      this.leaderStrikeSpawnHistory = [];
       this.dynamicHolePlayerZ = 0;
       this.dynamicHoleWaveCooldown = 1.5;
       this.dynamicHoleWaveId = 0;
+      this.reachableXs.clear();
+      this.reachabilityInitialized = false;
+      this.carrierFrontier = null;
     }
     update(playerZ) {
       this.dynamicHolePlayerZ = playerZ;
@@ -20896,7 +21154,7 @@
         this.forceFirstHazardAtZ8 = false;
         this.forceDynamicHoleGrassAfterFirstHazard = true;
         const hazardTypes = [CONFIG.ROW_TYPES.ROAD, CONFIG.ROW_TYPES.RIVER, CONFIG.ROW_TYPES.RAILROAD];
-        return this.beginCluster(hazardTypes[Math.floor(Math.random() * hazardTypes.length)]);
+        return this.beginCluster(hazardTypes[Math.floor(this.random() * hazardTypes.length)]);
       }
       if (this.clusterRemaining > 0) {
         this.clusterRemaining--;
@@ -20922,7 +21180,7 @@
         CONFIG.ROW_TYPES.RIVER,
         CONFIG.ROW_TYPES.RAILROAD
       ];
-      let nextType = types[Math.floor(Math.random() * types.length)];
+      let nextType = types[Math.floor(this.random() * types.length)];
       if (nextType !== CONFIG.ROW_TYPES.GRASS && nextType === this.currentClusterType) {
         nextType = CONFIG.ROW_TYPES.GRASS;
       }
@@ -20933,20 +21191,20 @@
       this.currentDynamicHoleCluster = null;
       switch (nextType) {
         case CONFIG.ROW_TYPES.GRASS:
-          this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+          this.clusterRemaining = Math.floor(this.random() * 3) + 1;
           this.grassClusterSize = this.clusterRemaining + 1;
           this.grassClusterRowIndex = 0;
           this.lastLilyPadGridXs = null;
           break;
         case CONFIG.ROW_TYPES.ROAD:
           this.grassClusterSize = 0;
-          this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+          this.clusterRemaining = Math.floor(this.random() * 3) + 1;
           this.lastLilyPadGridXs = null;
           break;
         case CONFIG.ROW_TYPES.RIVER:
           this.grassClusterSize = 0;
-          this.clusterRemaining = Math.floor(Math.random() * 2) + 1;
-          this.currentRiverClusterSubtype = Math.random() < 0.3 ? "LILY_PAD" : "LOG";
+          this.clusterRemaining = Math.floor(this.random() * 2) + 1;
+          this.currentRiverClusterSubtype = this.random() < 0.3 ? "LILY_PAD" : "LOG";
           this.lastLilyPadGridXs = null;
           break;
         case CONFIG.ROW_TYPES.RAILROAD:
@@ -20991,8 +21249,8 @@
         train: null,
         signal: null,
         trainState: "IDLE",
-        idleTimer: Math.random() * 4 + 3,
-        direction: Math.random() > 0.5 ? 1 : -1,
+        idleTimer: this.random() * 4 + 3,
+        direction: this.random() > 0.5 ? 1 : -1,
         speed: 0,
         isInitialSafe,
         isDynamicHoleFloor,
@@ -21007,6 +21265,7 @@
       if (type === CONFIG.ROW_TYPES.GRASS && !isInitialSafe && this.grassClusterSize > 0) {
         this.grassClusterRowIndex++;
       }
+      const completedHazardChain = type === CONFIG.ROW_TYPES.GRASS ? this.currentHazardChain : null;
       if (type !== CONFIG.ROW_TYPES.GRASS) {
         if (!this.currentHazardChain) {
           this.hazardChainCounter++;
@@ -21032,8 +21291,151 @@
           this.buildRailroadRow(rowData, rowGroup);
           break;
       }
-      this.scene.add(rowGroup);
       this.activeRows.set(z, rowData);
+      this.updateGeneratedReachability(rowData);
+      this.scene.add(rowGroup);
+      if (type === CONFIG.ROW_TYPES.GRASS && !isInitialSafe) {
+        if (completedHazardChain) this.registerLeaderStrikeBlock(rowData);
+        if (dynamicHoleRole === "exit") this.registerLeaderStrikeBlock(rowData);
+        if (!rowData.dynamicHoleCluster) this.placePendingLeaderStrike(rowData);
+      }
+    }
+    getPlayableXs() {
+      const xs = [];
+      for (let x = -CONFIG.MAP_BOUNDS_X + 1; x <= CONFIG.MAP_BOUNDS_X - 1; x++) xs.push(x);
+      return xs;
+    }
+    getRowTraversableXs(row) {
+      if (row.type === CONFIG.ROW_TYPES.RIVER && row.isPureLilyPadRow) {
+        return new Set(row.logs.filter((log) => log.isStationary).map((log) => Math.round(log.mesh.position.x / CONFIG.GRID_SIZE)));
+      }
+      if (row.type === CONFIG.ROW_TYPES.RIVER) return /* @__PURE__ */ new Set();
+      const treeXs = new Set(row.trees.map((tree) => tree.gridX));
+      return new Set(this.getPlayableXs().filter((x) => !treeXs.has(x)));
+    }
+    floodRowFromEntries(traversable, entries) {
+      const reachable = /* @__PURE__ */ new Set();
+      const queue = [...entries].filter((x) => traversable.has(x));
+      queue.forEach((x) => reachable.add(x));
+      while (queue.length) {
+        const x = queue.shift();
+        for (const nextX of [x - 1, x + 1]) {
+          if (traversable.has(nextX) && !reachable.has(nextX)) {
+            reachable.add(nextX);
+            queue.push(nextX);
+          }
+        }
+      }
+      return reachable;
+    }
+    repairGeneratedRowEntrance(row, previousReachable) {
+      const candidates = [...previousReachable];
+      if (!candidates.length) return null;
+      const x = candidates[Math.floor(this.random() * candidates.length)];
+      if (row.type === CONFIG.ROW_TYPES.RIVER) {
+        const pad = row.logs.find((log) => log.isStationary);
+        if (pad) {
+          pad.mesh.position.x = x * CONFIG.GRID_SIZE;
+          row.reachabilityRepair = { type: "moved-lily-pad", x };
+          return x;
+        }
+        const mesh = createLilyPadMesh();
+        mesh.position.set(x * CONFIG.GRID_SIZE, 0.1, 0);
+        row.mesh.add(mesh);
+        row.logs.push({ mesh, length: 1, isStationary: true, speed: 0, reachabilityFallback: true });
+        row.reachabilityRepair = { type: "added-lily-carrier", x };
+        return x;
+      }
+      const treeIndex = row.trees.findIndex((tree) => tree.gridX === x);
+      if (treeIndex >= 0) {
+        const [tree] = row.trees.splice(treeIndex, 1);
+        row.mesh.remove(tree.mesh);
+        tree.mesh.traverse((node) => {
+          node.geometry?.dispose();
+          node.material?.dispose();
+        });
+      }
+      row.reachabilityRepair = { type: "cleared-tree", x };
+      return x;
+    }
+    updateGeneratedReachability(row) {
+      if (this.reachabilityInitialized && !this.reachableXs.size && !this.carrierFrontier?.length) {
+        throw new Error(`Map reachability frontier was empty before Z=${row.z}`);
+      }
+      const previousReachable = this.reachabilityInitialized ? new Set(this.reachableXs) : new Set(this.getPlayableXs());
+      if (row.type === CONFIG.ROW_TYPES.RIVER) {
+        const incomingCarrierFrontier = this.carrierFrontier;
+        row.carrierInputFrontier = incomingCarrierFrontier;
+        let carrierStates = this.getCarrierFrontierForRiver(row, previousReachable, incomingCarrierFrontier);
+        if (!carrierStates.length) {
+          const repairEntries = this.carrierFrontier?.length ? new Set(this.carrierFrontier.map((state) => state.x)) : previousReachable;
+          this.repairGeneratedRowEntrance(row, repairEntries);
+          carrierStates = this.getCarrierFrontierForRiver(row, previousReachable, incomingCarrierFrontier);
+        }
+        if (!carrierStates.length) throw new Error(`Map reachability repair failed for river Z=${row.z}`);
+        row.carrierFrontier = carrierStates;
+        row.reachableXs = [...new Set(carrierStates.map((state) => state.x))].sort((a, b) => a - b);
+        row.reachabilityEntryXs = [...previousReachable];
+        this.reachableXs = new Set(row.reachableXs);
+        this.carrierFrontier = carrierStates;
+        this.reachabilityInitialized = true;
+        return;
+      }
+      let traversable = this.getRowTraversableXs(row);
+      let reachable = this.floodRowFromEntries(traversable, previousReachable);
+      if (!reachable.size) {
+        this.repairGeneratedRowEntrance(row, previousReachable);
+        traversable = this.getRowTraversableXs(row);
+        reachable = this.floodRowFromEntries(traversable, previousReachable);
+      }
+      row.reachableXs = [...reachable].sort((a, b) => a - b);
+      row.reachabilityEntryXs = [...previousReachable].filter((x) => traversable.has(x));
+      this.reachableXs = reachable;
+      this.carrierFrontier = null;
+      this.reachabilityInitialized = true;
+    }
+    getCarrierX(log, row, time) {
+      if (log.isStationary) return log.mesh.position.x;
+      const bound = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
+      const direction = row.direction >= 0 ? 1 : -1;
+      const speed = Math.max(0, row.speed || 0);
+      let x = log.mesh.position.x;
+      let remaining = Math.max(0, time);
+      while (remaining > 1e-9) {
+        const delta = Math.min(remaining, 0.1);
+        x += direction * speed * delta;
+        if (direction > 0 && x > bound) x = -bound;
+        else if (direction < 0 && x < -bound) x = bound;
+        remaining -= delta;
+      }
+      return x;
+    }
+    carrierSupportsGridX(log, row, gridX, time) {
+      const playerHalfWidth = 0.3 * CONFIG.GRID_SIZE;
+      const logHalfWidth = (log.length || (log.isStationary ? 1 : 3)) * CONFIG.GRID_SIZE * 1.15 / 2;
+      const playerX = gridX * CONFIG.GRID_SIZE;
+      const logX = this.getCarrierX(log, row, time);
+      return playerX + playerHalfWidth >= logX - logHalfWidth && playerX - playerHalfWidth <= logX + logHalfWidth;
+    }
+    getCarrierFrontierForRiver(row, previousReachable, incomingCarrierFrontier = this.carrierFrontier) {
+      const sourceStates = incomingCarrierFrontier?.length ? incomingCarrierFrontier : [...previousReachable].map((x) => ({ x, time: 0 }));
+      const states = [];
+      const seen = /* @__PURE__ */ new Set();
+      const jump = CONFIG.JUMP_DURATION;
+      for (const source of sourceStates) {
+        const times = incomingCarrierFrontier?.length ? [source.time + jump] : Array.from({ length: Math.floor((this.carrierHorizon - jump) / this.carrierStep) + 1 }, (_, index) => jump + index * this.carrierStep);
+        for (const time of times) {
+          if (time > this.carrierHorizon) continue;
+          const x = source.x;
+          const logIndex = row.logs.findIndex((log) => this.carrierSupportsGridX(log, row, x, time));
+          if (logIndex < 0) continue;
+          const key = `${Math.round(time / this.carrierStep)}:${x}:${logIndex}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          states.push({ x, time: Number(time.toFixed(3)), logIndex });
+        }
+      }
+      return states;
     }
     // 每個連續危險區只挑一個可落地格；hash 讓同一條地圖生成順序可重現。
     finalizeHazardChain(chain) {
@@ -21095,16 +21497,137 @@
       item.row.mesh.remove(item.mesh);
       return item;
     }
+    ensureSpringPunchItem(referenceZ = 0, referenceX = 0) {
+      if (!this.springPunchItemsEnabled || this.springPunchItems.size) return;
+      const rows = [...this.activeRows.values()].filter((row) => row.z >= referenceZ + 2 && row.z <= referenceZ + 8 && row.type === CONFIG.ROW_TYPES.GRASS && !row.scoreItem);
+      for (const row of rows) {
+        for (let offset = 0; offset <= CONFIG.MAP_BOUNDS_X * 2; offset++) {
+          const signedOffset = offset === 0 ? 0 : offset % 2 ? Math.ceil(offset / 2) : -offset / 2;
+          const x = Math.round(referenceX) + signedOffset;
+          const key = `${x},${row.z}`;
+          if (Math.abs(x) >= CONFIG.MAP_BOUNDS_X || this.springPunchItems.has(key) || row.trees.some((tree) => tree.gridX === x) || this.springPunchCellBlocked?.({ x, z: row.z })) continue;
+          const mesh = this.createSpringPunchItemMesh();
+          mesh.position.set(x * CONFIG.GRID_SIZE, 0.46, 0);
+          row.mesh.add(mesh);
+          const item = { id: `spring-${row.z}-${x}`, x, z: row.z, type: "springPunch", mesh, row };
+          row.springPunchItem = item;
+          this.springPunchItems.set(key, item);
+          return;
+        }
+      }
+    }
+    createSpringPunchItemMesh() {
+      const group = new Group();
+      const glove = new Mesh(new SphereGeometry(0.25, 12, 8), new MeshLambertMaterial({ color: 16764719, emissive: 5849088 }));
+      glove.scale.set(1.15, 0.8, 0.9);
+      const spring = new Mesh(new TorusGeometry(0.17, 0.035, 6, 10), new MeshBasicMaterial({ color: 16774312 }));
+      spring.rotation.x = Math.PI / 2;
+      spring.position.y = -0.17;
+      group.add(glove, spring);
+      return group;
+    }
+    collectSpringPunchItemAt(gridPosition) {
+      const key = `${gridPosition.x},${gridPosition.z}`;
+      const item = this.springPunchItems.get(key);
+      if (!item) return null;
+      this.springPunchItems.delete(key);
+      item.row.springPunchItem = null;
+      item.row.mesh.remove(item.mesh);
+      item.mesh.traverse((node) => {
+        node.geometry?.dispose();
+        node.material?.dispose();
+      });
+      return item;
+    }
+    registerLeaderStrikeBlock(row) {
+      if (!this.leaderStrikeItemsEnabled) return;
+      this.leaderStrikeBlockIndex++;
+      if (this.leaderStrikeItems.size) {
+        this.leaderStrikePendingBlockIndex = null;
+        return;
+      }
+      if (this.leaderStrikeBlockIndex % 3 !== 0) return;
+      this.leaderStrikePendingBlockIndex = this.leaderStrikeBlockIndex;
+      if (!row.dynamicHoleCluster) this.placePendingLeaderStrike(row);
+    }
+    placePendingLeaderStrike(row) {
+      if (!this.leaderStrikeItemsEnabled || this.leaderStrikePendingBlockIndex === null) return false;
+      if (this.leaderStrikeItems.size) {
+        this.leaderStrikePendingBlockIndex = null;
+        return false;
+      }
+      if (row.type !== CONFIG.ROW_TYPES.GRASS || row.dynamicHoleCluster || row.scoreItem || row.springPunchItem) return false;
+      const rawReferenceX = this.leaderStrikeReferenceX ? this.leaderStrikeReferenceX() : 0;
+      const referenceX = Math.round(Number.isFinite(rawReferenceX) ? rawReferenceX : 0);
+      const candidates = [...row.reachableXs || []].sort((a, b) => Math.abs(a - referenceX) - Math.abs(b - referenceX) || a - b);
+      for (const x of candidates) {
+        const key = `${x},${row.z}`;
+        if (row.trees.some((tree) => tree.gridX === x) || this.leaderStrikeItems.has(key) || this.leaderStrikeCellBlocked?.({ x, z: row.z })) continue;
+        const mesh = this.createLeaderStrikeItemMesh();
+        mesh.position.set(x * CONFIG.GRID_SIZE, 0.48, 0);
+        row.mesh.add(mesh);
+        const item = {
+          id: `leader-strike-${this.leaderStrikePendingBlockIndex}-${row.z}-${x}`,
+          x,
+          z: row.z,
+          type: "leaderStrike",
+          blockIndex: this.leaderStrikePendingBlockIndex,
+          mesh,
+          row
+        };
+        row.leaderStrikeItem = item;
+        this.leaderStrikeItems.set(key, item);
+        this.leaderStrikeSpawnHistory.push({ blockIndex: item.blockIndex, x, z: row.z, dynamicHole: false });
+        this.leaderStrikePendingBlockIndex = null;
+        return true;
+      }
+      return false;
+    }
+    createLeaderStrikeItemMesh() {
+      const group = new Group();
+      const core = new Mesh(new OctahedronGeometry(0.32, 0), new MeshLambertMaterial({ color: 8970239, emissive: 2792703 }));
+      const beacon = new Mesh(new CylinderGeometry(0.05, 0.1, 0.88, 6), new MeshBasicMaterial({ color: 8251647, transparent: true, opacity: 0.82 }));
+      beacon.position.y = 0.36;
+      const bolt = new Mesh(new ConeGeometry(0.17, 0.72, 4), new MeshBasicMaterial({ color: 15858687 }));
+      bolt.rotation.z = Math.PI;
+      bolt.position.y = 0.62;
+      const innerRing = new Mesh(new TorusGeometry(0.36, 0.04, 6, 12), new MeshBasicMaterial({ color: 16121343 }));
+      innerRing.rotation.x = Math.PI / 2;
+      innerRing.position.y = -0.12;
+      const outerRing = new Mesh(new TorusGeometry(0.54, 0.035, 6, 12), new MeshBasicMaterial({ color: 5099519, transparent: true, opacity: 0.9 }));
+      outerRing.rotation.x = Math.PI / 2;
+      outerRing.position.y = -0.15;
+      group.add(core, beacon, bolt, innerRing, outerRing);
+      return group;
+    }
+    collectLeaderStrikeItemAt(gridPosition) {
+      const key = `${gridPosition.x},${gridPosition.z}`;
+      const item = this.leaderStrikeItems.get(key);
+      if (!item) return null;
+      this.removeLeaderStrikeItem(item);
+      return item;
+    }
+    removeLeaderStrikeItem(item) {
+      if (!item) return;
+      const key = `${item.x},${item.z}`;
+      this.leaderStrikeItems.delete(key);
+      item.row.leaderStrikeItem = null;
+      item.row.mesh.remove(item.mesh);
+      item.mesh.traverse((node) => {
+        node.geometry?.dispose();
+        node.material?.dispose();
+      });
+    }
     buildGrassRow(rowData, rowGroup, isInitialSafe) {
       const mat = Math.abs(rowData.z) % 2 === 0 ? this.grassMat1 : this.grassMat2;
       const lane = new Mesh(this.laneGeo, mat);
       lane.receiveShadow = true;
       rowGroup.add(lane);
       const playableRange = CONFIG.MAP_BOUNDS_X - 1;
-      const guaranteedOpenCount = rowData.isDynamicHoleFloor ? 4 : Math.floor(Math.random() * 2) + 3;
+      const guaranteedOpenCount = rowData.isDynamicHoleFloor ? 4 : Math.floor(this.random() * 2) + 3;
       const openXs = /* @__PURE__ */ new Set();
       while (openXs.size < guaranteedOpenCount) {
-        const randomX = Math.floor(Math.random() * (playableRange * 2 + 1)) - playableRange;
+        const randomX = Math.floor(this.random() * (playableRange * 2 + 1)) - playableRange;
         openXs.add(randomX);
       }
       for (let x = -CONFIG.MAP_BOUNDS_X - 2; x <= CONFIG.MAP_BOUNDS_X + 2; x++) {
@@ -21113,13 +21636,13 @@
         if (isEdge) {
           placeTree = true;
         } else if (!isInitialSafe && !openXs.has(x)) {
-          placeTree = Math.random() < 0.28;
+          placeTree = this.random() < 0.28;
         }
         if (isInitialSafe && rowData.z >= -3 && rowData.z <= 3 && Math.abs(x) <= 4) {
           placeTree = false;
         }
         if (placeTree) {
-          const treeType = Math.floor(Math.random() * 3);
+          const treeType = Math.floor(this.random() * 3);
           const treeMesh = createTreeMesh(treeType);
           treeMesh.position.set(x * CONFIG.GRID_SIZE, 0.2, 0);
           rowGroup.add(treeMesh);
@@ -21143,10 +21666,10 @@
       const zProgress = Math.min(1, Math.max(0, (rowData.z || 0) / 220));
       const minSpeed = MathUtils.lerp(2, 4.2, zProgress);
       const speedRange = MathUtils.lerp(1.2, 2.3, zProgress);
-      rowData.speed = minSpeed + Math.random() * speedRange;
+      rowData.speed = minSpeed + this.random() * speedRange;
       const adjRowRoad = this.activeRows.get(rowData.z - 1) || this.activeRows.get(rowData.z + 1);
       if (adjRowRoad && adjRowRoad.type === CONFIG.ROW_TYPES.RIVER) {
-        if (Math.random() < 0.8) {
+        if (this.random() < 0.8) {
           rowData.direction = -adjRowRoad.direction;
         }
         if (rowData.direction === adjRowRoad.direction) {
@@ -21155,16 +21678,16 @@
           }
         }
       }
-      const isTruck = Math.random() < 0.15 + zProgress * 0.2;
+      const isTruck = this.random() < 0.15 + zProgress * 0.2;
       const vehicleWidth = isTruck ? 2.3 : 1.8;
       const minGapGrids = MathUtils.lerp(7.5, 4.5, zProgress);
       const gapRangeGrids = MathUtils.lerp(4, 2.5, zProgress);
-      const spacing = vehicleWidth + CONFIG.GRID_SIZE * (minGapGrids + Math.random() * gapRangeGrids);
+      const spacing = vehicleWidth + CONFIG.GRID_SIZE * (minGapGrids + this.random() * gapRangeGrids);
       const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
       const count = Math.floor(totalSpan / spacing);
       const colors = CONFIG.COLORS.CAR_COLORS;
       for (let i = 0; i < count; i++) {
-        const colorHex = colors[Math.floor(Math.random() * colors.length)];
+        const colorHex = colors[Math.floor(this.random() * colors.length)];
         const mesh = isTruck ? createTruckMesh() : createCarMesh(colorHex);
         const startX = -totalSpan / 2 + i * spacing;
         mesh.position.set(startX, 0.2, 0);
@@ -21189,8 +21712,8 @@
         });
       }
       targetRowData.logs = [];
-      const logLength = Math.floor(Math.random() * 2) + 3;
-      const minLogGap = 1 + Math.random() * 0.3;
+      const logLength = Math.floor(this.random() * 2) + 3;
+      const minLogGap = 1 + this.random() * 0.3;
       const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * minLogGap;
       const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
       const count = Math.floor(totalSpan / logSpan);
@@ -21203,6 +21726,25 @@
         targetRowData.logs.push({ mesh, length: logLength });
       }
       targetRowData.isUpgraded = true;
+      if (targetRowData.carrierInputFrontier !== void 0) {
+        const incomingFrontier = targetRowData.carrierInputFrontier;
+        const entryXs = new Set(targetRowData.reachabilityEntryXs || []);
+        let recalculated = this.getCarrierFrontierForRiver(
+          targetRowData,
+          entryXs,
+          incomingFrontier
+        );
+        if (!recalculated.length) {
+          const repairEntries = incomingFrontier?.length ? new Set(incomingFrontier.map((state) => state.x)) : entryXs;
+          this.repairGeneratedRowEntrance(targetRowData, repairEntries);
+          recalculated = this.getCarrierFrontierForRiver(targetRowData, entryXs, incomingFrontier);
+        }
+        if (!recalculated.length) throw new Error(`Map reachability repair failed after river upgrade Z=${targetRowData.z}`);
+        targetRowData.carrierFrontier = recalculated;
+        targetRowData.reachableXs = [...new Set(recalculated.map((state) => state.x))].sort((a, b) => a - b);
+        this.reachableXs = new Set(targetRowData.reachableXs);
+        this.carrierFrontier = recalculated;
+      }
     }
     buildRiverRow(rowData, rowGroup) {
       const lane = new Mesh(this.laneGeo, this.riverMat);
@@ -21216,16 +21758,16 @@
       if (adjRowPrevIsLilyPad) {
         isPureLilyPadRow = false;
       } else {
-        isPureLilyPadRow = Math.random() < 0.35;
+        isPureLilyPadRow = this.random() < 0.35;
       }
       rowData.isLilyPadRow = isPureLilyPadRow;
       rowData.isPureLilyPadRow = isPureLilyPadRow;
       if (isPureLilyPadRow) {
-        const padCount = Math.floor(Math.random() * 3) + 3;
+        const padCount = Math.floor(this.random() * 3) + 3;
         const playableRange = 4;
         const usedXs = /* @__PURE__ */ new Set();
         while (usedXs.size < padCount) {
-          const gridX = Math.floor(Math.random() * (playableRange * 2 + 1)) - playableRange;
+          const gridX = Math.floor(this.random() * (playableRange * 2 + 1)) - playableRange;
           usedXs.add(gridX);
         }
         for (const gridX of usedXs) {
@@ -21249,14 +21791,14 @@
           rowData.direction = -this.lastRiverDirection;
         }
         this.lastRiverDirection = rowData.direction;
-        let speed = MathUtils.lerp(1.5, 3.2, zProgress) + Math.random() * 1;
+        let speed = MathUtils.lerp(1.5, 3.2, zProgress) + this.random() * 1;
         if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1) {
           speed += 1.2;
         }
         rowData.speed = speed;
         const adjRowRoad = this.activeRows.get(rowData.z - 1) || this.activeRows.get(rowData.z + 1);
         if (adjRowRoad && adjRowRoad.type === CONFIG.ROW_TYPES.ROAD) {
-          if (Math.random() < 0.8) {
+          if (this.random() < 0.8) {
             rowData.direction = -adjRowRoad.direction;
           }
           if (rowData.direction === adjRowRoad.direction) {
@@ -21270,15 +21812,15 @@
         const isAdjacentToLilyPad = adjRowPrevIsLilyPad || Boolean(nextRow && nextRow.type === CONFIG.ROW_TYPES.RIVER && (nextRow.isLilyPadRow || nextRow.isPureLilyPadRow));
         let logLength, minLogGap, gapRandomRange;
         if (isAdjacentToLilyPad) {
-          logLength = Math.floor(Math.random() * 2) + 3;
-          minLogGap = 1 + Math.random() * 0.3;
+          logLength = Math.floor(this.random() * 2) + 3;
+          minLogGap = 1 + this.random() * 0.3;
           gapRandomRange = 0;
         } else {
-          logLength = zProgress < 0.5 ? Math.floor(Math.random() * 2) + 3 : Math.floor(Math.random() * 2) + 2;
+          logLength = zProgress < 0.5 ? Math.floor(this.random() * 2) + 3 : Math.floor(this.random() * 2) + 2;
           minLogGap = MathUtils.lerp(1.2, 2.2, zProgress);
           gapRandomRange = 1.2;
         }
-        const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + Math.random() * gapRandomRange);
+        const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + this.random() * gapRandomRange);
         const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
         const count = Math.floor(totalSpan / logSpan);
         for (let i = 0; i < count; i++) {
@@ -21323,6 +21865,14 @@
         if (row.scoreItem?.mesh) {
           row.scoreItem.mesh.rotation.y += safeDelta * 3.5;
           row.scoreItem.mesh.position.y = 0.5 + Math.sin(performance.now() * 4e-3 + z) * 0.08;
+        }
+        if (row.springPunchItem?.mesh) {
+          row.springPunchItem.mesh.rotation.y += safeDelta * 4;
+          row.springPunchItem.mesh.position.y = 0.48 + Math.sin(performance.now() * 5e-3 + z) * 0.07;
+        }
+        if (row.leaderStrikeItem?.mesh) {
+          row.leaderStrikeItem.mesh.rotation.y -= safeDelta * 3.2;
+          row.leaderStrikeItem.mesh.position.y = 0.48 + Math.sin(performance.now() * 45e-4 + z) * 0.08;
         }
         if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
           row.vehicles.forEach((veh) => {
@@ -21397,7 +21947,7 @@
               row.mesh.remove(row.train);
               row.train = null;
               row.trainState = "IDLE";
-              row.idleTimer = Math.random() * 5 + 4;
+              row.idleTimer = this.random() * 5 + 4;
               if (row.signals) {
                 row.signals.forEach((sig) => {
                   sig.leftLightMat.color.setHex(4456448);
@@ -21646,10 +22196,12 @@
       return false;
     }
     removeRow(z, row) {
+      if (row?.leaderStrikeItem) this.removeLeaderStrikeItem(row.leaderStrikeItem);
       if (row && row.mesh) {
         this.scene.remove(row.mesh);
       }
       if (row?.scoreItem) this.scoreItems.delete(`${row.scoreItem.x},${row.scoreItem.z}`);
+      if (row?.springPunchItem) this.springPunchItems.delete(`${row.springPunchItem.x},${row.springPunchItem.z}`);
       this.activeRows.delete(z);
     }
     getActiveRows() {
@@ -21983,6 +22535,8 @@
       this.timeRemainingEl = document.getElementById("time-remaining");
       this.leaderboard = document.getElementById("leaderboard");
       this.leaderboardList = document.getElementById("leaderboard-list");
+      this.combatAnnouncement = document.getElementById("combat-announcement");
+      this.combatAnnouncementTimer = null;
       let savedHighScore = 0;
       try {
         savedHighScore = parseInt(localStorage.getItem("crossy_highscore") || "0", 10);
@@ -22164,7 +22718,29 @@
         this.leaderboardList.append(row);
       });
     }
+    showCombatAnnouncement(message) {
+      if (!this.combatAnnouncement) return;
+      if (this.combatAnnouncementTimer) clearTimeout(this.combatAnnouncementTimer);
+      this.combatAnnouncement.textContent = message;
+      this.combatAnnouncement.classList.remove("combat-announcement-hidden", "combat-announcement-show");
+      void this.combatAnnouncement.offsetWidth;
+      this.combatAnnouncement.classList.add("combat-announcement-show");
+      this.combatAnnouncementTimer = setTimeout(() => {
+        this.combatAnnouncement.classList.remove("combat-announcement-show");
+        this.combatAnnouncement.classList.add("combat-announcement-hidden");
+        this.combatAnnouncementTimer = null;
+      }, 3e3);
+    }
+    clearCombatAnnouncement() {
+      if (this.combatAnnouncementTimer) clearTimeout(this.combatAnnouncementTimer);
+      this.combatAnnouncementTimer = null;
+      if (!this.combatAnnouncement) return;
+      this.combatAnnouncement.classList.remove("combat-announcement-show");
+      this.combatAnnouncement.classList.add("combat-announcement-hidden");
+      this.combatAnnouncement.textContent = "";
+    }
     showLobby() {
+      this.clearCombatAnnouncement();
       if (this.startOverlay) {
         this.startOverlay.classList.remove("hidden");
         this.startOverlay.classList.add("active");
@@ -22176,6 +22752,7 @@
       }
     }
     hideOverlays() {
+      this.clearCombatAnnouncement();
       if (this.startOverlay) {
         this.startOverlay.classList.add("hidden");
         this.startOverlay.classList.remove("active");
@@ -22214,6 +22791,7 @@
       }
     }
     showGameOver(score, reason = "\u88AB\u8ECA\u649E\u98DB\u4E86\uFF01") {
+      this.clearCombatAnnouncement();
       if (this.finalScoreEl) this.finalScoreEl.innerText = score;
       if (this.finalBestEl) this.finalBestEl.innerText = this.highScore;
       if (this.deathReasonEl) this.deathReasonEl.innerText = reason;
@@ -22227,6 +22805,8 @@
   // src/main.js
   var SCORE_ITEM_PROTOTYPE_ENABLED = true;
   var DYNAMIC_HOLES_PROTOTYPE_ENABLED = true;
+  var SPRING_PUNCH_PROTOTYPE_ENABLED = false;
+  var LEADER_STRIKE_PROTOTYPE_ENABLED = true;
   var Game = class {
     constructor() {
       this.container = document.getElementById("canvas-container");
@@ -22237,6 +22817,11 @@
       this.scoreItemsPrototypeEnabled = SCORE_ITEM_PROTOTYPE_ENABLED;
       this.dynamicHolesPrototypeEnabled = DYNAMIC_HOLES_PROTOTYPE_ENABLED;
       this.mapGenerator.scoreItemsEnabled = this.scoreItemsPrototypeEnabled;
+      this.springPunchPrototypeEnabled = SPRING_PUNCH_PROTOTYPE_ENABLED;
+      this.mapGenerator.springPunchItemsEnabled = this.springPunchPrototypeEnabled;
+      this.leaderStrikePrototypeEnabled = LEADER_STRIKE_PROTOTYPE_ENABLED;
+      this.mapGenerator.leaderStrikeItemsEnabled = this.leaderStrikePrototypeEnabled;
+      this.mapGenerator.leaderStrikeReferenceX = () => this.player?.gridX ?? 0;
       this.physics = new Physics();
       this.isGameStarted = false;
       this.isGameOver = false;
@@ -22250,12 +22835,18 @@
       this.casualCheckpoint = { x: 0, z: 0 };
       this.lastLandedZ = 0;
       this.scoreRewardEffects = [];
+      this.springPunches = [];
+      this.springPunchEffects = [];
+      this.leaderStrikes = [];
+      this.leaderStrikeEffects = [];
       this.chickenMesh = createChicken();
       this.scene.add(this.chickenMesh);
       this.player = new Player(this.chickenMesh);
       this.bots = [];
       this.mapGenerator.scoreItemCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition));
       this.mapGenerator.scoreItemReferenceX = () => this.player?.gridX ?? 0;
+      this.mapGenerator.springPunchCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition)) || this.mapGenerator.scoreItems.has(`${gridPosition.x},${gridPosition.z}`) || this.mapGenerator.leaderStrikeItems.has(`${gridPosition.x},${gridPosition.z}`);
+      this.mapGenerator.leaderStrikeCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition)) || this.mapGenerator.scoreItems.has(`${gridPosition.x},${gridPosition.z}`) || this.mapGenerator.springPunchItems.has(`${gridPosition.x},${gridPosition.z}`);
       this.mapGenerator.dynamicHoleCellBlocked = (gridPosition) => {
         const isPlayerCheckpoint = gridPosition.x === this.casualCheckpoint?.x && gridPosition.z === this.casualCheckpoint?.z;
         const isBotCheckpoint = this.bots.some((bot) => gridPosition.x === bot.checkpoint?.x && gridPosition.z === bot.checkpoint?.z);
@@ -22293,6 +22884,7 @@
     }
     handlePlayerInput(direction, distance = 1) {
       if (!this.isGameStarted || this.isGameOver) return;
+      if (this.player.stunTimer > 0) return;
       if (this.player.isJumping) {
         this.player.queueInput(direction, distance);
         return;
@@ -22335,7 +22927,7 @@
       return !this.getActorAtGrid(gridPosition, [actor, ...excludedActors]);
     }
     planActorMove(actor, direction, distance = 1) {
-      if (actor.isJumping || actor.isDead || actor.isRespawning) return { canMove: false };
+      if (actor.isJumping || actor.isDead || actor.isRespawning || actor.stunTimer > 0) return { canMove: false };
       const chain = [actor];
       let target = actor.getTargetGridPosition(direction, distance);
       while (true) {
@@ -22346,6 +22938,7 @@
         chain.push(occupant);
         target = occupant.getTargetGridPosition(direction);
       }
+      if (chain.some((chainActor) => chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0)) return { canMove: false };
       const destinations = chain.map((chainActor, index) => index === 0 ? chainActor.getTargetGridPosition(direction, distance) : chainActor.getTargetGridPosition(direction));
       if (!destinations.every((destination, index) => this.canActorEnter(chain[index], destination, chain))) {
         return { canMove: false };
@@ -22353,6 +22946,7 @@
       return { canMove: true, chain, direction, distance };
     }
     startActorMovePlan(plan) {
+      if (plan.chain.some((chainActor) => chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0)) return false;
       for (let index = plan.chain.length - 1; index >= 0; index--) {
         const chainActor = plan.chain[index];
         const stepDistance = index === 0 ? plan.distance : 1;
@@ -22406,6 +23000,8 @@
       }
       this.mapGenerator.update(this.player.gridZ);
       this.collectScoreItem(this.player);
+      this.collectSpringPunchItem(this.player);
+      this.collectLeaderStrikeItem(this.player);
       this.uiManager.updateScore(this.player.score);
       if (this.currentMode !== "casual") return;
       if (this.mapGenerator.isSafeCheckpointRow(this.player) && this.player.gridZ > this.casualCheckpoint.z) {
@@ -22418,6 +23014,8 @@
         return;
       }
       this.collectScoreItem(bot);
+      this.collectSpringPunchItem(bot);
+      this.collectLeaderStrikeItem(bot);
       if (this.mapGenerator.isSafeCheckpointRow(bot)) bot.updateCheckpoint();
     }
     collectScoreItem(actor) {
@@ -22428,6 +23026,254 @@
       this.showScoreReward(actor, item.points);
       if (actor === this.player) this.uiManager.pulseScoreReward();
       return true;
+    }
+    collectSpringPunchItem(actor) {
+      if (!this.springPunchPrototypeEnabled) return false;
+      const item = this.mapGenerator.collectSpringPunchItemAt({ x: actor.gridX, z: actor.gridZ });
+      if (!item) return false;
+      this.showSpringPunchEffect(actor, "\u9810\u8B66\uFF1A\u958B\u8DEF\u5F48\u7C27\u62F3\uFF01", 16768831);
+      this.springPunches.push({
+        id: `punch-${performance.now()}-${Math.random()}`,
+        owner: actor,
+        windup: CONFIG.SPRING_PUNCH.WINDUP,
+        distance: 0,
+        position: actor.position.clone(),
+        direction: this.directionVectorFromActor(actor),
+        mesh: null,
+        trail: null,
+        windupVisual: this.createSpringPunchWindup(actor)
+      });
+      return true;
+    }
+    getLeaderStrikeTarget(owner) {
+      return getHighestOtherLeaderStrikeTarget(owner, this.getActiveActors());
+    }
+    getActorName(actor) {
+      return actor === this.player ? "\u73A9\u5BB6" : actor.botName || "\u89D2\u8272";
+    }
+    collectLeaderStrikeItem(actor) {
+      if (!this.leaderStrikePrototypeEnabled) return false;
+      const item = this.mapGenerator.collectLeaderStrikeItemAt({ x: actor.gridX, z: actor.gridZ });
+      if (!item) return false;
+      const target = this.getLeaderStrikeTarget(actor);
+      if (!target) {
+        this.uiManager.showCombatAnnouncement(`${this.getActorName(actor)} \u767C\u52D5\u300C\u9AD8\u5206\u8FFD\u64CA\u843D\u96F7\u300D\u4F46\u6C92\u6709\u53EF\u653B\u64CA\u76EE\u6A19`);
+        this.showSpringPunchEffect(actor, "\u9AD8\u5206\u8FFD\u64CA\u843D\u96F7\uFF1A\u7121\u53EF\u653B\u64CA\u76EE\u6A19", 10214655);
+        return true;
+      }
+      this.uiManager.showCombatAnnouncement(`\u26A1 ${this.getActorName(actor)} \u767C\u52D5\u300C\u9AD8\u5206\u8FFD\u64CA\u843D\u96F7\u300D\u653B\u64CA ${this.getActorName(target)}\uFF01`);
+      const warning = this.createLeaderStrikeWarning(target);
+      this.leaderStrikes.push({ owner: actor, target, timer: CONFIG.LEADER_STRIKE.WARNING_DURATION, warning });
+      return true;
+    }
+    createLeaderStrikeWarning(target) {
+      const ring = new Mesh(new TorusGeometry(0.48, 0.055, 8, 16), new MeshBasicMaterial({ color: 12382207, transparent: true, opacity: 0.9 }));
+      ring.rotation.x = Math.PI / 2;
+      const label = this.createEffectLabel("\u9AD8\u5206\u8FFD\u64CA\u843D\u96F7\uFF01", "#eafaff", "#12528a");
+      this.scene.add(ring, label.sprite);
+      return { ring, ...label };
+    }
+    createEffectLabel(label, fillStyle, strokeStyle) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 220;
+      canvas.height = 56;
+      const context = canvas.getContext("2d");
+      context.font = "bold 24px sans-serif";
+      context.textAlign = "center";
+      context.fillStyle = fillStyle;
+      context.strokeStyle = strokeStyle;
+      context.lineWidth = 5;
+      context.strokeText(label, 110, 36);
+      context.fillText(label, 110, 36);
+      const texture = new CanvasTexture(canvas);
+      const sprite = new Sprite(new SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+      sprite.scale.set(1.7, 0.44, 1);
+      return { sprite, texture };
+    }
+    updateLeaderStrikes(deltaTime) {
+      this.leaderStrikes = this.leaderStrikes.filter((strike) => {
+        const { target, warning } = strike;
+        if (target.isDead || target.isRespawning) {
+          this.disposeLeaderStrikeWarning(warning);
+          return false;
+        }
+        strike.timer -= deltaTime;
+        warning.ring.position.copy(target.position).add(new Vector3(0, 0.08, 0));
+        warning.sprite.position.copy(target.position).add(new Vector3(0, 1.32, 0));
+        const pulse = 0.86 + Math.sin(performance.now() * 0.024) * 0.14;
+        warning.ring.scale.setScalar(pulse);
+        if (strike.timer > 0) return true;
+        this.disposeLeaderStrikeWarning(warning);
+        this.resolveLeaderStrike(target);
+        return false;
+      });
+    }
+    disposeLeaderStrikeWarning(warning) {
+      this.scene.remove(warning.ring, warning.sprite);
+      warning.ring.geometry.dispose();
+      warning.ring.material.dispose();
+      warning.sprite.material.dispose();
+      warning.texture.dispose();
+    }
+    resolveLeaderStrike(target) {
+      const applied = target.applyStun(CONFIG.LEADER_STRIKE.STUN_DURATION);
+      this.createLeaderStrikeBolt(target.position);
+      this.showSpringPunchEffect(target, applied ? "\u843D\u96F7\u6688\u7729 3 \u79D2\uFF01" : "\u843D\u96F7\u88AB\u62B5\u6297\uFF01", applied ? 10283007 : 11463423);
+    }
+    createLeaderStrikeBolt(position) {
+      const group = new Group();
+      const material = new MeshBasicMaterial({ color: 15268863, transparent: true, opacity: 0.95 });
+      const bolt = new Mesh(new CylinderGeometry(0.07, 0.16, 3.4, 6), material);
+      bolt.position.y = 1.65;
+      const impact = new Mesh(new CircleGeometry(0.56, 16), new MeshBasicMaterial({ color: 7723007, transparent: true, opacity: 0.7, side: DoubleSide }));
+      impact.rotation.x = -Math.PI / 2;
+      impact.position.y = 0.03;
+      group.add(bolt, impact);
+      group.position.copy(position);
+      this.scene.add(group);
+      this.leaderStrikeEffects.push({ group, age: 0 });
+    }
+    updateLeaderStrikeEffects(deltaTime) {
+      this.leaderStrikeEffects = this.leaderStrikeEffects.filter((effect) => {
+        effect.age += deltaTime;
+        effect.group.children.forEach((child) => {
+          if (child.material) child.material.opacity = Math.max(0, 1 - effect.age / 0.32);
+        });
+        effect.group.scale.setScalar(1 + effect.age * 0.65);
+        if (effect.age < 0.32) return true;
+        this.scene.remove(effect.group);
+        effect.group.traverse((node) => {
+          node.geometry?.dispose();
+          node.material?.dispose();
+        });
+        return false;
+      });
+    }
+    directionVectorFromActor(actor) {
+      const angle = actor.targetRotationY;
+      if (Math.abs(angle - Math.PI / 2) < 0.1) return new Vector3(1, 0, 0);
+      if (Math.abs(angle + Math.PI / 2) < 0.1) return new Vector3(-1, 0, 0);
+      if (Math.abs(Math.abs(angle) - Math.PI) < 0.1) return new Vector3(0, 0, -1);
+      return new Vector3(0, 0, 1);
+    }
+    createSpringPunchProjectile(punch) {
+      const mesh = new Mesh(new SphereGeometry(0.23, 12, 8), new MeshBasicMaterial({ color: 16768057 }));
+      mesh.scale.set(1.25, 0.78, 0.9);
+      const trail = new Mesh(new BoxGeometry(0.12, 0.08, 0.6), new MeshBasicMaterial({ color: 16773536, transparent: true, opacity: 0.7 }));
+      this.scene.add(mesh, trail);
+      punch.mesh = mesh;
+      punch.trail = trail;
+    }
+    createSpringPunchWindup(actor) {
+      const direction = this.directionVectorFromActor(actor);
+      const group = new Group();
+      const line = new Mesh(new BoxGeometry(0.11, 0.07, 0.78), new MeshBasicMaterial({ color: 16768306, transparent: true, opacity: 0.85 }));
+      const compressedSpring = new Mesh(new TorusGeometry(0.16, 0.035, 6, 10), new MeshBasicMaterial({ color: 16774312 }));
+      compressedSpring.rotation.x = Math.PI / 2;
+      group.add(line, compressedSpring);
+      group.position.copy(actor.position).addScaledVector(direction, 0.52).add(new Vector3(0, 0.54, 0));
+      group.rotation.y = Math.atan2(direction.x, direction.z);
+      this.scene.add(group);
+      return group;
+    }
+    updateSpringPunches(deltaTime) {
+      this.springPunches = this.springPunches.filter((punch) => {
+        if (punch.windup > 0) {
+          punch.windup -= deltaTime;
+          const direction = this.directionVectorFromActor(punch.owner);
+          punch.windupVisual.position.copy(punch.owner.position).addScaledVector(direction, 0.52).add(new Vector3(0, 0.54, 0));
+          punch.windupVisual.rotation.y = Math.atan2(direction.x, direction.z);
+          punch.windupVisual.scale.z = 0.7 + (CONFIG.SPRING_PUNCH.WINDUP - Math.max(0, punch.windup)) / CONFIG.SPRING_PUNCH.WINDUP * 0.55;
+          if (punch.windup > 0) return true;
+          this.disposeSpringPunchWindup(punch);
+          punch.position.copy(punch.owner.position);
+          punch.direction = this.directionVectorFromActor(punch.owner);
+          this.createSpringPunchProjectile(punch);
+        }
+        const previous = punch.position.clone();
+        const step = Math.min(CONFIG.SPRING_PUNCH.SPEED * deltaTime, CONFIG.SPRING_PUNCH.RANGE - punch.distance);
+        punch.position.addScaledVector(punch.direction, step);
+        punch.distance += step;
+        const hit = this.getFirstSpringPunchHit(punch, previous);
+        if (hit) this.resolveSpringPunchHit(punch, hit);
+        if (hit || punch.distance >= CONFIG.SPRING_PUNCH.RANGE) {
+          this.disposeSpringPunch(punch);
+          return false;
+        }
+        punch.mesh.position.copy(punch.position).add(new Vector3(0, 0.55, 0));
+        punch.trail.position.copy(punch.position).addScaledVector(punch.direction, -0.3).add(new Vector3(0, 0.48, 0));
+        punch.trail.rotation.y = Math.atan2(punch.direction.x, punch.direction.z);
+        return true;
+      });
+      this.updateSpringPunchEffects(deltaTime);
+    }
+    getFirstSpringPunchHit(punch, start) {
+      return this.getActiveActors().filter((actor) => actor !== punch.owner && !actor.isRespawning).map((actor) => {
+        const relative = actor.position.clone().sub(start);
+        const along = relative.dot(punch.direction);
+        const lateral = relative.clone().sub(punch.direction.clone().multiplyScalar(along)).length();
+        return { actor, along, lateral };
+      }).filter(({ along, lateral }) => along >= 0 && along <= CONFIG.SPRING_PUNCH.SPEED * 0.1 + CONFIG.SPRING_PUNCH.HIT_RADIUS && lateral <= CONFIG.SPRING_PUNCH.HIT_RADIUS).sort((a, b) => a.along - b.along)[0]?.actor || null;
+    }
+    resolveSpringPunchHit(punch, target) {
+      if (target.applySpringPunchStun()) this.showSpringPunchEffect(target, "\u6688\u7729\uFF01", 16769387);
+      else this.showSpringPunchEffect(target, "\u62B5\u6297\uFF01", 11463423);
+    }
+    disposeSpringPunch(punch) {
+      this.disposeSpringPunchWindup(punch);
+      for (const mesh of [punch.mesh, punch.trail]) {
+        if (!mesh) continue;
+        this.scene.remove(mesh);
+        mesh.geometry?.dispose();
+        mesh.material?.dispose();
+      }
+    }
+    disposeSpringPunchWindup(punch) {
+      if (!punch.windupVisual) return;
+      this.scene.remove(punch.windupVisual);
+      punch.windupVisual.traverse((node) => {
+        node.geometry?.dispose();
+        node.material?.dispose();
+      });
+      punch.windupVisual = null;
+    }
+    showSpringPunchEffect(actor, label, color) {
+      const ring = new Mesh(new TorusGeometry(0.38, 0.045, 6, 12), new MeshBasicMaterial({ color, transparent: true }));
+      ring.rotation.x = Math.PI / 2;
+      ring.position.copy(actor.position).add(new Vector3(0, 0.8, 0));
+      const canvas = document.createElement("canvas");
+      canvas.width = 160;
+      canvas.height = 56;
+      const context = canvas.getContext("2d");
+      context.font = "bold 26px sans-serif";
+      context.textAlign = "center";
+      context.fillStyle = "#fff7b0";
+      context.strokeStyle = "#533300";
+      context.lineWidth = 5;
+      context.strokeText(label, 80, 36);
+      context.fillText(label, 80, 36);
+      const texture = new CanvasTexture(canvas);
+      const sprite = new Sprite(new SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+      sprite.scale.set(1.25, 0.44, 1);
+      this.scene.add(ring, sprite);
+      this.springPunchEffects.push({ actor, ring, sprite, texture, age: 0 });
+    }
+    updateSpringPunchEffects(deltaTime) {
+      this.springPunchEffects = this.springPunchEffects.filter((effect) => {
+        effect.age += deltaTime;
+        effect.ring.position.copy(effect.actor.position).add(new Vector3(0, 0.8 + effect.age * 0.25, 0));
+        effect.sprite.position.copy(effect.actor.position).add(new Vector3(0, 1.3 + effect.age * 0.32, 0));
+        effect.ring.material.opacity = Math.max(0, 1 - effect.age / 1);
+        effect.sprite.material.opacity = Math.max(0, 1 - effect.age / 0.85);
+        if (effect.age < 1) return true;
+        this.scene.remove(effect.ring);
+        this.scene.remove(effect.sprite);
+        effect.ring.geometry.dispose();
+        effect.ring.material.dispose();
+        effect.sprite.material.dispose();
+        effect.texture.dispose();
+        return false;
+      });
     }
     showScoreReward(actor, points) {
       const canvas = document.createElement("canvas");
@@ -22488,6 +23334,26 @@
     }
     startGame(mode = "casual") {
       this.uiManager.hideOverlays();
+      this.springPunches.forEach((punch) => this.disposeSpringPunch(punch));
+      this.springPunches = [];
+      this.springPunchEffects.forEach((effect) => {
+        this.scene.remove(effect.ring, effect.sprite);
+        effect.ring.geometry.dispose();
+        effect.ring.material.dispose();
+        effect.sprite.material.dispose();
+        effect.texture.dispose();
+      });
+      this.springPunchEffects = [];
+      this.leaderStrikes.forEach((strike) => this.disposeLeaderStrikeWarning(strike.warning));
+      this.leaderStrikes = [];
+      this.leaderStrikeEffects.forEach((effect) => {
+        this.scene.remove(effect.group);
+        effect.group.traverse((node) => {
+          node.geometry?.dispose();
+          node.material?.dispose();
+        });
+      });
+      this.leaderStrikeEffects = [];
       this.currentMode = mode || "casual";
       this.uiManager.selectedMode = this.currentMode;
       this.isGameStarted = true;
@@ -22594,7 +23460,11 @@
               this.scoreItemsPrototypeEnabled ? [...this.mapGenerator.scoreItems.values()] : [],
               (actor, gridPosition) => this.canActorEnter(actor, gridPosition),
               (gridPosition, landingPrediction) => this.mapGenerator.isDynamicHoleUnsafe(gridPosition, landingPrediction),
-              (gridPosition) => this.mapGenerator.getDynamicHoleRepairTime(gridPosition)
+              (gridPosition) => this.mapGenerator.getDynamicHoleRepairTime(gridPosition),
+              [],
+              this.leaderStrikePrototypeEnabled ? [...this.mapGenerator.leaderStrikeItems.values()] : [],
+              [],
+              this.getActiveActors()
             );
             bot.update(deltaTime);
             if (wasBotJumping && !bot.isJumping) this.handleBotLanded(bot);
@@ -22632,6 +23502,8 @@
         }
         this.mapGenerator.animateObstacles(deltaTime);
         this.updateScoreRewardEffects(deltaTime);
+        this.updateLeaderStrikes(deltaTime);
+        this.updateLeaderStrikeEffects(deltaTime);
         if (this.isGameStarted && !this.isGameOver && this.currentMode === "casual") {
           if (!this.player.isJumping && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
             this.respawnAtCasualCheckpoint();

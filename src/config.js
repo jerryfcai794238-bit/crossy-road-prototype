@@ -6,6 +6,18 @@ export const CONFIG = {
 
   JUMP_DURATION: 0.16,   // 跳躍時間 (秒)
   JUMP_HEIGHT: 0.5,      // 跳躍高度
+  SPRING_PUNCH: {
+    WINDUP: 0.30,
+    SPEED: 6 * 1.2,
+    RANGE: 6 * 1.2,
+    HIT_RADIUS: 0.42 * 1.2,
+    STUN_DURATION: 1.0,
+    IMMUNITY_DURATION: 1.0
+  },
+  LEADER_STRIKE: {
+    WARNING_DURATION: 0.8,
+    STUN_DURATION: 3.0
+  },
 
   ROW_TYPES: {
     GRASS: 'grass',

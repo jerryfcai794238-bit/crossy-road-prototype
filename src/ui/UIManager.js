@@ -29,6 +29,8 @@ export class UIManager {
     this.timeRemainingEl = document.getElementById('time-remaining');
     this.leaderboard = document.getElementById('leaderboard');
     this.leaderboardList = document.getElementById('leaderboard-list');
+    this.combatAnnouncement = document.getElementById('combat-announcement');
+    this.combatAnnouncementTimer = null;
 
     let savedHighScore = 0;
     try {
@@ -236,7 +238,32 @@ export class UIManager {
       });
   }
 
+  showCombatAnnouncement(message) {
+    if (!this.combatAnnouncement) return;
+    if (this.combatAnnouncementTimer) clearTimeout(this.combatAnnouncementTimer);
+    this.combatAnnouncement.textContent = message;
+    this.combatAnnouncement.classList.remove('combat-announcement-hidden', 'combat-announcement-show');
+    // 強制重播 CSS animation，讓連續攻擊每次都有完整公告時間。
+    void this.combatAnnouncement.offsetWidth;
+    this.combatAnnouncement.classList.add('combat-announcement-show');
+    this.combatAnnouncementTimer = setTimeout(() => {
+      this.combatAnnouncement.classList.remove('combat-announcement-show');
+      this.combatAnnouncement.classList.add('combat-announcement-hidden');
+      this.combatAnnouncementTimer = null;
+    }, 3000);
+  }
+
+  clearCombatAnnouncement() {
+    if (this.combatAnnouncementTimer) clearTimeout(this.combatAnnouncementTimer);
+    this.combatAnnouncementTimer = null;
+    if (!this.combatAnnouncement) return;
+    this.combatAnnouncement.classList.remove('combat-announcement-show');
+    this.combatAnnouncement.classList.add('combat-announcement-hidden');
+    this.combatAnnouncement.textContent = '';
+  }
+
   showLobby() {
+    this.clearCombatAnnouncement();
     if (this.startOverlay) {
       this.startOverlay.classList.remove('hidden');
       this.startOverlay.classList.add('active');
@@ -249,6 +276,7 @@ export class UIManager {
   }
 
   hideOverlays() {
+    this.clearCombatAnnouncement();
     if (this.startOverlay) {
       this.startOverlay.classList.add('hidden');
       this.startOverlay.classList.remove('active');
@@ -292,6 +320,7 @@ export class UIManager {
   }
 
   showGameOver(score, reason = '被車撞飛了！') {
+    this.clearCombatAnnouncement();
     if (this.finalScoreEl) this.finalScoreEl.innerText = score;
     if (this.finalBestEl) this.finalBestEl.innerText = this.highScore;
     if (this.deathReasonEl) this.deathReasonEl.innerText = reason;

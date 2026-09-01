@@ -4,6 +4,7 @@ import { SceneSetup } from './graphics/SceneSetup.js';
 import { AI_CHARACTER_VARIANTS, createChicken, createEagle } from './graphics/VoxelModels.js';
 import { Player } from './mechanics/Player.js';
 import { AIBot } from './mechanics/AIBot.js';
+import { getHighestOtherLeaderStrikeTarget } from './mechanics/LeaderStrikeTargeting.js';
 import { MapGenerator } from './mechanics/MapGenerator.js';
 import { Physics } from './mechanics/Physics.js';
 import { UIManager } from './ui/UIManager.js';
@@ -11,6 +12,8 @@ import { UIManager } from './ui/UIManager.js';
 // 開發驗證開關：只啟用道具生成、獨立道具分與回饋；正式前進分／排行榜不納入道具分。
 const SCORE_ITEM_PROTOTYPE_ENABLED = true;
 const DYNAMIC_HOLES_PROTOTYPE_ENABLED = true;
+const SPRING_PUNCH_PROTOTYPE_ENABLED = false;
+const LEADER_STRIKE_PROTOTYPE_ENABLED = true;
 
 class Game {
   constructor() {
@@ -26,6 +29,11 @@ class Game {
     this.scoreItemsPrototypeEnabled = SCORE_ITEM_PROTOTYPE_ENABLED;
     this.dynamicHolesPrototypeEnabled = DYNAMIC_HOLES_PROTOTYPE_ENABLED;
     this.mapGenerator.scoreItemsEnabled = this.scoreItemsPrototypeEnabled;
+    this.springPunchPrototypeEnabled = SPRING_PUNCH_PROTOTYPE_ENABLED;
+    this.mapGenerator.springPunchItemsEnabled = this.springPunchPrototypeEnabled;
+    this.leaderStrikePrototypeEnabled = LEADER_STRIKE_PROTOTYPE_ENABLED;
+    this.mapGenerator.leaderStrikeItemsEnabled = this.leaderStrikePrototypeEnabled;
+    this.mapGenerator.leaderStrikeReferenceX = () => this.player?.gridX ?? 0;
     this.physics = new Physics();
 
     // 3. 狀態
@@ -44,6 +52,10 @@ class Game {
     this.casualCheckpoint = { x: 0, z: 0 };
     this.lastLandedZ = 0;
     this.scoreRewardEffects = [];
+    this.springPunches = [];
+    this.springPunchEffects = [];
+    this.leaderStrikes = [];
+    this.leaderStrikeEffects = [];
 
     // 4. 小雞主角
     this.chickenMesh = createChicken();
@@ -52,6 +64,8 @@ class Game {
     this.bots = [];
     this.mapGenerator.scoreItemCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition));
     this.mapGenerator.scoreItemReferenceX = () => this.player?.gridX ?? 0;
+    this.mapGenerator.springPunchCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition)) || this.mapGenerator.scoreItems.has(`${gridPosition.x},${gridPosition.z}`) || this.mapGenerator.leaderStrikeItems.has(`${gridPosition.x},${gridPosition.z}`);
+    this.mapGenerator.leaderStrikeCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition)) || this.mapGenerator.scoreItems.has(`${gridPosition.x},${gridPosition.z}`) || this.mapGenerator.springPunchItems.has(`${gridPosition.x},${gridPosition.z}`);
     this.mapGenerator.dynamicHoleCellBlocked = (gridPosition) => {
       const isPlayerCheckpoint = gridPosition.x === this.casualCheckpoint?.x && gridPosition.z === this.casualCheckpoint?.z;
       const isBotCheckpoint = this.bots.some((bot) => (
@@ -108,6 +122,7 @@ class Game {
 
   handlePlayerInput(direction, distance = 1) {
     if (!this.isGameStarted || this.isGameOver) return;
+    if (this.player.stunTimer > 0) return;
 
     if (this.player.isJumping) {
       this.player.queueInput(direction, distance);
@@ -162,7 +177,7 @@ class Game {
   }
 
   planActorMove(actor, direction, distance = 1) {
-    if (actor.isJumping || actor.isDead || actor.isRespawning) return { canMove: false };
+    if (actor.isJumping || actor.isDead || actor.isRespawning || actor.stunTimer > 0) return { canMove: false };
 
     const chain = [actor];
     let target = actor.getTargetGridPosition(direction, distance);
@@ -175,6 +190,11 @@ class Game {
       chain.push(occupant);
       target = occupant.getTargetGridPosition(direction);
     }
+
+    // 推擠必須整鏈可主動移動；否則倒序啟動會造成前方角色先移、後方失敗的半套狀態。
+    if (chain.some((chainActor) => (
+      chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0
+    ))) return { canMove: false };
 
     // 原子式：所有角色目的格均先通過邊界、樹木、占位與預約檢查，才開始任一跳躍；
     // 道路、鐵路、河面與動態洞仍沿用既有落地後危險／復活流程。
@@ -191,6 +211,9 @@ class Game {
 
   startActorMovePlan(plan) {
     // 先讓最前方角色預約終點，再依序啟動後方，避免同幀中被其他決策插隊。
+    if (plan.chain.some((chainActor) => (
+      chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0
+    ))) return false;
     for (let index = plan.chain.length - 1; index >= 0; index--) {
       const chainActor = plan.chain[index];
       const stepDistance = index === 0 ? plan.distance : 1;
@@ -251,6 +274,8 @@ class Game {
     }
     this.mapGenerator.update(this.player.gridZ);
     this.collectScoreItem(this.player);
+    this.collectSpringPunchItem(this.player);
+    this.collectLeaderStrikeItem(this.player);
     this.uiManager.updateScore(this.player.score);
 
     if (this.currentMode !== 'casual') return;
@@ -265,6 +290,8 @@ class Game {
       return;
     }
     this.collectScoreItem(bot);
+    this.collectSpringPunchItem(bot);
+    this.collectLeaderStrikeItem(bot);
     if (this.mapGenerator.isSafeCheckpointRow(bot)) bot.updateCheckpoint();
   }
 
@@ -276,6 +303,270 @@ class Game {
     this.showScoreReward(actor, item.points);
     if (actor === this.player) this.uiManager.pulseScoreReward();
     return true;
+  }
+
+  collectSpringPunchItem(actor) {
+    if (!this.springPunchPrototypeEnabled) return false;
+    const item = this.mapGenerator.collectSpringPunchItemAt({ x: actor.gridX, z: actor.gridZ });
+    if (!item) return false;
+    this.showSpringPunchEffect(actor, '預警：開路彈簧拳！', 0xffdf3f);
+    this.springPunches.push({
+      id: `punch-${performance.now()}-${Math.random()}`,
+      owner: actor,
+      windup: CONFIG.SPRING_PUNCH.WINDUP,
+      distance: 0,
+      position: actor.position.clone(),
+      direction: this.directionVectorFromActor(actor),
+      mesh: null,
+      trail: null,
+      windupVisual: this.createSpringPunchWindup(actor)
+    });
+    return true;
+  }
+
+  getLeaderStrikeTarget(owner) {
+    return getHighestOtherLeaderStrikeTarget(owner, this.getActiveActors());
+  }
+
+  getActorName(actor) {
+    return actor === this.player ? '玩家' : actor.botName || '角色';
+  }
+
+  collectLeaderStrikeItem(actor) {
+    if (!this.leaderStrikePrototypeEnabled) return false;
+    const item = this.mapGenerator.collectLeaderStrikeItemAt({ x: actor.gridX, z: actor.gridZ });
+    if (!item) return false;
+    const target = this.getLeaderStrikeTarget(actor);
+    if (!target) {
+      this.uiManager.showCombatAnnouncement(`${this.getActorName(actor)} 發動「高分追擊落雷」但沒有可攻擊目標`);
+      this.showSpringPunchEffect(actor, '高分追擊落雷：無可攻擊目標', 0x9bdcff);
+      return true;
+    }
+    this.uiManager.showCombatAnnouncement(`⚡ ${this.getActorName(actor)} 發動「高分追擊落雷」攻擊 ${this.getActorName(target)}！`);
+    const warning = this.createLeaderStrikeWarning(target);
+    this.leaderStrikes.push({ owner: actor, target, timer: CONFIG.LEADER_STRIKE.WARNING_DURATION, warning });
+    return true;
+  }
+
+  createLeaderStrikeWarning(target) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.055, 8, 16), new THREE.MeshBasicMaterial({ color: 0xbcefff, transparent: true, opacity: 0.9 }));
+    ring.rotation.x = Math.PI / 2;
+    const label = this.createEffectLabel('高分追擊落雷！', '#eafaff', '#12528a');
+    this.scene.add(ring, label.sprite);
+    return { ring, ...label };
+  }
+
+  createEffectLabel(label, fillStyle, strokeStyle) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 220;
+    canvas.height = 56;
+    const context = canvas.getContext('2d');
+    context.font = 'bold 24px sans-serif';
+    context.textAlign = 'center';
+    context.fillStyle = fillStyle;
+    context.strokeStyle = strokeStyle;
+    context.lineWidth = 5;
+    context.strokeText(label, 110, 36);
+    context.fillText(label, 110, 36);
+    const texture = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+    sprite.scale.set(1.7, 0.44, 1);
+    return { sprite, texture };
+  }
+
+  updateLeaderStrikes(deltaTime) {
+    this.leaderStrikes = this.leaderStrikes.filter((strike) => {
+      const { target, warning } = strike;
+      if (target.isDead || target.isRespawning) {
+        this.disposeLeaderStrikeWarning(warning);
+        return false;
+      }
+      strike.timer -= deltaTime;
+      warning.ring.position.copy(target.position).add(new THREE.Vector3(0, 0.08, 0));
+      warning.sprite.position.copy(target.position).add(new THREE.Vector3(0, 1.32, 0));
+      const pulse = 0.86 + Math.sin(performance.now() * 0.024) * 0.14;
+      warning.ring.scale.setScalar(pulse);
+      if (strike.timer > 0) return true;
+      this.disposeLeaderStrikeWarning(warning);
+      this.resolveLeaderStrike(target);
+      return false;
+    });
+  }
+
+  disposeLeaderStrikeWarning(warning) {
+    this.scene.remove(warning.ring, warning.sprite);
+    warning.ring.geometry.dispose();
+    warning.ring.material.dispose();
+    warning.sprite.material.dispose();
+    warning.texture.dispose();
+  }
+
+  resolveLeaderStrike(target) {
+    const applied = target.applyStun(CONFIG.LEADER_STRIKE.STUN_DURATION);
+    this.createLeaderStrikeBolt(target.position);
+    this.showSpringPunchEffect(target, applied ? '落雷暈眩 3 秒！' : '落雷被抵抗！', applied ? 0x9ce7ff : 0xaeeaff);
+  }
+
+  createLeaderStrikeBolt(position) {
+    const group = new THREE.Group();
+    const material = new THREE.MeshBasicMaterial({ color: 0xe8fbff, transparent: true, opacity: 0.95 });
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.16, 3.4, 6), material);
+    bolt.position.y = 1.65;
+    const impact = new THREE.Mesh(new THREE.CircleGeometry(0.56, 16), new THREE.MeshBasicMaterial({ color: 0x75d7ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
+    impact.rotation.x = -Math.PI / 2;
+    impact.position.y = 0.03;
+    group.add(bolt, impact);
+    group.position.copy(position);
+    this.scene.add(group);
+    this.leaderStrikeEffects.push({ group, age: 0 });
+  }
+
+  updateLeaderStrikeEffects(deltaTime) {
+    this.leaderStrikeEffects = this.leaderStrikeEffects.filter((effect) => {
+      effect.age += deltaTime;
+      effect.group.children.forEach((child) => {
+        if (child.material) child.material.opacity = Math.max(0, 1 - effect.age / 0.32);
+      });
+      effect.group.scale.setScalar(1 + effect.age * 0.65);
+      if (effect.age < 0.32) return true;
+      this.scene.remove(effect.group);
+      effect.group.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
+      return false;
+    });
+  }
+
+  directionVectorFromActor(actor) {
+    const angle = actor.targetRotationY;
+    if (Math.abs(angle - Math.PI / 2) < 0.1) return new THREE.Vector3(1, 0, 0);
+    if (Math.abs(angle + Math.PI / 2) < 0.1) return new THREE.Vector3(-1, 0, 0);
+    if (Math.abs(Math.abs(angle) - Math.PI) < 0.1) return new THREE.Vector3(0, 0, -1);
+    return new THREE.Vector3(0, 0, 1);
+  }
+
+  createSpringPunchProjectile(punch) {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffdc39 }));
+    mesh.scale.set(1.25, 0.78, 0.9);
+    const trail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.6), new THREE.MeshBasicMaterial({ color: 0xfff1a0, transparent: true, opacity: 0.7 }));
+    this.scene.add(mesh, trail);
+    punch.mesh = mesh;
+    punch.trail = trail;
+  }
+
+  createSpringPunchWindup(actor) {
+    const direction = this.directionVectorFromActor(actor);
+    const group = new THREE.Group();
+    const line = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.07, 0.78), new THREE.MeshBasicMaterial({ color: 0xffdd32, transparent: true, opacity: 0.85 }));
+    const compressedSpring = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.035, 6, 10), new THREE.MeshBasicMaterial({ color: 0xfff4a8 }));
+    compressedSpring.rotation.x = Math.PI / 2;
+    group.add(line, compressedSpring);
+    group.position.copy(actor.position).addScaledVector(direction, 0.52).add(new THREE.Vector3(0, 0.54, 0));
+    group.rotation.y = Math.atan2(direction.x, direction.z);
+    this.scene.add(group);
+    return group;
+  }
+
+  updateSpringPunches(deltaTime) {
+    this.springPunches = this.springPunches.filter((punch) => {
+      if (punch.windup > 0) {
+        punch.windup -= deltaTime;
+        const direction = this.directionVectorFromActor(punch.owner);
+        punch.windupVisual.position.copy(punch.owner.position).addScaledVector(direction, 0.52).add(new THREE.Vector3(0, 0.54, 0));
+        punch.windupVisual.rotation.y = Math.atan2(direction.x, direction.z);
+        punch.windupVisual.scale.z = 0.7 + (CONFIG.SPRING_PUNCH.WINDUP - Math.max(0, punch.windup)) / CONFIG.SPRING_PUNCH.WINDUP * 0.55;
+        if (punch.windup > 0) return true;
+        this.disposeSpringPunchWindup(punch);
+        punch.position.copy(punch.owner.position);
+        punch.direction = this.directionVectorFromActor(punch.owner);
+        this.createSpringPunchProjectile(punch);
+      }
+      const previous = punch.position.clone();
+      const step = Math.min(CONFIG.SPRING_PUNCH.SPEED * deltaTime, CONFIG.SPRING_PUNCH.RANGE - punch.distance);
+      punch.position.addScaledVector(punch.direction, step);
+      punch.distance += step;
+      const hit = this.getFirstSpringPunchHit(punch, previous);
+      if (hit) this.resolveSpringPunchHit(punch, hit);
+      if (hit || punch.distance >= CONFIG.SPRING_PUNCH.RANGE) {
+        this.disposeSpringPunch(punch);
+        return false;
+      }
+      punch.mesh.position.copy(punch.position).add(new THREE.Vector3(0, 0.55, 0));
+      punch.trail.position.copy(punch.position).addScaledVector(punch.direction, -0.3).add(new THREE.Vector3(0, 0.48, 0));
+      punch.trail.rotation.y = Math.atan2(punch.direction.x, punch.direction.z);
+      return true;
+    });
+    this.updateSpringPunchEffects(deltaTime);
+  }
+
+  getFirstSpringPunchHit(punch, start) {
+    return this.getActiveActors().filter((actor) => actor !== punch.owner && !actor.isRespawning).map((actor) => {
+      const relative = actor.position.clone().sub(start);
+      const along = relative.dot(punch.direction);
+      const lateral = relative.clone().sub(punch.direction.clone().multiplyScalar(along)).length();
+      return { actor, along, lateral };
+    }).filter(({ along, lateral }) => along >= 0 && along <= CONFIG.SPRING_PUNCH.SPEED * 0.1 + CONFIG.SPRING_PUNCH.HIT_RADIUS && lateral <= CONFIG.SPRING_PUNCH.HIT_RADIUS)
+      .sort((a, b) => a.along - b.along)[0]?.actor || null;
+  }
+
+  resolveSpringPunchHit(punch, target) {
+    if (target.applySpringPunchStun()) this.showSpringPunchEffect(target, '暈眩！', 0xffe16b);
+    else this.showSpringPunchEffect(target, '抵抗！', 0xaeeaff);
+  }
+
+  disposeSpringPunch(punch) {
+    this.disposeSpringPunchWindup(punch);
+    for (const mesh of [punch.mesh, punch.trail]) {
+      if (!mesh) continue;
+      this.scene.remove(mesh);
+      mesh.geometry?.dispose();
+      mesh.material?.dispose();
+    }
+  }
+
+  disposeSpringPunchWindup(punch) {
+    if (!punch.windupVisual) return;
+    this.scene.remove(punch.windupVisual);
+    punch.windupVisual.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
+    punch.windupVisual = null;
+  }
+
+  showSpringPunchEffect(actor, label, color) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.045, 6, 12), new THREE.MeshBasicMaterial({ color, transparent: true }));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.copy(actor.position).add(new THREE.Vector3(0, 0.8, 0));
+    const canvas = document.createElement('canvas');
+    canvas.width = 160;
+    canvas.height = 56;
+    const context = canvas.getContext('2d');
+    context.font = 'bold 26px sans-serif';
+    context.textAlign = 'center';
+    context.fillStyle = '#fff7b0';
+    context.strokeStyle = '#533300';
+    context.lineWidth = 5;
+    context.strokeText(label, 80, 36);
+    context.fillText(label, 80, 36);
+    const texture = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+    sprite.scale.set(1.25, 0.44, 1);
+    this.scene.add(ring, sprite);
+    this.springPunchEffects.push({ actor, ring, sprite, texture, age: 0 });
+  }
+
+  updateSpringPunchEffects(deltaTime) {
+    this.springPunchEffects = this.springPunchEffects.filter((effect) => {
+      effect.age += deltaTime;
+      effect.ring.position.copy(effect.actor.position).add(new THREE.Vector3(0, 0.8 + effect.age * 0.25, 0));
+      effect.sprite.position.copy(effect.actor.position).add(new THREE.Vector3(0, 1.3 + effect.age * 0.32, 0));
+      effect.ring.material.opacity = Math.max(0, 1 - effect.age / 1);
+      effect.sprite.material.opacity = Math.max(0, 1 - effect.age / 0.85);
+      if (effect.age < 1) return true;
+      this.scene.remove(effect.ring);
+      this.scene.remove(effect.sprite);
+      effect.ring.geometry.dispose();
+      effect.ring.material.dispose();
+      effect.sprite.material.dispose();
+      effect.texture.dispose();
+      return false;
+    });
   }
 
   showScoreReward(actor, points) {
@@ -345,6 +636,23 @@ class Game {
 
   startGame(mode = 'casual') {
     this.uiManager.hideOverlays();
+    this.springPunches.forEach((punch) => this.disposeSpringPunch(punch));
+    this.springPunches = [];
+    this.springPunchEffects.forEach((effect) => {
+      this.scene.remove(effect.ring, effect.sprite);
+      effect.ring.geometry.dispose();
+      effect.ring.material.dispose();
+      effect.sprite.material.dispose();
+      effect.texture.dispose();
+    });
+    this.springPunchEffects = [];
+    this.leaderStrikes.forEach((strike) => this.disposeLeaderStrikeWarning(strike.warning));
+    this.leaderStrikes = [];
+    this.leaderStrikeEffects.forEach((effect) => {
+      this.scene.remove(effect.group);
+      effect.group.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
+    });
+    this.leaderStrikeEffects = [];
 
     this.currentMode = mode || 'casual';
     this.uiManager.selectedMode = this.currentMode;
@@ -471,7 +779,11 @@ class Game {
             this.scoreItemsPrototypeEnabled ? [...this.mapGenerator.scoreItems.values()] : [],
             (actor, gridPosition) => this.canActorEnter(actor, gridPosition),
             (gridPosition, landingPrediction) => this.mapGenerator.isDynamicHoleUnsafe(gridPosition, landingPrediction),
-            (gridPosition) => this.mapGenerator.getDynamicHoleRepairTime(gridPosition)
+            (gridPosition) => this.mapGenerator.getDynamicHoleRepairTime(gridPosition),
+            [],
+            this.leaderStrikePrototypeEnabled ? [...this.mapGenerator.leaderStrikeItems.values()] : [],
+            [],
+            this.getActiveActors()
           );
           bot.update(deltaTime);
           if (wasBotJumping && !bot.isJumping) this.handleBotLanded(bot);
@@ -521,6 +833,8 @@ class Game {
       // 5. 馬路車輛 / 河流浮木 / 鐵道火車動態
       this.mapGenerator.animateObstacles(deltaTime);
       this.updateScoreRewardEffects(deltaTime);
+      this.updateLeaderStrikes(deltaTime);
+      this.updateLeaderStrikeEffects(deltaTime);
 
       // 推擠與跳躍完成後才判定地形，讓被推入洞與主動落洞走同一條休閒復活流程。
       if (this.isGameStarted && !this.isGameOver && this.currentMode === 'casual') {

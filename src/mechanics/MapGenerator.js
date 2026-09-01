@@ -11,8 +11,12 @@ import {
 } from '../graphics/VoxelModels.js';
 
 export class MapGenerator {
-  constructor(scene) {
+  constructor(scene, random = Math.random) {
     this.scene = scene;
+    // Keep generation deterministic when a caller supplies a seeded RNG.  This is
+    // deliberately a function rather than a global override so runtime behaviour
+    // remains exactly Math.random by default.
+    this.random = typeof random === 'function' ? random : Math.random;
     this.activeRows = new Map();
 
     this.highestZGenerated = -CONFIG.DESPAWN_BEHIND;
@@ -37,12 +41,27 @@ export class MapGenerator {
     this.scoreItemsEnabled = false;
     this.scoreItemCellBlocked = null;
     this.scoreItemReferenceX = null;
+    this.springPunchItems = new Map();
+    this.springPunchItemsEnabled = false;
+    this.springPunchCellBlocked = null;
+    this.leaderStrikeItems = new Map();
+    this.leaderStrikeItemsEnabled = false;
+    this.leaderStrikeCellBlocked = null;
+    this.leaderStrikeReferenceX = null;
+    this.leaderStrikeBlockIndex = 0;
+    this.leaderStrikePendingBlockIndex = null;
+    this.leaderStrikeSpawnHistory = [];
     this.dynamicHolesEnabled = false;
     this.dynamicHoleCells = new Map();
     this.dynamicHoleCellBlocked = null;
     this.dynamicHolePlayerZ = 0;
     this.dynamicHoleWaveCooldown = 1.5;
     this.dynamicHoleWaveId = 0;
+    this.reachableXs = new Set();
+    this.reachabilityInitialized = false;
+    this.carrierFrontier = null;
+    this.carrierHorizon = 12;
+    this.carrierStep = 0.08;
     this.dynamicHoleConfig = {
       warningDuration: 1.2,
       holeDuration: 2.2,
@@ -114,9 +133,17 @@ export class MapGenerator {
     this.currentHazardChain = null;
     this.hazardChainCounter = 0;
     this.scoreItems.clear();
+    this.springPunchItems.clear();
+    this.leaderStrikeItems.clear();
+    this.leaderStrikeBlockIndex = 0;
+    this.leaderStrikePendingBlockIndex = null;
+    this.leaderStrikeSpawnHistory = [];
     this.dynamicHolePlayerZ = 0;
     this.dynamicHoleWaveCooldown = 1.5;
     this.dynamicHoleWaveId = 0;
+    this.reachableXs.clear();
+    this.reachabilityInitialized = false;
+    this.carrierFrontier = null;
   }
 
   update(playerZ) {
@@ -143,7 +170,7 @@ export class MapGenerator {
       this.forceFirstHazardAtZ8 = false;
       this.forceDynamicHoleGrassAfterFirstHazard = true;
       const hazardTypes = [CONFIG.ROW_TYPES.ROAD, CONFIG.ROW_TYPES.RIVER, CONFIG.ROW_TYPES.RAILROAD];
-      return this.beginCluster(hazardTypes[Math.floor(Math.random() * hazardTypes.length)]);
+      return this.beginCluster(hazardTypes[Math.floor(this.random() * hazardTypes.length)]);
     }
 
     if (this.clusterRemaining > 0) {
@@ -175,7 +202,7 @@ export class MapGenerator {
       CONFIG.ROW_TYPES.RAILROAD
     ];
 
-    let nextType = types[Math.floor(Math.random() * types.length)];
+    let nextType = types[Math.floor(this.random() * types.length)];
     if (nextType !== CONFIG.ROW_TYPES.GRASS && nextType === this.currentClusterType) {
       nextType = CONFIG.ROW_TYPES.GRASS;
     }
@@ -189,21 +216,21 @@ export class MapGenerator {
 
     switch (nextType) {
       case CONFIG.ROW_TYPES.GRASS:
-        this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+        this.clusterRemaining = Math.floor(this.random() * 3) + 1;
         this.grassClusterSize = this.clusterRemaining + 1;
         this.grassClusterRowIndex = 0;
         this.lastLilyPadGridXs = null;
         break;
       case CONFIG.ROW_TYPES.ROAD:
         this.grassClusterSize = 0;
-        this.clusterRemaining = Math.floor(Math.random() * 3) + 1;
+        this.clusterRemaining = Math.floor(this.random() * 3) + 1;
         this.lastLilyPadGridXs = null;
         break;
       case CONFIG.ROW_TYPES.RIVER:
         this.grassClusterSize = 0;
-        this.clusterRemaining = Math.floor(Math.random() * 2) + 1;
+        this.clusterRemaining = Math.floor(this.random() * 2) + 1;
         // 以區域為單位定案當前河道區域子類型 (30% LILY_PAD, 70% LOG)
-        this.currentRiverClusterSubtype = Math.random() < 0.3 ? 'LILY_PAD' : 'LOG';
+        this.currentRiverClusterSubtype = this.random() < 0.3 ? 'LILY_PAD' : 'LOG';
         this.lastLilyPadGridXs = null;
         break;
       case CONFIG.ROW_TYPES.RAILROAD:
@@ -254,8 +281,8 @@ export class MapGenerator {
       train: null,
       signal: null,
       trainState: 'IDLE',
-      idleTimer: Math.random() * 4 + 3.0,
-      direction: Math.random() > 0.5 ? 1 : -1,
+      idleTimer: this.random() * 4 + 3.0,
+      direction: this.random() > 0.5 ? 1 : -1,
       speed: 0,
       isInitialSafe,
       isDynamicHoleFloor,
@@ -273,6 +300,7 @@ export class MapGenerator {
       this.grassClusterRowIndex++;
     }
 
+    const completedHazardChain = type === CONFIG.ROW_TYPES.GRASS ? this.currentHazardChain : null;
     if (type !== CONFIG.ROW_TYPES.GRASS) {
       if (!this.currentHazardChain) {
         this.hazardChainCounter++;
@@ -300,8 +328,183 @@ export class MapGenerator {
         break;
     }
 
-    this.scene.add(rowGroup);
     this.activeRows.set(z, rowData);
+    this.updateGeneratedReachability(rowData);
+    // Reachability is settled before the row enters the scene: players never see
+    // a corrective tree/pad jump after generation.
+    this.scene.add(rowGroup);
+
+    if (type === CONFIG.ROW_TYPES.GRASS && !isInitialSafe) {
+      if (completedHazardChain) this.registerLeaderStrikeBlock(rowData);
+      if (dynamicHoleRole === 'exit') this.registerLeaderStrikeBlock(rowData);
+      if (!rowData.dynamicHoleCluster) this.placePendingLeaderStrike(rowData);
+    }
+  }
+
+  getPlayableXs() {
+    const xs = [];
+    for (let x = -CONFIG.MAP_BOUNDS_X + 1; x <= CONFIG.MAP_BOUNDS_X - 1; x++) xs.push(x);
+    return xs;
+  }
+
+  getRowTraversableXs(row) {
+    if (row.type === CONFIG.ROW_TYPES.RIVER && row.isPureLilyPadRow) {
+      return new Set(row.logs
+        .filter((log) => log.isStationary)
+        .map((log) => Math.round(log.mesh.position.x / CONFIG.GRID_SIZE)));
+    }
+    // A moving river is intentionally not a plain floor. Its legal cells are
+    // calculated by carrier support in getCarrierFrontierForRiver().
+    if (row.type === CONFIG.ROW_TYPES.RIVER) return new Set();
+    const treeXs = new Set(row.trees.map((tree) => tree.gridX));
+    return new Set(this.getPlayableXs().filter((x) => !treeXs.has(x)));
+  }
+
+  floodRowFromEntries(traversable, entries) {
+    const reachable = new Set();
+    const queue = [...entries].filter((x) => traversable.has(x));
+    queue.forEach((x) => reachable.add(x));
+    while (queue.length) {
+      const x = queue.shift();
+      for (const nextX of [x - 1, x + 1]) {
+        if (traversable.has(nextX) && !reachable.has(nextX)) {
+          reachable.add(nextX);
+          queue.push(nextX);
+        }
+      }
+    }
+    return reachable;
+  }
+
+  repairGeneratedRowEntrance(row, previousReachable) {
+    const candidates = [...previousReachable];
+    if (!candidates.length) return null;
+    const x = candidates[Math.floor(this.random() * candidates.length)];
+    if (row.type === CONFIG.ROW_TYPES.RIVER) {
+      const pad = row.logs.find((log) => log.isStationary);
+      if (pad) {
+        pad.mesh.position.x = x * CONFIG.GRID_SIZE;
+        row.reachabilityRepair = { type: 'moved-lily-pad', x };
+        return x;
+      }
+      const mesh = createLilyPadMesh();
+      mesh.position.set(x * CONFIG.GRID_SIZE, 0.1, 0);
+      row.mesh.add(mesh);
+      row.logs.push({ mesh, length: 1, isStationary: true, speed: 0, reachabilityFallback: true });
+      row.reachabilityRepair = { type: 'added-lily-carrier', x };
+      return x;
+    }
+    const treeIndex = row.trees.findIndex((tree) => tree.gridX === x);
+    if (treeIndex >= 0) {
+      const [tree] = row.trees.splice(treeIndex, 1);
+      row.mesh.remove(tree.mesh);
+      tree.mesh.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
+    }
+    row.reachabilityRepair = { type: 'cleared-tree', x };
+    return x;
+  }
+
+  updateGeneratedReachability(row) {
+    if (this.reachabilityInitialized && !this.reachableXs.size && !this.carrierFrontier?.length) {
+      throw new Error(`Map reachability frontier was empty before Z=${row.z}`);
+    }
+    const previousReachable = this.reachabilityInitialized
+      ? new Set(this.reachableXs)
+      : new Set(this.getPlayableXs());
+
+    if (row.type === CONFIG.ROW_TYPES.RIVER) {
+      const incomingCarrierFrontier = this.carrierFrontier;
+      row.carrierInputFrontier = incomingCarrierFrontier;
+      let carrierStates = this.getCarrierFrontierForRiver(row, previousReachable, incomingCarrierFrontier);
+      if (!carrierStates.length) {
+        // This is the smallest static fallback: one pad at an actually reachable
+        // entry X. It preserves the generated logs, water, speed and danger.
+        const repairEntries = this.carrierFrontier?.length
+          ? new Set(this.carrierFrontier.map((state) => state.x))
+          : previousReachable;
+        this.repairGeneratedRowEntrance(row, repairEntries);
+        carrierStates = this.getCarrierFrontierForRiver(row, previousReachable, incomingCarrierFrontier);
+      }
+      if (!carrierStates.length) throw new Error(`Map reachability repair failed for river Z=${row.z}`);
+      row.carrierFrontier = carrierStates;
+      row.reachableXs = [...new Set(carrierStates.map((state) => state.x))].sort((a, b) => a - b);
+      row.reachabilityEntryXs = [...previousReachable];
+      this.reachableXs = new Set(row.reachableXs);
+      this.carrierFrontier = carrierStates;
+      this.reachabilityInitialized = true;
+      return;
+    }
+
+    let traversable = this.getRowTraversableXs(row);
+    let reachable = this.floodRowFromEntries(traversable, previousReachable);
+    if (!reachable.size) {
+      this.repairGeneratedRowEntrance(row, previousReachable);
+      traversable = this.getRowTraversableXs(row);
+      reachable = this.floodRowFromEntries(traversable, previousReachable);
+    }
+    row.reachableXs = [...reachable].sort((a, b) => a - b);
+    row.reachabilityEntryXs = [...previousReachable].filter((x) => traversable.has(x));
+    this.reachableXs = reachable;
+    this.carrierFrontier = null;
+    this.reachabilityInitialized = true;
+  }
+
+  getCarrierX(log, row, time) {
+    if (log.isStationary) return log.mesh.position.x;
+    const bound = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
+    const direction = row.direction >= 0 ? 1 : -1;
+    const speed = Math.max(0, row.speed || 0);
+    let x = log.mesh.position.x;
+    let remaining = Math.max(0, time);
+    // animateObstacles clamps each runtime delta to 0.1s, moves once, then
+    // snaps the carrier to the opposite bound and discards any overshoot.
+    // Replaying those exact steps avoids the modulo-wrap drift that can invent
+    // support near an edge.
+    while (remaining > 1e-9) {
+      const delta = Math.min(remaining, 0.1);
+      x += direction * speed * delta;
+      if (direction > 0 && x > bound) x = -bound;
+      else if (direction < 0 && x < -bound) x = bound;
+      remaining -= delta;
+    }
+    return x;
+  }
+
+  carrierSupportsGridX(log, row, gridX, time) {
+    const playerHalfWidth = 0.3 * CONFIG.GRID_SIZE;
+    const logHalfWidth = (log.length || (log.isStationary ? 1 : 3)) * CONFIG.GRID_SIZE * 1.15 / 2;
+    const playerX = gridX * CONFIG.GRID_SIZE;
+    const logX = this.getCarrierX(log, row, time);
+    return playerX + playerHalfWidth >= logX - logHalfWidth
+      && playerX - playerHalfWidth <= logX + logHalfWidth;
+  }
+
+  getCarrierFrontierForRiver(row, previousReachable, incomingCarrierFrontier = this.carrierFrontier) {
+    const sourceStates = incomingCarrierFrontier?.length
+      ? incomingCarrierFrontier
+      : [...previousReachable].map((x) => ({ x, time: 0 }));
+    const states = [];
+    const seen = new Set();
+    const jump = CONFIG.JUMP_DURATION;
+    for (const source of sourceStates) {
+      const times = incomingCarrierFrontier?.length
+        ? [source.time + jump]
+        : Array.from({ length: Math.floor((this.carrierHorizon - jump) / this.carrierStep) + 1 }, (_, index) => jump + index * this.carrierStep);
+      for (const time of times) {
+        if (time > this.carrierHorizon) continue;
+        // A river-to-river jump advances exactly one jump duration. The first
+        // river can be entered after waiting on a safe non-river row; every
+        // retained landing state has a real Physics-compatible carrier under it.
+        const x = source.x;
+        const logIndex = row.logs.findIndex((log) => this.carrierSupportsGridX(log, row, x, time));
+        if (logIndex < 0) continue;
+        const key = `${Math.round(time / this.carrierStep)}:${x}:${logIndex}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        states.push({ x, time: Number(time.toFixed(3)), logIndex });
+      }
+    }
+    return states;
   }
 
   // 每個連續危險區只挑一個可落地格；hash 讓同一條地圖生成順序可重現。
@@ -374,6 +577,134 @@ export class MapGenerator {
     return item;
   }
 
+  ensureSpringPunchItem(referenceZ = 0, referenceX = 0) {
+    if (!this.springPunchItemsEnabled || this.springPunchItems.size) return;
+    const rows = [...this.activeRows.values()].filter((row) => (
+      row.z >= referenceZ + 2 && row.z <= referenceZ + 8 && row.type === CONFIG.ROW_TYPES.GRASS && !row.scoreItem
+    ));
+    for (const row of rows) {
+      for (let offset = 0; offset <= CONFIG.MAP_BOUNDS_X * 2; offset++) {
+        const signedOffset = offset === 0 ? 0 : (offset % 2 ? Math.ceil(offset / 2) : -offset / 2);
+        const x = Math.round(referenceX) + signedOffset;
+        const key = `${x},${row.z}`;
+        if (Math.abs(x) >= CONFIG.MAP_BOUNDS_X || this.springPunchItems.has(key) || row.trees.some((tree) => tree.gridX === x) || this.springPunchCellBlocked?.({ x, z: row.z })) continue;
+        const mesh = this.createSpringPunchItemMesh();
+        mesh.position.set(x * CONFIG.GRID_SIZE, 0.46, 0);
+        row.mesh.add(mesh);
+        const item = { id: `spring-${row.z}-${x}`, x, z: row.z, type: 'springPunch', mesh, row };
+        row.springPunchItem = item;
+        this.springPunchItems.set(key, item);
+        return;
+      }
+    }
+  }
+
+  createSpringPunchItemMesh() {
+    const group = new THREE.Group();
+    const glove = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), new THREE.MeshLambertMaterial({ color: 0xffcf2f, emissive: 0x594000 }));
+    glove.scale.set(1.15, 0.8, 0.9);
+    const spring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 6, 10), new THREE.MeshBasicMaterial({ color: 0xfff4a8 }));
+    spring.rotation.x = Math.PI / 2;
+    spring.position.y = -0.17;
+    group.add(glove, spring);
+    return group;
+  }
+
+  collectSpringPunchItemAt(gridPosition) {
+    const key = `${gridPosition.x},${gridPosition.z}`;
+    const item = this.springPunchItems.get(key);
+    if (!item) return null;
+    this.springPunchItems.delete(key);
+    item.row.springPunchItem = null;
+    item.row.mesh.remove(item.mesh);
+    item.mesh.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
+    return item;
+  }
+
+  registerLeaderStrikeBlock(row) {
+    if (!this.leaderStrikeItemsEnabled) return;
+    this.leaderStrikeBlockIndex++;
+    if (this.leaderStrikeItems.size) {
+      this.leaderStrikePendingBlockIndex = null;
+      return;
+    }
+    if (this.leaderStrikeBlockIndex % 3 !== 0) return;
+    this.leaderStrikePendingBlockIndex = this.leaderStrikeBlockIndex;
+    if (!row.dynamicHoleCluster) this.placePendingLeaderStrike(row);
+  }
+
+  placePendingLeaderStrike(row) {
+    if (!this.leaderStrikeItemsEnabled || this.leaderStrikePendingBlockIndex === null) return false;
+    if (this.leaderStrikeItems.size) {
+      this.leaderStrikePendingBlockIndex = null;
+      return false;
+    }
+    // 動態破洞區的 entry/floor/exit 都不是穩定落點；下一列一般草地才可放置。
+    if (row.type !== CONFIG.ROW_TYPES.GRASS || row.dynamicHoleCluster || row.scoreItem || row.springPunchItem) return false;
+    const rawReferenceX = this.leaderStrikeReferenceX ? this.leaderStrikeReferenceX() : 0;
+    const referenceX = Math.round(Number.isFinite(rawReferenceX) ? rawReferenceX : 0);
+    const candidates = [...(row.reachableXs || [])]
+      .sort((a, b) => Math.abs(a - referenceX) - Math.abs(b - referenceX) || a - b);
+    for (const x of candidates) {
+      const key = `${x},${row.z}`;
+      if (row.trees.some((tree) => tree.gridX === x) || this.leaderStrikeItems.has(key) || this.leaderStrikeCellBlocked?.({ x, z: row.z })) continue;
+      const mesh = this.createLeaderStrikeItemMesh();
+      mesh.position.set(x * CONFIG.GRID_SIZE, 0.48, 0);
+      row.mesh.add(mesh);
+      const item = {
+        id: `leader-strike-${this.leaderStrikePendingBlockIndex}-${row.z}-${x}`,
+        x,
+        z: row.z,
+        type: 'leaderStrike',
+        blockIndex: this.leaderStrikePendingBlockIndex,
+        mesh,
+        row
+      };
+      row.leaderStrikeItem = item;
+      this.leaderStrikeItems.set(key, item);
+      this.leaderStrikeSpawnHistory.push({ blockIndex: item.blockIndex, x, z: row.z, dynamicHole: false });
+      this.leaderStrikePendingBlockIndex = null;
+      return true;
+    }
+    return false;
+  }
+
+  createLeaderStrikeItemMesh() {
+    const group = new THREE.Group();
+    // 高分追擊落雷必須在前方草地上一眼可辨；以直立信標避免和分數晶體／彈簧拳混淆。
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshLambertMaterial({ color: 0x88dfff, emissive: 0x2a9cff }));
+    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.1, 0.88, 6), new THREE.MeshBasicMaterial({ color: 0x7de8ff, transparent: true, opacity: 0.82 }));
+    beacon.position.y = 0.36;
+    const bolt = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.72, 4), new THREE.MeshBasicMaterial({ color: 0xf1fbff }));
+    bolt.rotation.z = Math.PI;
+    bolt.position.y = 0.62;
+    const innerRing = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.04, 6, 12), new THREE.MeshBasicMaterial({ color: 0xf5fdff }));
+    innerRing.rotation.x = Math.PI / 2;
+    innerRing.position.y = -0.12;
+    const outerRing = new THREE.Mesh(new THREE.TorusGeometry(0.54, 0.035, 6, 12), new THREE.MeshBasicMaterial({ color: 0x4dcfff, transparent: true, opacity: 0.9 }));
+    outerRing.rotation.x = Math.PI / 2;
+    outerRing.position.y = -0.15;
+    group.add(core, beacon, bolt, innerRing, outerRing);
+    return group;
+  }
+
+  collectLeaderStrikeItemAt(gridPosition) {
+    const key = `${gridPosition.x},${gridPosition.z}`;
+    const item = this.leaderStrikeItems.get(key);
+    if (!item) return null;
+    this.removeLeaderStrikeItem(item);
+    return item;
+  }
+
+  removeLeaderStrikeItem(item) {
+    if (!item) return;
+    const key = `${item.x},${item.z}`;
+    this.leaderStrikeItems.delete(key);
+    item.row.leaderStrikeItem = null;
+    item.row.mesh.remove(item.mesh);
+    item.mesh.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
+  }
+
   buildGrassRow(rowData, rowGroup, isInitialSafe) {
     const mat = (Math.abs(rowData.z) % 2 === 0) ? this.grassMat1 : this.grassMat2;
     const lane = new THREE.Mesh(this.laneGeo, mat);
@@ -382,11 +713,11 @@ export class MapGenerator {
 
     // 1. 每一列草地 100% 保證至少有 3 ~ 4 個絕對無樹木的開放通行缺口 (根除死路)
     const playableRange = CONFIG.MAP_BOUNDS_X - 1; // -5 ~ +5
-    const guaranteedOpenCount = rowData.isDynamicHoleFloor ? 4 : Math.floor(Math.random() * 2) + 3;
+    const guaranteedOpenCount = rowData.isDynamicHoleFloor ? 4 : Math.floor(this.random() * 2) + 3;
     const openXs = new Set();
 
     while (openXs.size < guaranteedOpenCount) {
-      const randomX = Math.floor(Math.random() * (playableRange * 2 + 1)) - playableRange;
+      const randomX = Math.floor(this.random() * (playableRange * 2 + 1)) - playableRange;
       openXs.add(randomX);
     }
 
@@ -398,7 +729,7 @@ export class MapGenerator {
       if (isEdge) {
         placeTree = true;
       } else if (!isInitialSafe && !openXs.has(x)) {
-        placeTree = Math.random() < 0.28;
+        placeTree = this.random() < 0.28;
       }
 
       if (isInitialSafe && rowData.z >= -3 && rowData.z <= 3 && Math.abs(x) <= 4) {
@@ -406,7 +737,7 @@ export class MapGenerator {
       }
 
       if (placeTree) {
-        const treeType = Math.floor(Math.random() * 3);
+        const treeType = Math.floor(this.random() * 3);
         const treeMesh = createTreeMesh(treeType);
         treeMesh.position.set(x * CONFIG.GRID_SIZE, 0.2, 0);
         rowGroup.add(treeMesh);
@@ -439,12 +770,12 @@ export class MapGenerator {
     // 車速：開局極緩 (2.0 ~ 3.2)，Z = 70 步保持平緩 (3.0 ~ 4.2)，極高分 (4.2 ~ 6.5)
     const minSpeed = THREE.MathUtils.lerp(2.0, 4.2, zProgress);
     const speedRange = THREE.MathUtils.lerp(1.2, 2.3, zProgress);
-    rowData.speed = minSpeed + Math.random() * speedRange;
+    rowData.speed = minSpeed + this.random() * speedRange;
 
     // 鄰接河道與車道防同步卡死演算法 (River-Road Anti-Locking Algorithm)
     const adjRowRoad = this.activeRows.get(rowData.z - 1) || this.activeRows.get(rowData.z + 1);
     if (adjRowRoad && adjRowRoad.type === CONFIG.ROW_TYPES.RIVER) {
-      if (Math.random() < 0.8) {
+      if (this.random() < 0.8) {
         rowData.direction = -adjRowRoad.direction;
       }
       if (rowData.direction === adjRowRoad.direction) {
@@ -455,12 +786,12 @@ export class MapGenerator {
     }
 
     // 車輛間隔：Z = 70 步保持 6.5 ~ 9.5 格大空檔，極高分最少保持 4.5 格 (永遠有安全空間過街)
-    const isTruck = Math.random() < (0.15 + zProgress * 0.2);
+    const isTruck = this.random() < (0.15 + zProgress * 0.2);
     const vehicleWidth = isTruck ? 2.3 : 1.8;
 
     const minGapGrids = THREE.MathUtils.lerp(7.5, 4.5, zProgress);
     const gapRangeGrids = THREE.MathUtils.lerp(4.0, 2.5, zProgress);
-    const spacing = vehicleWidth + CONFIG.GRID_SIZE * (minGapGrids + Math.random() * gapRangeGrids);
+    const spacing = vehicleWidth + CONFIG.GRID_SIZE * (minGapGrids + this.random() * gapRangeGrids);
 
     const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
     const count = Math.floor(totalSpan / spacing);
@@ -468,7 +799,7 @@ export class MapGenerator {
     const colors = CONFIG.COLORS.CAR_COLORS;
 
     for (let i = 0; i < count; i++) {
-      const colorHex = colors[Math.floor(Math.random() * colors.length)];
+      const colorHex = colors[Math.floor(this.random() * colors.length)];
       const mesh = isTruck ? createTruckMesh() : createCarMesh(colorHex);
 
       const startX = -totalSpan / 2 + i * spacing;
@@ -500,8 +831,8 @@ export class MapGenerator {
     }
     targetRowData.logs = [];
 
-    const logLength = Math.floor(Math.random() * 2) + 3; // 3 ~ 4 格大浮木
-    const minLogGap = 1.0 + Math.random() * 0.3; // 1.0 ~ 1.3 格高密度間距
+    const logLength = Math.floor(this.random() * 2) + 3; // 3 ~ 4 格大浮木
+    const minLogGap = 1.0 + this.random() * 0.3; // 1.0 ~ 1.3 格高密度間距
     const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * minLogGap;
     const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
     const count = Math.floor(totalSpan / logSpan);
@@ -516,6 +847,29 @@ export class MapGenerator {
       targetRowData.logs.push({ mesh, length: logLength });
     }
     targetRowData.isUpgraded = true;
+    // A following lily row upgrades these moving logs after their first carrier
+    // frontier was recorded. Refresh that evidence against the final carriers.
+    if (targetRowData.carrierInputFrontier !== undefined) {
+      const incomingFrontier = targetRowData.carrierInputFrontier;
+      const entryXs = new Set(targetRowData.reachabilityEntryXs || []);
+      let recalculated = this.getCarrierFrontierForRiver(
+        targetRowData,
+        entryXs,
+        incomingFrontier
+      );
+      if (!recalculated.length) {
+        const repairEntries = incomingFrontier?.length
+          ? new Set(incomingFrontier.map((state) => state.x))
+          : entryXs;
+        this.repairGeneratedRowEntrance(targetRowData, repairEntries);
+        recalculated = this.getCarrierFrontierForRiver(targetRowData, entryXs, incomingFrontier);
+      }
+      if (!recalculated.length) throw new Error(`Map reachability repair failed after river upgrade Z=${targetRowData.z}`);
+      targetRowData.carrierFrontier = recalculated;
+      targetRowData.reachableXs = [...new Set(recalculated.map((state) => state.x))].sort((a, b) => a - b);
+      this.reachableXs = new Set(targetRowData.reachableXs);
+      this.carrierFrontier = recalculated;
+    }
   }
 
   buildRiverRow(rowData, rowGroup) {
@@ -539,7 +893,7 @@ export class MapGenerator {
       isPureLilyPadRow = false;
     } else {
       // 若 z-1 不是睡蓮河道：當前列有 35% 機率為單列【純靜態綠色平台踏板河道】
-      isPureLilyPadRow = Math.random() < 0.35;
+      isPureLilyPadRow = this.random() < 0.35;
     }
 
     rowData.isLilyPadRow = isPureLilyPadRow;
@@ -547,12 +901,12 @@ export class MapGenerator {
 
     if (isPureLilyPadRow) {
       // 生成 3 ~ 5 個靜態綠色睡蓮平台 (createLilyPadMesh)，定點擺放於 -4 ~ +4 步道範圍內
-      const padCount = Math.floor(Math.random() * 3) + 3; // 3 ~ 5 個
+      const padCount = Math.floor(this.random() * 3) + 3; // 3 ~ 5 個
       const playableRange = 4; // -4 ~ +4 步道範圍
       const usedXs = new Set();
 
       while (usedXs.size < padCount) {
-        const gridX = Math.floor(Math.random() * (playableRange * 2 + 1)) - playableRange;
+        const gridX = Math.floor(this.random() * (playableRange * 2 + 1)) - playableRange;
         usedXs.add(gridX);
       }
 
@@ -586,7 +940,7 @@ export class MapGenerator {
       }
       this.lastRiverDirection = rowData.direction;
 
-      let speed = THREE.MathUtils.lerp(1.5, 3.2, zProgress) + Math.random() * 1.0;
+      let speed = THREE.MathUtils.lerp(1.5, 3.2, zProgress) + this.random() * 1.0;
       if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1.0) {
         speed += 1.2;
       }
@@ -595,7 +949,7 @@ export class MapGenerator {
       // 鄰接河道與車道防同步卡死演算法 (River-Road Anti-Locking Algorithm)
       const adjRowRoad = this.activeRows.get(rowData.z - 1) || this.activeRows.get(rowData.z + 1);
       if (adjRowRoad && adjRowRoad.type === CONFIG.ROW_TYPES.ROAD) {
-        if (Math.random() < 0.8) {
+        if (this.random() < 0.8) {
           rowData.direction = -adjRowRoad.direction;
         }
         if (rowData.direction === adjRowRoad.direction) {
@@ -614,16 +968,16 @@ export class MapGenerator {
       let logLength, minLogGap, gapRandomRange;
       if (isAdjacentToLilyPad) {
         // 相鄰睡蓮列升級為 3~4 格大浮木與 1.0~1.3 格高密度間距
-        logLength = Math.floor(Math.random() * 2) + 3; // 3 ~ 4 格
-        minLogGap = 1.0 + Math.random() * 0.3; // 1.0 ~ 1.3 格
+        logLength = Math.floor(this.random() * 2) + 3; // 3 ~ 4 格
+        minLogGap = 1.0 + this.random() * 0.3; // 1.0 ~ 1.3 格
         gapRandomRange = 0;
       } else {
-        logLength = zProgress < 0.5 ? (Math.floor(Math.random() * 2) + 3) : (Math.floor(Math.random() * 2) + 2);
+        logLength = zProgress < 0.5 ? (Math.floor(this.random() * 2) + 3) : (Math.floor(this.random() * 2) + 2);
         minLogGap = THREE.MathUtils.lerp(1.2, 2.2, zProgress);
         gapRandomRange = 1.2;
       }
 
-      const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + Math.random() * gapRandomRange);
+      const logSpan = logLength * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE * (minLogGap + this.random() * gapRandomRange);
       const totalSpan = (CONFIG.MAP_BOUNDS_X * 2 + 12) * CONFIG.GRID_SIZE;
       const count = Math.floor(totalSpan / logSpan);
 
@@ -682,6 +1036,14 @@ export class MapGenerator {
       if (row.scoreItem?.mesh) {
         row.scoreItem.mesh.rotation.y += safeDelta * 3.5;
         row.scoreItem.mesh.position.y = 0.5 + Math.sin(performance.now() * 0.004 + z) * 0.08;
+      }
+      if (row.springPunchItem?.mesh) {
+        row.springPunchItem.mesh.rotation.y += safeDelta * 4;
+        row.springPunchItem.mesh.position.y = 0.48 + Math.sin(performance.now() * 0.005 + z) * 0.07;
+      }
+      if (row.leaderStrikeItem?.mesh) {
+        row.leaderStrikeItem.mesh.rotation.y -= safeDelta * 3.2;
+        row.leaderStrikeItem.mesh.position.y = 0.48 + Math.sin(performance.now() * 0.0045 + z) * 0.08;
       }
       if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
         row.vehicles.forEach((veh) => {
@@ -765,7 +1127,7 @@ export class MapGenerator {
             row.mesh.remove(row.train);
             row.train = null;
             row.trainState = 'IDLE';
-            row.idleTimer = Math.random() * 5 + 4.0;
+            row.idleTimer = this.random() * 5 + 4.0;
             if (row.signals) {
               row.signals.forEach((sig) => {
                 sig.leftLightMat.color.setHex(0x440000);
@@ -1065,10 +1427,12 @@ export class MapGenerator {
   }
 
   removeRow(z, row) {
+    if (row?.leaderStrikeItem) this.removeLeaderStrikeItem(row.leaderStrikeItem);
     if (row && row.mesh) {
       this.scene.remove(row.mesh);
     }
     if (row?.scoreItem) this.scoreItems.delete(`${row.scoreItem.x},${row.scoreItem.z}`);
+    if (row?.springPunchItem) this.springPunchItems.delete(`${row.springPunchItem.x},${row.springPunchItem.z}`);
     this.activeRows.delete(z);
   }
 

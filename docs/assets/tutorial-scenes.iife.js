@@ -19001,6 +19001,18 @@ var CrossyRoadTutorialScenes = (() => {
     // 跳躍時間 (秒)
     JUMP_HEIGHT: 0.5,
     // 跳躍高度
+    SPRING_PUNCH: {
+      WINDUP: 0.3,
+      SPEED: 6 * 1.2,
+      RANGE: 6 * 1.2,
+      HIT_RADIUS: 0.42 * 1.2,
+      STUN_DURATION: 1,
+      IMMUNITY_DURATION: 1
+    },
+    LEADER_STRIKE: {
+      WARNING_DURATION: 0.8,
+      STUN_DURATION: 3
+    },
     ROW_TYPES: {
       GRASS: "grass",
       ROAD: "road",

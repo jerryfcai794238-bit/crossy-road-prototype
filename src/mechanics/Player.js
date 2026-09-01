@@ -32,6 +32,8 @@ export class Player {
     this.maxHp = 100;
     this.isInvulnerable = false;
     this.invulnerableTimer = 0;
+    this.stunTimer = 0;
+    this.controlImmunityTimer = 0;
 
     this.inputBuffer = [];
   }
@@ -53,6 +55,8 @@ export class Player {
     this.hp = 100;
     this.isInvulnerable = false;
     this.invulnerableTimer = 0;
+    this.stunTimer = 0;
+    this.controlImmunityTimer = 0;
     this.inputBuffer = [];
 
     this.position.set(0, 0, 0);
@@ -83,7 +87,7 @@ export class Player {
   }
 
   move(direction, distance = 1) {
-    if (this.isJumping || this.isRespawning || this.isDead) return false;
+    if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return false;
 
     this.gridX = Math.round(this.position.x / CONFIG.GRID_SIZE);
     this.gridZ = Math.round(this.position.z / CONFIG.GRID_SIZE);
@@ -144,7 +148,7 @@ export class Player {
   }
 
   queueInput(direction, distance = 1) {
-    if (this.isRespawning || this.isDead) return false;
+    if (this.isRespawning || this.isDead || this.stunTimer > 0) return false;
     if (this.inputBuffer.length < 2) {
       this.inputBuffer.push({ direction, distance });
       return true;
@@ -200,6 +204,18 @@ export class Player {
       }
     }
 
+    if (this.stunTimer > 0) {
+      this.stunTimer = Math.max(0, this.stunTimer - safeDelta);
+      this.inputBuffer = [];
+      // 避免 30 * 0.1 之類的浮點殘值讓暈眩多卡一個更新 tick。
+      if (this.stunTimer <= 1e-6) {
+        this.stunTimer = 0;
+        this.controlImmunityTimer = CONFIG.SPRING_PUNCH.IMMUNITY_DURATION;
+      }
+    } else if (this.controlImmunityTimer > 0) {
+      this.controlImmunityTimer = Math.max(0, this.controlImmunityTimer - safeDelta);
+    }
+
     // 座標 NaN 安全對齊
     if (!Number.isFinite(this.position.x)) this.position.x = this.gridX * CONFIG.GRID_SIZE;
     if (!Number.isFinite(this.position.y)) this.position.y = 0;
@@ -221,6 +237,17 @@ export class Player {
     return false;
   }
 
+  applySpringPunchStun() {
+    return this.applyStun(CONFIG.SPRING_PUNCH.STUN_DURATION);
+  }
+
+  applyStun(duration) {
+    if (this.isDead || this.isRespawning || this.stunTimer > 0 || this.controlImmunityTimer > 0) return false;
+    this.stunTimer = duration;
+    this.inputBuffer = [];
+    return true;
+  }
+
   respawnAt(gridX, gridZ, invulnerableDuration = 1) {
     this.gridX = gridX;
     this.gridZ = gridZ;
@@ -235,6 +262,8 @@ export class Player {
     this.inputBuffer = [];
     this.isInvulnerable = true;
     this.invulnerableTimer = invulnerableDuration;
+    this.stunTimer = 0;
+    this.controlImmunityTimer = 0;
 
     if (this.mesh) {
       this.mesh.position.copy(this.position);

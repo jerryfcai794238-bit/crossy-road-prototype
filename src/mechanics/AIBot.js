@@ -1,5 +1,6 @@
 import { Player } from './Player.js';
 import { CONFIG } from '../config.js';
+import { getHighestOtherLeaderStrikeTarget } from './LeaderStrikeTargeting.js';
 
 export class AIBot extends Player {
   constructor(mesh, botName, startX = 0, startZ = 0, baseAggression = 0.38) {
@@ -18,6 +19,8 @@ export class AIBot extends Player {
     this.scoreItemBlockedAttempts = 0;
     this.scoreItemIgnoredId = null;
     this.scoreItemRetryCooldown = 0;
+    this.springPunchDodgeCooldown = 0;
+    this.lastDodgedPunchId = null;
     this.resetAt(startX, startZ);
   }
 
@@ -40,6 +43,8 @@ export class AIBot extends Player {
     this.scoreItemBlockedAttempts = 0;
     this.scoreItemIgnoredId = null;
     this.scoreItemRetryCooldown = 0;
+    this.springPunchDodgeCooldown = 0;
+    this.lastDodgedPunchId = null;
     if (this.mesh) {
       this.mesh.position.copy(this.position);
       this.mesh.visible = true;
@@ -52,18 +57,20 @@ export class AIBot extends Player {
     }
   }
 
-  updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null) {
-    if (this.isJumping || this.isRespawning || this.isDead) return;
+  updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null, springPunchItems = [], leaderStrikeItems = [], springPunches = [], actors = []) {
+    if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return;
 
     this.decisionTimer += deltaTime;
     this.lateralCooldown = Math.max(0, this.lateralCooldown - deltaTime);
     this.retreatCooldown = Math.max(0, this.retreatCooldown - deltaTime);
     this.scoreItemRetryCooldown = Math.max(0, this.scoreItemRetryCooldown - deltaTime);
+    this.springPunchDodgeCooldown = Math.max(0, this.springPunchDodgeCooldown - deltaTime);
     if (this.scoreItemRetryCooldown === 0) this.scoreItemIgnoredId = null;
     if (this.decisionTimer < this.decisionInterval) return;
     this.decisionTimer = 0;
 
-    const itemDirection = this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+    const dodgeDirection = this.findSpringPunchDodgeDirection(springPunches, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+    const itemDirection = dodgeDirection || this.findLeaderStrikeItemDirection(leaderStrikeItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findSpringPunchItemDirection(springPunchItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
     const direction = itemDirection || this.findPathDirection(activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
     if (!direction) {
       // 無可行替代路時，短暫等待前方即將修復的唯一通道，避免一個 decision tick 後無謂後退。
@@ -103,6 +110,62 @@ export class AIBot extends Player {
     if (direction === 'DOWN') this.retreatCooldown = 0.7;
   }
 
+  findSpringPunchItemDirection(items, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
+    const valuable = items.filter((item) => this.isSpringPunchUsefulFrom(item, actors));
+    if (!valuable.length) return null;
+    return this.findScoreItemDirection(valuable, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+  }
+
+  findLeaderStrikeItemDirection(items, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
+    const valuable = items.filter((item) => this.getLeaderStrikeTarget(actors));
+    if (!valuable.length) return null;
+    return this.findScoreItemDirection(valuable, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+  }
+
+  getLeaderStrikeTarget(actors) {
+    const target = getHighestOtherLeaderStrikeTarget(this, actors);
+    return target && target.stunTimer <= 0 && target.controlImmunityTimer <= 0 ? target : null;
+  }
+
+  isSpringPunchUsefulFrom(item, actors) {
+    const dx = item.x - this.gridX;
+    const dz = item.z - this.gridZ;
+    if (Math.abs(dx) + Math.abs(dz) > 5) return false;
+    const arrivalFacing = Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 'LEFT' : 'RIGHT') : 'UP';
+    const vector = arrivalFacing === 'UP' ? { x: 0, z: 1 } : arrivalFacing === 'LEFT' ? { x: 1, z: 0 } : { x: -1, z: 0 };
+    return actors.some((actor) => actor !== this && !actor.isDead && !actor.isRespawning && actor.stunTimer <= 0 && actor.controlImmunityTimer <= 0 && (
+      Math.abs((actor.gridX - item.x) * vector.z - (actor.gridZ - item.z) * vector.x) < 0.01
+      && (actor.gridX - item.x) * vector.x + (actor.gridZ - item.z) * vector.z >= 1
+      && (actor.gridX - item.x) * vector.x + (actor.gridZ - item.z) * vector.z <= 6
+    ));
+  }
+
+  findSpringPunchDodgeDirection(punches, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
+    if (this.springPunchDodgeCooldown > 0) return null;
+    const threat = punches.find((punch) => {
+      if (punch.owner === this) return false;
+      const dx = this.position.x - punch.position.x;
+      const dz = this.position.z - punch.position.z;
+      const along = dx * punch.direction.x + dz * punch.direction.z;
+      const lateral = Math.abs(dx * punch.direction.z - dz * punch.direction.x);
+      return along >= 0 && lateral <= CONFIG.SPRING_PUNCH.HIT_RADIUS && along / CONFIG.SPRING_PUNCH.SPEED <= 0.65;
+    });
+    if (!threat) return null;
+    const choices = Math.abs(threat.direction.z) > 0
+      ? ['LEFT', 'RIGHT', 'UP', 'DOWN'] : ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+    for (const direction of choices) {
+      const target = this.getTargetGridPosition(direction);
+      if (!this.isCellSafe(target, activeRows, physics, 0.16, isDynamicHoleUnsafe) || (canEnterCell && !canEnterCell(this, target)) || (canMove && !canMove(this, direction))) continue;
+      const targetX = target.x * CONFIG.GRID_SIZE - threat.position.x;
+      const targetZ = target.z * CONFIG.GRID_SIZE - threat.position.z;
+      if (Math.abs(targetX * threat.direction.z - targetZ * threat.direction.x) <= CONFIG.SPRING_PUNCH.HIT_RADIUS) continue;
+      this.springPunchDodgeCooldown = 0.35;
+      this.lastDodgedPunchId = threat.id;
+      return direction;
+    }
+    return null;
+  }
+
   findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
     const candidates = scoreItems.filter((item) => (
       item.id !== this.scoreItemIgnoredId
@@ -124,6 +187,8 @@ export class AIBot extends Player {
         const risk = row?.type === CONFIG.ROW_TYPES.ROAD ? 0.6 : row?.type === CONFIG.ROW_TYPES.RAILROAD ? 0.9 : 0;
         const forwardSteps = Math.max(0, item.z - this.gridZ);
         const extraSteps = Math.max(0, current.depth - forwardSteps);
+        // 彈簧拳只接受完整安全 BFS 的五步內路徑，且相較正常前進最多多兩步。
+        if ((item.type === 'springPunch' || item.type === 'leaderStrike') && extraSteps > 2) continue;
         const utility = 3 - extraSteps * 0.75 - risk;
         if (utility >= 0.6) {
           const target = { item, direction: current.firstDirection, utility };
@@ -181,7 +246,9 @@ export class AIBot extends Player {
 
     while (queue.length > 0) {
       const current = queue.shift();
-      if (current.depth > 0 && current.z > start.z) {
+      // A retreat must not turn the previously reached peak into a fake forward
+      // destination. Only a route beyond the bot's historical peak is progress.
+      if (current.depth > 0 && current.z > this.maxReachedZ) {
         const score = current.z * 100 - current.depth * 3 - Math.abs(current.x - start.x);
         if (!best || score > best.score) best = { direction: current.firstDirection, score };
       }
