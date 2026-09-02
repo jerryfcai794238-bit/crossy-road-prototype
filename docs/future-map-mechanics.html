@@ -51,6 +51,7 @@
     .status--p2 { color: var(--blue); border-color: #b6d0e3; background: var(--blue-soft); }
     .status--p3 { color: var(--muted); }
     .status--base { color: var(--green); border-color: #b9dbc8; background: var(--green-soft); }
+    .status--implemented { color: #0f6947; border-color: #79bd98; background: #ddf4e7; }
     .shell { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); gap: clamp(2rem, 5vw, 5.5rem); padding: 2.5rem 0 5rem; }
     .toc { position: sticky; top: 1.25rem; align-self: start; padding: 1.1rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); }
     .toc strong { display: block; margin: 0 .45rem .6rem; font-family: 'Outfit', sans-serif; }
@@ -123,8 +124,8 @@
   <header class="hero"><div class="hero-inner">
     <p class="eyebrow">Design Library</p>
     <h1>未來玩法機制庫</h1>
-    <p class="lead">把競品啟發整理成可驗證的設計候選；<span class="key">這是研究候選、非正式 GDD</span>。現行【休閒模式】規則完全不變，只有通過原型與多人公平性驗證的項目才可另案進入正式 GDD。</p>
-    <div class="meta-row"><span class="meta">適用：未來多人玩法研究</span><span class="meta">狀態：研究候選、非正式 GDD</span><span class="meta">更新：2026-08-21</span></div>
+    <p class="lead">把競品啟發整理成可驗證的設計候選；<span class="key">這是研究候選、非正式 GDD</span>。休閒與大亂鬥共用對局、地圖與道具規則；兩者只在入場流程不同，只有通過原型與多人公平性驗證的項目才可另案進入正式 GDD。</p>
+    <div class="meta-row"><span class="meta">適用：多人共用玩法研究</span><span class="meta">狀態：研究候選、非正式 GDD</span><span class="meta">更新：2026-08-21</span></div>
   </div></header>
 
   <div class="shell">
@@ -133,7 +134,7 @@
       <a href="#how-to-read">怎麼使用</a>
       <a href="#ranking">候選排序</a>
       <a href="#terrain">地形候選</a>
-      <a href="#collection">收集候選</a>
+      <a href="#collection">道具候選</a>
       <a href="#opening">開局候選</a>
       <a href="#p1-prototype">地形 P1 原型</a>
       <a href="#templates">可複用模板</a>
@@ -146,7 +147,8 @@
         <p class="eyebrow">Decision Frame</p>
         <h2>先決定要驗證什麼，再決定要做什麼</h2>
         <div class="notice"><b>使用規則</b><p>分數是設計假設，不等於直接排程。<strong>優先序看「能否驗證下一個核心風險」</strong>；正式採用前，仍須通過可讀性、多人公平與 AI 尋路檢核。</p></div>
-        <div class="legend" style="margin-top:1rem"><span class="status status--research">研究中：尚未進 GDD</span><span class="status status--p1">P1：下一個原型驗證</span><span class="status status--p2">P2：依賴前置系統</span><span class="status status--p3">P3：最後驗證</span><span class="status status--base">P0：既有核心基準</span></div>
+        <div class="legend" style="margin-top:1rem"><span class="status status--implemented">✓ 已實裝：Prototype 已啟用</span><span class="status status--research">研究中：尚未進 GDD</span><span class="status status--p1">P1：下一個原型驗證</span><span class="status status--p2">P2：依賴前置系統</span><span class="status status--p3">P3：最後驗證</span><span class="status status--base">P0：既有核心基準</span></div>
+        <p class="lead" style="margin-top:.85rem;font-size:.92rem"><span class="status status--implemented">✓ 已實裝</span>只表示目前 Prototype 已開啟並可測，不代表已完成正式多人連線、平衡或最終採用。</p>
         <div class="score-grid" style="margin-top:1.25rem">
           <article class="score-card"><strong>25%</strong><h4>核心趣味</h4><p>是否帶來等、衝、繞、推的選擇。</p></article>
           <article class="score-card"><strong>25%</strong><h4>多人互動</h4><p>玩家之間是否同時有合作與干擾價值。</p></article>
@@ -165,17 +167,18 @@
         <div class="table-wrap"><table>
           <thead><tr><th>優先</th><th>候選機制</th><th>核心趣味<br>25%</th><th>多人互動<br>25%</th><th>一眼可讀<br>15%</th><th>多人公平<br>20%</th><th>原型成本<br>15%</th><th>加權</th><th>採用理由</th></tr></thead>
           <tbody>
-            <tr><td><span class="status status--base">P0</span></td><td><strong>車流／鐵道／漂流木</strong></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><strong>基準</strong></td><td>既有核心基準，不屬新增候選；現行休閒模式規則不在此文件變更。</td></tr>
-            <tr><td><span class="status status--p1">P1</span></td><td><strong>預警後動態破洞</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><span class="score">2</span></td><td><strong>4.0</strong></td><td>最能驗證「地圖也會改變」是否能與推擠共存。</td></tr>
+            <tr><td><span class="status status--base">P0</span></td><td><strong>車流／鐵道／漂流木</strong></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><strong>基準</strong></td><td>既有共用對局基準，不屬新增候選；休閒與大亂鬥以同一份地圖與危險規則進局。</td></tr>
+            <tr><td><span class="status status--p1">P1</span></td><td><strong>預警後動態破洞</strong><br><span class="status status--implemented">✓ 已實裝</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><span class="score">2</span></td><td><strong>4.0</strong></td><td>已在休閒 Prototype 驗證預警、成洞、修復、推入失誤與 AI 重搜。</td></tr>
             <tr><td><span class="status status--p2">P2</span></td><td><strong>橫向掃擊物</strong></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><strong>4.0</strong></td><td>低成本的主題擴充：巨浪、滾桶、擺錘都能共用規則。</td></tr>
             <tr><td><span class="status status--p2">P2</span></td><td><strong>動物群／遊行隊列</strong></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><strong>3.9</strong></td><td>以可穿越缺口取代規律車流，增加左右選位。</td></tr>
             <tr><td><span class="status status--p3">P3</span></td><td><strong>踩踏後崩落地板／斷橋</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">3</span></td><td><span class="score">2</span></td><td><span class="score">2</span></td><td><strong>3.7</strong></td><td>張力高，但最容易讓領先者永久封路，最後才驗證。</td></tr>
-            <tr><td><span class="status status--p1">P1</span></td><td><strong>積分道具</strong></td><td><span class="score score--top">4</span></td><td><span class="score score--top">4</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><strong>4.5</strong></td><td>以可見的 +3 一次性拾取，驗證繞路與競爭是否能讀懂。</td></tr>
-            <tr><td><span class="status status--p2">P2</span></td><td><strong>高分追擊火箭</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><span class="score">3</span></td><td><strong>4.2</strong></td><td>追分壓力明確，需先有鎖定護欄。</td></tr>
-            <tr><td><span class="status status--p2">P2</span></td><td><strong>開路彈簧拳</strong></td><td><span class="score">4</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><strong>4.4</strong></td><td>前方首名目標可一眼辨識。</td></tr>
-            <tr><td><span class="status status--p2">P2</span></td><td><strong>星光泡泡盾</strong></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><strong>4.4</strong></td><td>短時防禦可給被追擊者清楚反應窗。</td></tr>
-            <tr><td><span class="status status--p3">P3</span></td><td><strong>亂鬥驚喜彈</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><span class="score">4</span></td><td><strong>4.3</strong></td><td>保留混戰趣味，後置以降低隨機挫折。</td></tr>
-            <tr><td><span class="status status--p3">P3</span></td><td><strong>地面暈眩陷阱</strong></td><td><span class="score">4</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><span class="score">3</span></td><td><strong>3.9</strong></td><td>需驗證預警與反制是否足夠。</td></tr>
+            <tr><td><span class="status status--p1">P1</span></td><td><strong>積分道具</strong></td><td><span class="score score--top">4</span></td><td><span class="score score--top">4</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><strong>4.5</strong></td><td>既有 +3 互動是休閒與大亂鬥共用候選；保留既有評估。</td></tr>
+            <tr><td><span class="status status--p2">P2</span></td><td><strong>落雷</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><span class="score">3</span></td><td><strong>4.2</strong></td><td>問號箱即時型地圖砲；休閒與大亂鬥共用同一份規則與既有評估。</td></tr>
+            <tr><td><span class="status status--p2">P2</span></td><td><strong>彈簧拳</strong></td><td><span class="score">4</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><strong>4.4</strong></td><td>待命追擊型；依前進格差選目標，保留既有評估。</td></tr>
+            <tr><td><span class="status status--p2">P2</span></td><td><strong>泡泡盾</strong></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><strong>4.4</strong></td><td>待命反應防禦，成功擋掉一次有效道具攻擊後消耗。</td></tr>
+            <tr><td><span class="status status--research">研究中</span></td><td><strong>追擊飛彈</strong></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><strong>未評分</strong></td><td>僅確認追擊與地形破壞規則；不新增優先級或評分。</td></tr>
+            <tr><td><span class="status status--p3">P3</span></td><td><strong>反向操控彈</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><span class="score">4</span></td><td><strong>4.3</strong></td><td>即時隨機干擾，將目標四向操控反轉。</td></tr>
+            <tr><td><span class="status status--p3">P3</span></td><td><strong>逆向滑行陷阱</strong></td><td><span class="score">4</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">3</span></td><td><span class="score">3</span></td><td><strong>3.9</strong></td><td>即時場地干擾；觸發者依踏入反方向逐格滑行 3 格。</td></tr>
             <tr><td><span class="status">P4</span></td><td><strong>金幣</strong></td><td><span class="score">3</span></td><td><span class="score">2</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><strong>3.8</strong></td><td>帳號資源，與對局分數切開。</td></tr>
             <tr><td><span class="status">P4</span></td><td><strong>星光卡包</strong></td><td><span class="score">3</span></td><td><span class="score">2</span></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><strong>3.6</strong></td><td>低於原型門檻，僅保留帳號資源研究。</td></tr>
             <tr><td><span class="status status--p1">P1</span></td><td><strong>公開大亂鬥持續房</strong></td><td><span class="score score--top">5</span></td><td><span class="score score--top">5</span></td><td><span class="score">4</span></td><td><span class="score">4</span></td><td><span class="score">2</span></td><td><strong>4.2</strong></td><td>是獨立未來模式的進房與個人回合核心。</td></tr>
@@ -188,7 +191,7 @@
 
       <section id="p1-prototype">
         <p class="eyebrow">First Experiment</p>
-        <h2>P1：預警後動態破洞</h2>
+        <h2>P1：預警後動態破洞 <span class="status status--implemented">✓ 已實裝</span></h2>
         <p class="lead">借鑑的是「<span class="key">預警後改變地形</span>」這個結構，而不是任何 Disney 的角色、關卡美術或 IP 表現。主題可換成炮彈、隕石、落石或魔法爆炸。</p>
         <div class="timeline" aria-label="預警後動態破洞的四步流程">
           <article class="milestone"><span class="status status--p2">01</span><h3>顯示落點</h3><p>危險格出現明顯標記至少 <strong>1.0–1.2 秒</strong>。</p></article>
@@ -197,7 +200,7 @@
           <article class="milestone"><span class="status status--base">04</span><h3>定時修復</h3><p>破洞修復，避免領先者永久封住後方路線。</p></article>
         </div>
         <div class="prototype-grid">
-          <article class="prototype-card"><div class="card-head"><h3>原型補充：製作範圍</h3><span class="status status--p1">短關卡驗證</span></div><ul><li><code>安全區 2 排 → 動態破洞 4 排 → 安全區 2 排</code></li><li>先做固定種子與固定落點，再測隨機生成。</li><li>玩家、AI、推擠都必須使用同一份格子可走判定。</li></ul></article>
+          <article class="prototype-card"><div class="card-head"><h3>Prototype 現況</h3><span class="status status--implemented">✓ 已實裝</span></div><ul><li><code>入口 → 危險地板 2 排 → 出口</code>，完成兩個普通危險群後插入。</li><li>預警 1.2 秒、成洞 2.2 秒、修復預告 0.6 秒。</li><li>玩家、AI、推擠共用洞格狀態與可達性判定。</li></ul></article>
           <article class="prototype-card"><div class="card-head"><h3>原型補充：公平護欄</h3><span class="status status--research">未通過不可採用</span></div><ul><li>不攻擊安全區／檢查點，不同時封死整排。</li><li>任何時刻至少保留一條可行路線。</li><li>不可連續鎖定同一名角色；破洞必須修復。</li></ul></article>
         </div>
       </section>
@@ -207,7 +210,7 @@
         <h2>地形候選：玩家看到什麼，系統要保證什麼</h2>
         <aside class="baseline-callout"><div class="card-head"><h3>既有三項基準</h3><span class="status status--base">P0｜基準</span></div><p>車流、鐵道預警、河道載具不是新內容；它們是評估每個新機制是否更有價值的基準。</p><p><strong>先穩定再擴充：</strong>車流不可重疊；鐵道必須可讀；河道必須支援多載具與左右位移。若基準規則仍不穩，新機制只會放大問題。</p></aside>
         <div class="candidate-list" aria-label="地形數值候選">
-        <details><summary>預警後動態破洞｜P1｜加權 4.0</summary><div><p><strong>原因：</strong>最直接驗證「地圖改變」能否與推擠共存。<br><strong>規則：</strong>格子先預警 1.0–1.2 秒，命中後暫時成洞；踩入或被推入才失誤，定時修復。<br><strong>前置依賴：</strong>動態格狀態、修復計時、共享可走判定、AI 重搜。<br><strong>公平護欄：</strong>不攻擊安全區／檢查點、不封死整排、至少一條可行路、不可連鎖鎖定同一人。<br><strong>製作優先序：</strong>P1。<br><strong>五項分數：</strong>核心趣味 5、多人互動 5、一眼可讀 4、多人公平 3、原型成本 2。<br><strong>加權結果：</strong>4.0，通過原型門檻。</p></div></details>
+        <details><summary>預警後動態破洞｜P1｜加權 4.0 <span class="status status--implemented">✓ 已實裝</span></summary><div><p><strong>原因：</strong>最直接驗證「地圖改變」能否與推擠共存。<br><strong>規則：</strong>兩排危險地板各選一格；預警 1.2 秒、成洞 2.2 秒、修復預告 0.6 秒。踩入或被推入已成洞格才失誤。<br><strong>前置依賴：</strong>動態格狀態、修復計時、共享可走判定、AI 重搜。<br><strong>公平護欄：</strong>不攻擊安全區／檢查點、不封死整排、兩洞橫向至少錯開 2 欄、生成前保留可行路。<br><strong>製作優先序：</strong>P1。<br><strong>五項分數：</strong>核心趣味 5、多人互動 5、一眼可讀 4、多人公平 3、原型成本 2。<br><strong>加權結果：</strong>4.0，已進入休閒 Prototype。</p></div></details>
         <details><summary>橫向掃擊物｜P2｜加權 4.0</summary><div><p><strong>原因：</strong>以共用規則延伸巨浪、滾桶、擺錘或光束。<br><strong>規則：</strong>掃擊物從邊緣入場，玩家等安全週期或搶先跨越。<br><strong>前置依賴：</strong>固定軌跡、入場預告與一致的失誤判定。<br><strong>公平護欄：</strong>必須先可見、提供完整安全週期、不在安全區生成。<br><strong>製作優先序：</strong>P2。<br><strong>五項分數：</strong>核心趣味 4、多人互動 4、一眼可讀 4、多人公平 4、原型成本 4。<br><strong>加權結果：</strong>4.0，通過原型門檻。</p></div></details>
         <details><summary>動物群／遊行隊列｜P2｜加權 3.9</summary><div><p><strong>原因：</strong>以可穿越缺口增加左右選位與推擠。<br><strong>規則：</strong>寬隊列橫向通過並保留缺口，玩家選擇通過點。<br><strong>前置依賴：</strong>群體隊形、缺口生成與可達性檢查。<br><strong>公平護欄：</strong>缺口至少容納兩名相鄰角色，每輪至少一個可達缺口。<br><strong>製作優先序：</strong>P2。<br><strong>五項分數：</strong>核心趣味 4、多人互動 4、一眼可讀 4、多人公平 4、原型成本 3。<br><strong>加權結果：</strong>3.9，通過原型門檻。</p></div></details>
         <details><summary>踩踏後崩落地板／斷橋｜P3｜加權 3.7</summary><div><p><strong>原因：</strong>張力高，但最可能由領先者封住後方。<br><strong>規則：</strong>踩過先顯示裂痕，延遲崩落並在稍後修復。<br><strong>前置依賴：</strong>每格獨立狀態、倒數、修復與 AI 動態尋路。<br><strong>公平護欄：</strong>裂開後至少 0.8–1 秒逃離時間，永遠留替代路。<br><strong>製作優先序：</strong>P3。<br><strong>五項分數：</strong>核心趣味 5、多人互動 5、一眼可讀 3、多人公平 2、原型成本 2。<br><strong>加權結果：</strong>3.7，低於原型門檻，僅保留研究。</p></div></details>
@@ -215,30 +218,49 @@
       </section>
 
       <section id="collection">
-        <p class="eyebrow">Collection Candidates</p>
-        <h2>收集候選：以個人得分驅動大亂鬥</h2>
-        <div class="notice"><b>模式邊界</b><p>以下僅適用於<strong>獨立未來模式【大亂鬥】</strong>，不替換現行【休閒模式】。大亂鬥沒有排名：固定玩家名單以加入順序顯示每人分數，永不排序、不標名次。所有道具<strong>拾取即自動觸發，沒有技能鍵</strong>。</p></div>
-        <div class="candidate-list" aria-label="收集數值候選">
-        <details open><summary>積分道具｜P1｜加權 4.5</summary><div><p><strong>原因：</strong>以可見但非必經的 +3，驗證繞路、等待與同場競爭是否清楚。<br><strong>規則：</strong>地圖上的積分道具固定提供 <code>+3</code>，拾取即消失且同一物件只能由一名角色取得；既有「首次抵達更前方新格 +1」仍是基準，不是新候選。<br><strong>前置依賴：</strong>合法格生成、原子拾取判定、個人加分與 BOT 路線評估。<br><strong>公平護欄：</strong>只生成在可落地合法格；回頭、橫移、重走不增加既有前進分；道具不改既有休閒勝負與排名規則。<br><strong>製作優先序：</strong>P1。<br><strong>五項分數：</strong>核心趣味 4、多人互動 4、一眼可讀 5、多人公平 5、原型成本 5。<br><strong>加權結果：</strong>4.5，通過原型門檻。</p></div></details>
-        <details><summary>高分追擊火箭｜P2｜加權 4.2</summary><div><p><strong>原因：</strong>讓落後者有明確追分壓力。<br><strong>規則：</strong><strong>高分追擊火箭</strong>自動鎖定最高分的其他角色；同分時隨機選一名。命中只暈眩 1 秒，不擊退、不回檢查點；結束後 1 秒控制免疫。<br><strong>前置依賴：</strong>分數快照、目標鎖定與控制免疫狀態。<br><strong>公平護欄：</strong>不能鎖定自己、同分隨機、免疫窗阻止連續控制。<br><strong>製作優先序：</strong>P2。<br><strong>五項分數：</strong>核心趣味 5、多人互動 5、一眼可讀 4、多人公平 3、原型成本 3。<br><strong>加權結果：</strong>4.2，通過原型門檻。</p></div></details>
-        <details><summary>開路彈簧拳｜P2｜加權 4.4</summary><div><p><strong>原因：</strong>目標在前方首名角色，因果一眼可讀。<br><strong>規則：</strong><strong>開路彈簧拳</strong>沿前方命中首名角色；命中只暈眩 1 秒，不擊退、不回檢查點，結束後 1 秒控制免疫。<br><strong>前置依賴：</strong>前方射線／格線命中、控制與免疫狀態。<br><strong>公平護欄：</strong>只取首名、不可穿透、免疫期間不再受控。<br><strong>製作優先序：</strong>P2。<br><strong>五項分數：</strong>核心趣味 4、多人互動 5、一眼可讀 5、多人公平 4、原型成本 4。<br><strong>加權結果：</strong>4.4，通過原型門檻。</p></div></details>
-        <details><summary>星光泡泡盾｜P2｜加權 4.4</summary><div><p><strong>原因：</strong>給被追擊者可讀的短時反制。<br><strong>規則：</strong><strong>星光泡泡盾</strong>自動啟動 3 秒，擋道具／車／火車；不擋河面／破洞／出界。<br><strong>前置依賴：</strong>傷害來源分類、3 秒計時與視覺覆蓋。<br><strong>公平護欄：</strong>防禦邊界明示，不能免除地形與出界失誤。<br><strong>製作優先序：</strong>P2。<br><strong>五項分數：</strong>核心趣味 4、多人互動 4、一眼可讀 5、多人公平 5、原型成本 4。<br><strong>加權結果：</strong>4.4，通過原型門檻。</p></div></details>
-        <details><summary>亂鬥驚喜彈｜P3｜加權 4.3</summary><div><p><strong>原因：</strong>提供不可預知的混戰轉折。<br><strong>規則：</strong><strong>亂鬥驚喜彈</strong>自動隨機鎖定一名其他角色；命中只暈眩 1 秒，不擊退、不回檢查點，結束後 1 秒控制免疫。<br><strong>前置依賴：</strong>其他角色候選池、隨機選取與控制免疫。<br><strong>公平護欄：</strong>不選自己、目標可見、免疫窗阻止連控。<br><strong>製作優先序：</strong>P3。<br><strong>五項分數：</strong>核心趣味 5、多人互動 5、一眼可讀 4、多人公平 3、原型成本 4。<br><strong>加權結果：</strong>4.3，通過原型門檻。</p></div></details>
-        <details><summary>地面暈眩陷阱｜P3｜加權 3.9</summary><div><p><strong>原因：</strong>提供位置博弈，但需先驗證可讀性。<br><strong>規則：</strong>踩到已預警的陷阱只暈眩 1 秒，不擊退、不回檢查點；結束後 1 秒控制免疫。<br><strong>前置依賴：</strong>地面預警、觸發格與控制免疫。<br><strong>公平護欄：</strong>禁止放在出生／倒數保護區，預警清楚且免疫可見。<br><strong>製作優先序：</strong>P3。<br><strong>五項分數：</strong>核心趣味 4、多人互動 5、一眼可讀 4、多人公平 3、原型成本 3。<br><strong>加權結果：</strong>3.9，通過原型門檻。</p></div></details>
-        <details><summary>金幣｜P4｜加權 3.8</summary><div><p><strong>原因：</strong>提供最容易理解的帳號資源回饋。<br><strong>規則：</strong>拾取即自動獲得金幣；金幣是帳號資源，<strong>不計入對局分數</strong>。<br><strong>前置依賴：</strong>帳號錢包、結算顯示與對局分數分流。<br><strong>公平護欄：</strong>資源與勝負分數完全分離，不影響固定順序名單。<br><strong>製作優先序：</strong>P4。<br><strong>五項分數：</strong>核心趣味 3、多人互動 2、一眼可讀 5、多人公平 5、原型成本 5。<br><strong>加權結果：</strong>3.8，達原型門檻但排在帳號資源最後。</p></div></details>
-        <details><summary>星光卡包｜P4｜加權 3.6</summary><div><p><strong>原因：</strong>作為長期帳號回饋的研究項。<br><strong>規則：</strong>拾取即自動獲得星光卡包；卡包是帳號資源，<strong>不計入對局分數</strong>。<br><strong>前置依賴：</strong>帳號庫存、開包介面與結算分流。<br><strong>公平護欄：</strong>不得提供對局能力優勢，不影響配對或個人得分。<br><strong>製作優先序：</strong>P4。<br><strong>五項分數：</strong>核心趣味 3、多人互動 2、一眼可讀 5、多人公平 5、原型成本 4。<br><strong>加權結果：</strong>3.6，低於原型門檻，僅保留研究。</p></div></details>
-        </div>
+        <p class="eyebrow">Item Candidates</p>
+        <h2>道具候選：以問號箱驅動大亂鬥</h2>
+        <div class="notice"><b>共用玩法邊界</b><p>以下是<strong>休閒與大亂鬥共用</strong>的道具與對局規則；兩種模式只在入場流程不同。休閒 Demo 直接進入對局，不顯示排隊、房間、保留席位或入場進度。所有道具<strong>拾取即自動觸發，沒有技能鍵</strong>。</p></div>
+        <aside class="baseline-callout"><div class="card-head"><h3>共用道具候選</h3><span class="status status--research">研究候選</span></div><p>本段記錄已確認的共用候選規則；既有優先序與評分仍留在上方排序表，未重新評分。候選規則不等於已完成程式實裝。</p></aside>
+
+        <h3 class="subhead">問號箱輪盤與兩格通用待命槽</h3>
+        <div class="table-wrap"><table aria-label="問號箱與待命槽規則"><thead><tr><th>項目</th><th>已確認規則</th></tr></thead><tbody>
+          <tr><td><strong>問號箱輪盤</strong></td><td>地圖道具統一以問號箱呈現；角色碰到後顯示短暫輪盤並隨機骰出道具。即時型立即發動、不佔槽。</td></tr>
+          <tr><td><strong>兩格通用待命槽</strong></td><td>所有待命道具共用兩格，不分攻擊／防禦槽；最多同時持有兩種不同道具。待命型骰中後放入任一空槽。</td></tr>
+          <tr><td><strong>不堆疊與滿槽</strong></td><td>同類待命道具不堆疊，輪盤骰到時改骰其他可取得道具；兩格皆滿時，不能再從問號箱取得待命道具。</td></tr>
+          <tr><td><strong>辨識與操作</strong></td><td>待命道具顯示 HUD Icon 與角色低干擾特效；全數依規則自動發動，沒有技能鍵。</td></tr>
+        </tbody></table></div>
+
+        <h3 class="subhead">共通控制與追擊目標</h3>
+        <div class="table-wrap"><table aria-label="控制與追擊目標規則"><thead><tr><th>項目</th><th>已確認規則</th></tr></thead><tbody>
+          <tr><td><strong>1.5 秒暈眩</strong></td><td>未暈眩者套用 1.5 秒；暈眩中不再套用、不重設、不延長。暈眩結束後可再次受擊，沒有額外控制免疫時間。</td></tr>
+          <tr><td><strong>有效追擊目標</strong></td><td>僅限畫面內、持有者以外的有效玩家；暈眩中的角色不可作為彈簧拳／追擊飛彈目標。</td></tr>
+          <tr><td><strong>選擇順序</strong></td><td>以前進格差 <code>abs(target.gridZ - owner.gridZ)</code> 選取最小者；不分前後，同差隨機。</td></tr>
+          <tr><td><strong>5 秒鎖定／排除</strong></td><td>追擊目標在選定當下進入 5 秒已鎖定名單；其他待命追擊道具須先排除該人並重選下一個最近目標。此限制不影響已發射道具追原目標，且不需等待所有目標離開畫面。</td></tr>
+        </tbody></table></div>
+
+        <h3 class="subhead">道具規則總表</h3>
+        <div class="table-wrap"><table aria-label="休閒與大亂鬥共用道具規則"><thead><tr><th>道具</th><th>類型／持有</th><th>觸發／目標</th><th>效果／消耗</th></tr></thead><tbody>
+          <tr><td><strong>落雷</strong></td><td>即時型／地圖砲</td><td>問號箱骰中後立即對持有者以外的所有有效玩家發動，不受畫面內限制。</td><td>各目標暈眩 1.5 秒；泡泡盾可各自擋掉這次攻擊。</td></tr>
+          <tr><td><strong>彈簧拳</strong></td><td>待命型／追擊</td><td>畫面出現有效目標時，依共通追擊規則自動鎖定並發動。</td><td>單體暈眩 1.5 秒；攻擊送出即消耗，即使被泡泡盾擋下亦然。</td></tr>
+          <tr><td><strong>追擊飛彈</strong><br><span class="status status--research">研究中・未排名／未評分</span></td><td>待命型／追擊＋地形破壞</td><td>目標與彈簧拳相同；發射後持續追原目標，直到命中或目標死亡，不改鎖其他人。</td><td>命中時暈眩 1.5 秒並消失；沿途破壞樹、車、火車，樹木本局不重生。泡泡盾可擋住受擊，但不復原已破壞的地形或交通。</td></tr>
+          <tr><td><strong>泡泡盾</strong></td><td>待命型／反應防禦</td><td>受到有效道具攻擊時自動啟動。</td><td>擋掉一次攻擊後破裂並清空槽位；不防禦車撞、火車、落水與其他地圖危險。</td></tr>
+          <tr><td><strong>反向操控彈</strong></td><td>即時型／控制干擾</td><td>骰中後，從畫面內其他有效玩家隨機鎖定一人。</td><td>目標前、後、左、右四向操控完全反轉，持續 1.5 秒。</td></tr>
+          <tr><td><strong>逆向滑行陷阱</strong></td><td>即時型／場地控制</td><td>骰中後自動設在持有者剛離開的地面格；首名其他玩家踏入時觸發，不可設在出生／重生保護區。</td><td>目標依踏入反方向逐格滑行 3 格後消失；中途撞樹停止，滑入車、火車、河流或洞口依既有危險規則結算。</td></tr>
+        </tbody></table></div>
+        <p class="lead" style="margin-top:1rem"><span class="status status--research">研究中</span>追擊飛彈僅完成休閒與大亂鬥共用的規則定義；未新增優先級或評分，也尚未進入正式實作。</p>
         <aside class="rejection-callout"><h3>駁回方案：共享渡筏／大型載具、個人加時間</h3><p><strong>共享渡筏／大型載具：</strong>共同競爭關係不採共乘，故自候選與排序移除，不保留分數或優先序。<br><strong>個人加時間：</strong>駁回，不列入候選或評分表。每人個人回合固定 120 秒；加時間會破壞持續房的進出節奏與玩家可預期性。</p></aside>
       </section>
 
       <section id="opening">
         <p class="eyebrow">Session Candidates</p>
-        <h2>開局候選：持續房裡的公平進出</h2>
+        <h2>入場候選：共用對局前的不同進場方式</h2>
+        <div class="notice"><b>唯一模式差異</b><p>休閒與大亂鬥進入後使用同一份地圖、道具、計分、復活與結算規則。休閒 Demo 直接開始，不展示入場進度；本段只保留大亂鬥的房間／邀請等入場候選。</p></div>
         <div class="candidate-list" aria-label="開局數值候選">
-        <details open><summary>公開大亂鬥持續房｜P1｜加權 4.2</summary><div><p><strong>原因：</strong>建立可隨時加入的獨立未來模式主流程。<br><strong>規則：</strong>公開大亂鬥是持續房，玩家自動加入執行中的房間；每人有個人 120 秒。加入後顯示 3-2-1-GO，倒數鎖輸入、不可被鎖定或受傷；只有 GO 才開始計時／計分。時間結束角色退出，顯示個人成績與資源，之後可再次加入。沒有排名：名單固定加入順序顯示分數，不排序、不標名次。<br><strong>前置依賴：</strong>個人回合狀態、加入保護、固定順序名單、個人結算。<br><strong>公平護欄：</strong>倒數保護完整，分數從 GO 才開始，退出不重排其他玩家。<br><strong>製作優先序：</strong>P1。<br><strong>五項分數：</strong>核心趣味 5、多人互動 5、一眼可讀 4、多人公平 4、原型成本 2。<br><strong>加權結果：</strong>4.2，通過原型門檻。</p></div></details>
-        <details><summary>組隊加入公開房｜P2｜加權 4.0</summary><div><p><strong>原因：</strong>讓好友一起進同一持續房而不犧牲個人競賽。<br><strong>規則：</strong>組隊進公開房必須整隊同房、同步倒數與起始時間；仍是個人競賽，隊友可互推、暈眩，也可成為道具鎖定目標。<br><strong>前置依賴：</strong>隊伍預留、共同房間指派與同步 GO。<br><strong>公平護欄：</strong>沒有隊伍分數／保護例外，隊友與其他人適用相同控制與鎖定規則。<br><strong>製作優先序：</strong>P2。<br><strong>五項分數：</strong>核心趣味 4、多人互動 5、一眼可讀 4、多人公平 4、原型成本 2。<br><strong>加權結果：</strong>4.0，通過原型門檻。</p></div></details>
-        <details><summary>好友房｜P3｜加權 4.3</summary><div><p><strong>原因：</strong>提供可預期的受邀共同回合。<br><strong>規則：</strong>好友房僅限受邀；所有人同步倒數、共同 120 秒；BOT 補滿數量由房主設定；沒有加時。<br><strong>前置依賴：</strong>邀請、房主設定、共同起始與 BOT 補位。<br><strong>公平護欄：</strong>所有玩家同時 GO、相同共同時限，房主不能在回合中追加時間。<br><strong>製作優先序：</strong>P3。<br><strong>五項分數：</strong>核心趣味 4、多人互動 5、一眼可讀 5、多人公平 5、原型成本 2。<br><strong>加權結果：</strong>4.3，通過原型門檻。</p></div></details>
-        <details><summary>真人取代 BOT｜P2｜加權 3.5（必要前置）</summary><div><p><strong>原因：</strong>避免真人進場繼承 AI 的位置、分數或危險狀態。<br><strong>規則：</strong>固定順序：批次預留席位 → BOT 停止 AI 並清除預約／道具 → BOT 消失 → 真人不繼承 BOT 狀態 → 合法安全區隨機出生 → GO 前重驗格子。真人離開後補全新 BOT；斷線／重連列為連線前置。<br><strong>前置依賴：</strong>批次席位交易、BOT 狀態清理、安全出生與連線／重連設計。<br><strong>公平護欄：</strong>真人絕不繼承 BOT 分數、控制、目標或道具；GO 前再次驗格防止出生重疊。<br><strong>製作優先序：</strong>P2，必要前置。<br><strong>五項分數：</strong>核心趣味 3、多人互動 4、一眼可讀 4、多人公平 5、原型成本 1。<br><strong>加權結果：</strong>3.5，低於玩法原型門檻，但為公開房安全前置。</p></div></details>
+        <details open><summary>公開大亂鬥持續房｜P1｜加權 4.2</summary><div><p><strong>原因：</strong>建立可隨時加入的公開房入場流程。<br><strong>規則：</strong>公開大亂鬥可將玩家帶入執行中的房間；保留席位、加入保護與 3-2-1-GO 僅處理入場。GO 後立即套用休閒與大亂鬥共用的對局、道具、計分、復活與結算規則，不另設個人時限、名單排序或分數規則。休閒 Demo 不呈現此流程。<br><strong>前置依賴：</strong>房間指派、加入保護與安全出生。<br><strong>公平護欄：</strong>入場保護完整；GO 後不保留模式專屬對局例外。<br><strong>製作優先序：</strong>P1。<br><strong>五項分數：</strong>核心趣味 5、多人互動 5、一眼可讀 4、多人公平 4、原型成本 2。<br><strong>加權結果：</strong>4.2，通過原型門檻。</p></div></details>
+        <details><summary>組隊加入公開房｜P2｜加權 4.0</summary><div><p><strong>原因：</strong>讓好友同步完成公開房入場。<br><strong>規則：</strong>組隊進公開房時整隊同房、同步完成入場倒數；進局後不套用任何隊伍分數、保護或道具例外，完全使用共用對局規則。<br><strong>前置依賴：</strong>隊伍預留、共同房間指派與同步 GO。<br><strong>公平護欄：</strong>隊友與其他玩家均適用同一份控制、鎖定、計分與結算規則。<br><strong>製作優先序：</strong>P2。<br><strong>五項分數：</strong>核心趣味 4、多人互動 5、一眼可讀 4、多人公平 4、原型成本 2。<br><strong>加權結果：</strong>4.0，通過原型門檻。</p></div></details>
+        <details><summary>好友房｜P3｜加權 4.3</summary><div><p><strong>原因：</strong>提供可預期的受邀入場方式。<br><strong>規則：</strong>好友房僅限受邀；所有人同步完成入場與起始訊號。BOT 補位由房主設定，但開始後的時間、得分、復活與道具仍完全共用，不因好友房改變。<br><strong>前置依賴：</strong>邀請、房主設定、共同起始與 BOT 補位。<br><strong>公平護欄：</strong>所有玩家在同一個入場結束點進局，房主不能在對局中改變共用規則。<br><strong>製作優先序：</strong>P3。<br><strong>五項分數：</strong>核心趣味 4、多人互動 5、一眼可讀 5、多人公平 5、原型成本 2。<br><strong>加權結果：</strong>4.3，通過原型門檻。</p></div></details>
+        <details><summary>真人取代 BOT｜P2｜加權 3.5（必要前置）</summary><div><p><strong>原因：</strong>避免真人在入場時繼承 AI 的位置、分數或危險狀態。<br><strong>規則：</strong>固定順序：批次預留席位 → BOT 停止 AI 並清除預約／道具 → BOT 消失 → 真人不繼承 BOT 狀態 → 合法安全區隨機出生 → GO 前重驗格子。真人離開後補全新 BOT；斷線／重連列為連線前置。<br><strong>前置依賴：</strong>批次席位交易、BOT 狀態清理、安全出生與連線／重連設計。<br><strong>公平護欄：</strong>真人絕不繼承 BOT 分數、控制、目標或道具；GO 後立即回到共用對局規則。<br><strong>製作優先序：</strong>P2，必要前置。<br><strong>五項分數：</strong>核心趣味 3、多人互動 4、一眼可讀 4、多人公平 5、原型成本 1。<br><strong>加權結果：</strong>3.5，低於玩法原型門檻，但為公開房安全前置。</p></div></details>
         </div>
       </section>
 
