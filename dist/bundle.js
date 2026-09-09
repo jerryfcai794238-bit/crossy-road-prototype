@@ -784,17 +784,17 @@
       return this;
     }
     transpose() {
-      let tmp;
+      let tmp2;
       const m = this.elements;
-      tmp = m[1];
+      tmp2 = m[1];
       m[1] = m[3];
-      m[3] = tmp;
-      tmp = m[2];
+      m[3] = tmp2;
+      tmp2 = m[2];
       m[2] = m[6];
-      m[6] = tmp;
-      tmp = m[5];
+      m[6] = tmp2;
+      tmp2 = m[5];
       m[5] = m[7];
-      m[7] = tmp;
+      m[7] = tmp2;
       return this;
     }
     getNormalMatrix(matrix4) {
@@ -3259,29 +3259,29 @@
       _edge2.subVectors(c, a);
       _normal$1.crossVectors(_edge1, _edge2);
       let DdN = this.direction.dot(_normal$1);
-      let sign;
+      let sign2;
       if (DdN > 0) {
         if (backfaceCulling) return null;
-        sign = 1;
+        sign2 = 1;
       } else if (DdN < 0) {
-        sign = -1;
+        sign2 = -1;
         DdN = -DdN;
       } else {
         return null;
       }
       _diff.subVectors(this.origin, a);
-      const DdQxE2 = sign * this.direction.dot(_edge2.crossVectors(_diff, _edge2));
+      const DdQxE2 = sign2 * this.direction.dot(_edge2.crossVectors(_diff, _edge2));
       if (DdQxE2 < 0) {
         return null;
       }
-      const DdE1xQ = sign * this.direction.dot(_edge1.cross(_diff));
+      const DdE1xQ = sign2 * this.direction.dot(_edge1.cross(_diff));
       if (DdE1xQ < 0) {
         return null;
       }
       if (DdQxE2 + DdE1xQ > DdN) {
         return null;
       }
-      const QdN = -sign * _diff.dot(_normal$1);
+      const QdN = -sign2 * _diff.dot(_normal$1);
       if (QdN < 0) {
         return null;
       }
@@ -3650,25 +3650,25 @@
     }
     transpose() {
       const te = this.elements;
-      let tmp;
-      tmp = te[1];
+      let tmp2;
+      tmp2 = te[1];
       te[1] = te[4];
-      te[4] = tmp;
-      tmp = te[2];
+      te[4] = tmp2;
+      tmp2 = te[2];
       te[2] = te[8];
-      te[8] = tmp;
-      tmp = te[6];
+      te[8] = tmp2;
+      tmp2 = te[6];
       te[6] = te[9];
-      te[9] = tmp;
-      tmp = te[3];
+      te[9] = tmp2;
+      tmp2 = te[3];
       te[3] = te[12];
-      te[12] = tmp;
-      tmp = te[7];
+      te[12] = tmp2;
+      tmp2 = te[7];
       te[7] = te[13];
-      te[13] = tmp;
-      tmp = te[11];
+      te[13] = tmp2;
+      tmp2 = te[11];
       te[11] = te[14];
-      te[14] = tmp;
+      te[14] = tmp2;
       return this;
     }
     setPosition(x, y, z) {
@@ -6393,20 +6393,20 @@
           );
         }
       }
-      const tmp = new Vector3(), tmp2 = new Vector3();
+      const tmp2 = new Vector3(), tmp22 = new Vector3();
       const n = new Vector3(), n2 = new Vector3();
       function handleVertex(v) {
         n.fromArray(normals, v * 3);
         n2.copy(n);
         const t = tan1[v];
-        tmp.copy(t);
-        tmp.sub(n.multiplyScalar(n.dot(t))).normalize();
-        tmp2.crossVectors(n2, t);
-        const test = tmp2.dot(tan2[v]);
+        tmp2.copy(t);
+        tmp2.sub(n.multiplyScalar(n.dot(t))).normalize();
+        tmp22.crossVectors(n2, t);
+        const test = tmp22.dot(tan2[v]);
         const w = test < 0 ? -1 : 1;
-        tangents[v * 4] = tmp.x;
-        tangents[v * 4 + 1] = tmp.y;
-        tangents[v * 4 + 2] = tmp.z;
+        tangents[v * 4] = tmp2.x;
+        tangents[v * 4 + 1] = tmp2.y;
+        tangents[v * 4 + 2] = tmp2.z;
         tangents[v * 4 + 3] = w;
       }
       for (let i = 0, il = groups.length; i < il; ++i) {
@@ -6727,7 +6727,7 @@
       }
       return target;
     }
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       const geometry = this.geometry;
       const material = this.material;
       const matrixWorld = this.matrixWorld;
@@ -6745,9 +6745,9 @@
       if (geometry.boundingBox !== null) {
         if (_ray$3.intersectsBox(geometry.boundingBox) === false) return;
       }
-      this._computeIntersections(raycaster, intersects, _ray$3);
+      this._computeIntersections(raycaster, intersects2, _ray$3);
     }
-    _computeIntersections(raycaster, intersects, rayLocalSpace) {
+    _computeIntersections(raycaster, intersects2, rayLocalSpace) {
       let intersection;
       const geometry = this.geometry;
       const material = this.material;
@@ -6773,7 +6773,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -6787,7 +6787,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -6806,7 +6806,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -6820,7 +6820,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -6995,9 +6995,9 @@
   function mergeUniforms(uniforms) {
     const merged = {};
     for (let u = 0; u < uniforms.length; u++) {
-      const tmp = cloneUniforms(uniforms[u]);
-      for (const p in tmp) {
-        merged[p] = tmp[p];
+      const tmp2 = cloneUniforms(uniforms[u]);
+      for (const p in tmp2) {
+        merged[p] = tmp2[p];
       }
     }
     return merged;
@@ -18127,7 +18127,7 @@
       this.material = material;
       this.center = new Vector2(0.5, 0.5);
     }
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       if (raycaster.camera === null) {
         console.error('THREE.Sprite: "Raycaster.camera" needs to be set in order to raycast against sprites.');
       }
@@ -18162,7 +18162,7 @@
       }
       const distance = raycaster.ray.origin.distanceTo(_intersectPoint);
       if (distance < raycaster.near || distance > raycaster.far) return;
-      intersects.push({
+      intersects2.push({
         distance,
         point: _intersectPoint.clone(),
         uv: Triangle.getInterpolation(_intersectPoint, _vA, _vB, _vC, _uvA, _uvB, _uvC, new Vector2()),
@@ -18190,11 +18190,1206 @@
     vertexPosition.y += _rotatedPosition.y;
     vertexPosition.applyMatrix4(_viewWorldMatrix);
   }
+  var LineBasicMaterial = class extends Material {
+    constructor(parameters) {
+      super();
+      this.isLineBasicMaterial = true;
+      this.type = "LineBasicMaterial";
+      this.color = new Color(16777215);
+      this.map = null;
+      this.linewidth = 1;
+      this.linecap = "round";
+      this.linejoin = "round";
+      this.fog = true;
+      this.setValues(parameters);
+    }
+    copy(source) {
+      super.copy(source);
+      this.color.copy(source.color);
+      this.map = source.map;
+      this.linewidth = source.linewidth;
+      this.linecap = source.linecap;
+      this.linejoin = source.linejoin;
+      this.fog = source.fog;
+      return this;
+    }
+  };
+  var _start$1 = /* @__PURE__ */ new Vector3();
+  var _end$1 = /* @__PURE__ */ new Vector3();
+  var _inverseMatrix$1 = /* @__PURE__ */ new Matrix4();
+  var _ray$1 = /* @__PURE__ */ new Ray();
+  var _sphere$1 = /* @__PURE__ */ new Sphere();
+  var Line = class extends Object3D {
+    constructor(geometry = new BufferGeometry(), material = new LineBasicMaterial()) {
+      super();
+      this.isLine = true;
+      this.type = "Line";
+      this.geometry = geometry;
+      this.material = material;
+      this.updateMorphTargets();
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      this.material = Array.isArray(source.material) ? source.material.slice() : source.material;
+      this.geometry = source.geometry;
+      return this;
+    }
+    computeLineDistances() {
+      const geometry = this.geometry;
+      if (geometry.index === null) {
+        const positionAttribute = geometry.attributes.position;
+        const lineDistances = [0];
+        for (let i = 1, l = positionAttribute.count; i < l; i++) {
+          _start$1.fromBufferAttribute(positionAttribute, i - 1);
+          _end$1.fromBufferAttribute(positionAttribute, i);
+          lineDistances[i] = lineDistances[i - 1];
+          lineDistances[i] += _start$1.distanceTo(_end$1);
+        }
+        geometry.setAttribute("lineDistance", new Float32BufferAttribute(lineDistances, 1));
+      } else {
+        console.warn("THREE.Line.computeLineDistances(): Computation only possible with non-indexed BufferGeometry.");
+      }
+      return this;
+    }
+    raycast(raycaster, intersects2) {
+      const geometry = this.geometry;
+      const matrixWorld = this.matrixWorld;
+      const threshold = raycaster.params.Line.threshold;
+      const drawRange = geometry.drawRange;
+      if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
+      _sphere$1.copy(geometry.boundingSphere);
+      _sphere$1.applyMatrix4(matrixWorld);
+      _sphere$1.radius += threshold;
+      if (raycaster.ray.intersectsSphere(_sphere$1) === false) return;
+      _inverseMatrix$1.copy(matrixWorld).invert();
+      _ray$1.copy(raycaster.ray).applyMatrix4(_inverseMatrix$1);
+      const localThreshold = threshold / ((this.scale.x + this.scale.y + this.scale.z) / 3);
+      const localThresholdSq = localThreshold * localThreshold;
+      const vStart = new Vector3();
+      const vEnd = new Vector3();
+      const interSegment = new Vector3();
+      const interRay = new Vector3();
+      const step = this.isLineSegments ? 2 : 1;
+      const index = geometry.index;
+      const attributes = geometry.attributes;
+      const positionAttribute = attributes.position;
+      if (index !== null) {
+        const start = Math.max(0, drawRange.start);
+        const end = Math.min(index.count, drawRange.start + drawRange.count);
+        for (let i = start, l = end - 1; i < l; i += step) {
+          const a = index.getX(i);
+          const b = index.getX(i + 1);
+          vStart.fromBufferAttribute(positionAttribute, a);
+          vEnd.fromBufferAttribute(positionAttribute, b);
+          const distSq = _ray$1.distanceSqToSegment(vStart, vEnd, interRay, interSegment);
+          if (distSq > localThresholdSq) continue;
+          interRay.applyMatrix4(this.matrixWorld);
+          const distance = raycaster.ray.origin.distanceTo(interRay);
+          if (distance < raycaster.near || distance > raycaster.far) continue;
+          intersects2.push({
+            distance,
+            // What do we want? intersection point on the ray or on the segment??
+            // point: raycaster.ray.at( distance ),
+            point: interSegment.clone().applyMatrix4(this.matrixWorld),
+            index: i,
+            face: null,
+            faceIndex: null,
+            object: this
+          });
+        }
+      } else {
+        const start = Math.max(0, drawRange.start);
+        const end = Math.min(positionAttribute.count, drawRange.start + drawRange.count);
+        for (let i = start, l = end - 1; i < l; i += step) {
+          vStart.fromBufferAttribute(positionAttribute, i);
+          vEnd.fromBufferAttribute(positionAttribute, i + 1);
+          const distSq = _ray$1.distanceSqToSegment(vStart, vEnd, interRay, interSegment);
+          if (distSq > localThresholdSq) continue;
+          interRay.applyMatrix4(this.matrixWorld);
+          const distance = raycaster.ray.origin.distanceTo(interRay);
+          if (distance < raycaster.near || distance > raycaster.far) continue;
+          intersects2.push({
+            distance,
+            // What do we want? intersection point on the ray or on the segment??
+            // point: raycaster.ray.at( distance ),
+            point: interSegment.clone().applyMatrix4(this.matrixWorld),
+            index: i,
+            face: null,
+            faceIndex: null,
+            object: this
+          });
+        }
+      }
+    }
+    updateMorphTargets() {
+      const geometry = this.geometry;
+      const morphAttributes = geometry.morphAttributes;
+      const keys = Object.keys(morphAttributes);
+      if (keys.length > 0) {
+        const morphAttribute = morphAttributes[keys[0]];
+        if (morphAttribute !== void 0) {
+          this.morphTargetInfluences = [];
+          this.morphTargetDictionary = {};
+          for (let m = 0, ml = morphAttribute.length; m < ml; m++) {
+            const name = morphAttribute[m].name || String(m);
+            this.morphTargetInfluences.push(0);
+            this.morphTargetDictionary[name] = m;
+          }
+        }
+      }
+    }
+  };
+  var _start = /* @__PURE__ */ new Vector3();
+  var _end = /* @__PURE__ */ new Vector3();
+  var LineSegments = class extends Line {
+    constructor(geometry, material) {
+      super(geometry, material);
+      this.isLineSegments = true;
+      this.type = "LineSegments";
+    }
+    computeLineDistances() {
+      const geometry = this.geometry;
+      if (geometry.index === null) {
+        const positionAttribute = geometry.attributes.position;
+        const lineDistances = [];
+        for (let i = 0, l = positionAttribute.count; i < l; i += 2) {
+          _start.fromBufferAttribute(positionAttribute, i);
+          _end.fromBufferAttribute(positionAttribute, i + 1);
+          lineDistances[i] = i === 0 ? 0 : lineDistances[i - 1];
+          lineDistances[i + 1] = lineDistances[i] + _start.distanceTo(_end);
+        }
+        geometry.setAttribute("lineDistance", new Float32BufferAttribute(lineDistances, 1));
+      } else {
+        console.warn("THREE.LineSegments.computeLineDistances(): Computation only possible with non-indexed BufferGeometry.");
+      }
+      return this;
+    }
+  };
   var CanvasTexture = class extends Texture {
     constructor(canvas, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy) {
       super(canvas, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy);
       this.isCanvasTexture = true;
       this.needsUpdate = true;
+    }
+  };
+  var Curve = class {
+    constructor() {
+      this.type = "Curve";
+      this.arcLengthDivisions = 200;
+    }
+    // Virtual base class method to overwrite and implement in subclasses
+    //	- t [0 .. 1]
+    getPoint() {
+      console.warn("THREE.Curve: .getPoint() not implemented.");
+      return null;
+    }
+    // Get point at relative position in curve according to arc length
+    // - u [0 .. 1]
+    getPointAt(u, optionalTarget) {
+      const t = this.getUtoTmapping(u);
+      return this.getPoint(t, optionalTarget);
+    }
+    // Get sequence of points using getPoint( t )
+    getPoints(divisions = 5) {
+      const points = [];
+      for (let d = 0; d <= divisions; d++) {
+        points.push(this.getPoint(d / divisions));
+      }
+      return points;
+    }
+    // Get sequence of points using getPointAt( u )
+    getSpacedPoints(divisions = 5) {
+      const points = [];
+      for (let d = 0; d <= divisions; d++) {
+        points.push(this.getPointAt(d / divisions));
+      }
+      return points;
+    }
+    // Get total curve arc length
+    getLength() {
+      const lengths = this.getLengths();
+      return lengths[lengths.length - 1];
+    }
+    // Get list of cumulative segment lengths
+    getLengths(divisions = this.arcLengthDivisions) {
+      if (this.cacheArcLengths && this.cacheArcLengths.length === divisions + 1 && !this.needsUpdate) {
+        return this.cacheArcLengths;
+      }
+      this.needsUpdate = false;
+      const cache = [];
+      let current, last = this.getPoint(0);
+      let sum = 0;
+      cache.push(0);
+      for (let p = 1; p <= divisions; p++) {
+        current = this.getPoint(p / divisions);
+        sum += current.distanceTo(last);
+        cache.push(sum);
+        last = current;
+      }
+      this.cacheArcLengths = cache;
+      return cache;
+    }
+    updateArcLengths() {
+      this.needsUpdate = true;
+      this.getLengths();
+    }
+    // Given u ( 0 .. 1 ), get a t to find p. This gives you points which are equidistant
+    getUtoTmapping(u, distance) {
+      const arcLengths = this.getLengths();
+      let i = 0;
+      const il = arcLengths.length;
+      let targetArcLength;
+      if (distance) {
+        targetArcLength = distance;
+      } else {
+        targetArcLength = u * arcLengths[il - 1];
+      }
+      let low = 0, high = il - 1, comparison;
+      while (low <= high) {
+        i = Math.floor(low + (high - low) / 2);
+        comparison = arcLengths[i] - targetArcLength;
+        if (comparison < 0) {
+          low = i + 1;
+        } else if (comparison > 0) {
+          high = i - 1;
+        } else {
+          high = i;
+          break;
+        }
+      }
+      i = high;
+      if (arcLengths[i] === targetArcLength) {
+        return i / (il - 1);
+      }
+      const lengthBefore = arcLengths[i];
+      const lengthAfter = arcLengths[i + 1];
+      const segmentLength = lengthAfter - lengthBefore;
+      const segmentFraction = (targetArcLength - lengthBefore) / segmentLength;
+      const t = (i + segmentFraction) / (il - 1);
+      return t;
+    }
+    // Returns a unit vector tangent at t
+    // In case any sub curve does not implement its tangent derivation,
+    // 2 points a small delta apart will be used to find its gradient
+    // which seems to give a reasonable approximation
+    getTangent(t, optionalTarget) {
+      const delta = 1e-4;
+      let t1 = t - delta;
+      let t2 = t + delta;
+      if (t1 < 0) t1 = 0;
+      if (t2 > 1) t2 = 1;
+      const pt1 = this.getPoint(t1);
+      const pt2 = this.getPoint(t2);
+      const tangent = optionalTarget || (pt1.isVector2 ? new Vector2() : new Vector3());
+      tangent.copy(pt2).sub(pt1).normalize();
+      return tangent;
+    }
+    getTangentAt(u, optionalTarget) {
+      const t = this.getUtoTmapping(u);
+      return this.getTangent(t, optionalTarget);
+    }
+    computeFrenetFrames(segments, closed) {
+      const normal = new Vector3();
+      const tangents = [];
+      const normals = [];
+      const binormals = [];
+      const vec = new Vector3();
+      const mat = new Matrix4();
+      for (let i = 0; i <= segments; i++) {
+        const u = i / segments;
+        tangents[i] = this.getTangentAt(u, new Vector3());
+      }
+      normals[0] = new Vector3();
+      binormals[0] = new Vector3();
+      let min = Number.MAX_VALUE;
+      const tx = Math.abs(tangents[0].x);
+      const ty = Math.abs(tangents[0].y);
+      const tz = Math.abs(tangents[0].z);
+      if (tx <= min) {
+        min = tx;
+        normal.set(1, 0, 0);
+      }
+      if (ty <= min) {
+        min = ty;
+        normal.set(0, 1, 0);
+      }
+      if (tz <= min) {
+        normal.set(0, 0, 1);
+      }
+      vec.crossVectors(tangents[0], normal).normalize();
+      normals[0].crossVectors(tangents[0], vec);
+      binormals[0].crossVectors(tangents[0], normals[0]);
+      for (let i = 1; i <= segments; i++) {
+        normals[i] = normals[i - 1].clone();
+        binormals[i] = binormals[i - 1].clone();
+        vec.crossVectors(tangents[i - 1], tangents[i]);
+        if (vec.length() > Number.EPSILON) {
+          vec.normalize();
+          const theta = Math.acos(clamp(tangents[i - 1].dot(tangents[i]), -1, 1));
+          normals[i].applyMatrix4(mat.makeRotationAxis(vec, theta));
+        }
+        binormals[i].crossVectors(tangents[i], normals[i]);
+      }
+      if (closed === true) {
+        let theta = Math.acos(clamp(normals[0].dot(normals[segments]), -1, 1));
+        theta /= segments;
+        if (tangents[0].dot(vec.crossVectors(normals[0], normals[segments])) > 0) {
+          theta = -theta;
+        }
+        for (let i = 1; i <= segments; i++) {
+          normals[i].applyMatrix4(mat.makeRotationAxis(tangents[i], theta * i));
+          binormals[i].crossVectors(tangents[i], normals[i]);
+        }
+      }
+      return {
+        tangents,
+        normals,
+        binormals
+      };
+    }
+    clone() {
+      return new this.constructor().copy(this);
+    }
+    copy(source) {
+      this.arcLengthDivisions = source.arcLengthDivisions;
+      return this;
+    }
+    toJSON() {
+      const data = {
+        metadata: {
+          version: 4.6,
+          type: "Curve",
+          generator: "Curve.toJSON"
+        }
+      };
+      data.arcLengthDivisions = this.arcLengthDivisions;
+      data.type = this.type;
+      return data;
+    }
+    fromJSON(json) {
+      this.arcLengthDivisions = json.arcLengthDivisions;
+      return this;
+    }
+  };
+  var EllipseCurve = class extends Curve {
+    constructor(aX = 0, aY = 0, xRadius = 1, yRadius = 1, aStartAngle = 0, aEndAngle = Math.PI * 2, aClockwise = false, aRotation = 0) {
+      super();
+      this.isEllipseCurve = true;
+      this.type = "EllipseCurve";
+      this.aX = aX;
+      this.aY = aY;
+      this.xRadius = xRadius;
+      this.yRadius = yRadius;
+      this.aStartAngle = aStartAngle;
+      this.aEndAngle = aEndAngle;
+      this.aClockwise = aClockwise;
+      this.aRotation = aRotation;
+    }
+    getPoint(t, optionalTarget) {
+      const point = optionalTarget || new Vector2();
+      const twoPi = Math.PI * 2;
+      let deltaAngle = this.aEndAngle - this.aStartAngle;
+      const samePoints = Math.abs(deltaAngle) < Number.EPSILON;
+      while (deltaAngle < 0) deltaAngle += twoPi;
+      while (deltaAngle > twoPi) deltaAngle -= twoPi;
+      if (deltaAngle < Number.EPSILON) {
+        if (samePoints) {
+          deltaAngle = 0;
+        } else {
+          deltaAngle = twoPi;
+        }
+      }
+      if (this.aClockwise === true && !samePoints) {
+        if (deltaAngle === twoPi) {
+          deltaAngle = -twoPi;
+        } else {
+          deltaAngle = deltaAngle - twoPi;
+        }
+      }
+      const angle = this.aStartAngle + t * deltaAngle;
+      let x = this.aX + this.xRadius * Math.cos(angle);
+      let y = this.aY + this.yRadius * Math.sin(angle);
+      if (this.aRotation !== 0) {
+        const cos = Math.cos(this.aRotation);
+        const sin = Math.sin(this.aRotation);
+        const tx = x - this.aX;
+        const ty = y - this.aY;
+        x = tx * cos - ty * sin + this.aX;
+        y = tx * sin + ty * cos + this.aY;
+      }
+      return point.set(x, y);
+    }
+    copy(source) {
+      super.copy(source);
+      this.aX = source.aX;
+      this.aY = source.aY;
+      this.xRadius = source.xRadius;
+      this.yRadius = source.yRadius;
+      this.aStartAngle = source.aStartAngle;
+      this.aEndAngle = source.aEndAngle;
+      this.aClockwise = source.aClockwise;
+      this.aRotation = source.aRotation;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.aX = this.aX;
+      data.aY = this.aY;
+      data.xRadius = this.xRadius;
+      data.yRadius = this.yRadius;
+      data.aStartAngle = this.aStartAngle;
+      data.aEndAngle = this.aEndAngle;
+      data.aClockwise = this.aClockwise;
+      data.aRotation = this.aRotation;
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.aX = json.aX;
+      this.aY = json.aY;
+      this.xRadius = json.xRadius;
+      this.yRadius = json.yRadius;
+      this.aStartAngle = json.aStartAngle;
+      this.aEndAngle = json.aEndAngle;
+      this.aClockwise = json.aClockwise;
+      this.aRotation = json.aRotation;
+      return this;
+    }
+  };
+  var ArcCurve = class extends EllipseCurve {
+    constructor(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      super(aX, aY, aRadius, aRadius, aStartAngle, aEndAngle, aClockwise);
+      this.isArcCurve = true;
+      this.type = "ArcCurve";
+    }
+  };
+  function CubicPoly() {
+    let c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+    function init(x0, x1, t0, t1) {
+      c0 = x0;
+      c1 = t0;
+      c2 = -3 * x0 + 3 * x1 - 2 * t0 - t1;
+      c3 = 2 * x0 - 2 * x1 + t0 + t1;
+    }
+    return {
+      initCatmullRom: function(x0, x1, x2, x3, tension) {
+        init(x1, x2, tension * (x2 - x0), tension * (x3 - x1));
+      },
+      initNonuniformCatmullRom: function(x0, x1, x2, x3, dt0, dt1, dt2) {
+        let t1 = (x1 - x0) / dt0 - (x2 - x0) / (dt0 + dt1) + (x2 - x1) / dt1;
+        let t2 = (x2 - x1) / dt1 - (x3 - x1) / (dt1 + dt2) + (x3 - x2) / dt2;
+        t1 *= dt1;
+        t2 *= dt1;
+        init(x1, x2, t1, t2);
+      },
+      calc: function(t) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        return c0 + c1 * t + c2 * t2 + c3 * t3;
+      }
+    };
+  }
+  var tmp = /* @__PURE__ */ new Vector3();
+  var px = /* @__PURE__ */ new CubicPoly();
+  var py = /* @__PURE__ */ new CubicPoly();
+  var pz = /* @__PURE__ */ new CubicPoly();
+  var CatmullRomCurve3 = class extends Curve {
+    constructor(points = [], closed = false, curveType = "centripetal", tension = 0.5) {
+      super();
+      this.isCatmullRomCurve3 = true;
+      this.type = "CatmullRomCurve3";
+      this.points = points;
+      this.closed = closed;
+      this.curveType = curveType;
+      this.tension = tension;
+    }
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const points = this.points;
+      const l = points.length;
+      const p = (l - (this.closed ? 0 : 1)) * t;
+      let intPoint = Math.floor(p);
+      let weight = p - intPoint;
+      if (this.closed) {
+        intPoint += intPoint > 0 ? 0 : (Math.floor(Math.abs(intPoint) / l) + 1) * l;
+      } else if (weight === 0 && intPoint === l - 1) {
+        intPoint = l - 2;
+        weight = 1;
+      }
+      let p0, p3;
+      if (this.closed || intPoint > 0) {
+        p0 = points[(intPoint - 1) % l];
+      } else {
+        tmp.subVectors(points[0], points[1]).add(points[0]);
+        p0 = tmp;
+      }
+      const p1 = points[intPoint % l];
+      const p2 = points[(intPoint + 1) % l];
+      if (this.closed || intPoint + 2 < l) {
+        p3 = points[(intPoint + 2) % l];
+      } else {
+        tmp.subVectors(points[l - 1], points[l - 2]).add(points[l - 1]);
+        p3 = tmp;
+      }
+      if (this.curveType === "centripetal" || this.curveType === "chordal") {
+        const pow = this.curveType === "chordal" ? 0.5 : 0.25;
+        let dt0 = Math.pow(p0.distanceToSquared(p1), pow);
+        let dt1 = Math.pow(p1.distanceToSquared(p2), pow);
+        let dt2 = Math.pow(p2.distanceToSquared(p3), pow);
+        if (dt1 < 1e-4) dt1 = 1;
+        if (dt0 < 1e-4) dt0 = dt1;
+        if (dt2 < 1e-4) dt2 = dt1;
+        px.initNonuniformCatmullRom(p0.x, p1.x, p2.x, p3.x, dt0, dt1, dt2);
+        py.initNonuniformCatmullRom(p0.y, p1.y, p2.y, p3.y, dt0, dt1, dt2);
+        pz.initNonuniformCatmullRom(p0.z, p1.z, p2.z, p3.z, dt0, dt1, dt2);
+      } else if (this.curveType === "catmullrom") {
+        px.initCatmullRom(p0.x, p1.x, p2.x, p3.x, this.tension);
+        py.initCatmullRom(p0.y, p1.y, p2.y, p3.y, this.tension);
+        pz.initCatmullRom(p0.z, p1.z, p2.z, p3.z, this.tension);
+      }
+      point.set(
+        px.calc(weight),
+        py.calc(weight),
+        pz.calc(weight)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.points = [];
+      for (let i = 0, l = source.points.length; i < l; i++) {
+        const point = source.points[i];
+        this.points.push(point.clone());
+      }
+      this.closed = source.closed;
+      this.curveType = source.curveType;
+      this.tension = source.tension;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.points = [];
+      for (let i = 0, l = this.points.length; i < l; i++) {
+        const point = this.points[i];
+        data.points.push(point.toArray());
+      }
+      data.closed = this.closed;
+      data.curveType = this.curveType;
+      data.tension = this.tension;
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.points = [];
+      for (let i = 0, l = json.points.length; i < l; i++) {
+        const point = json.points[i];
+        this.points.push(new Vector3().fromArray(point));
+      }
+      this.closed = json.closed;
+      this.curveType = json.curveType;
+      this.tension = json.tension;
+      return this;
+    }
+  };
+  function CatmullRom(t, p0, p1, p2, p3) {
+    const v0 = (p2 - p0) * 0.5;
+    const v1 = (p3 - p1) * 0.5;
+    const t2 = t * t;
+    const t3 = t * t2;
+    return (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
+  }
+  function QuadraticBezierP0(t, p) {
+    const k = 1 - t;
+    return k * k * p;
+  }
+  function QuadraticBezierP1(t, p) {
+    return 2 * (1 - t) * t * p;
+  }
+  function QuadraticBezierP2(t, p) {
+    return t * t * p;
+  }
+  function QuadraticBezier(t, p0, p1, p2) {
+    return QuadraticBezierP0(t, p0) + QuadraticBezierP1(t, p1) + QuadraticBezierP2(t, p2);
+  }
+  function CubicBezierP0(t, p) {
+    const k = 1 - t;
+    return k * k * k * p;
+  }
+  function CubicBezierP1(t, p) {
+    const k = 1 - t;
+    return 3 * k * k * t * p;
+  }
+  function CubicBezierP2(t, p) {
+    return 3 * (1 - t) * t * t * p;
+  }
+  function CubicBezierP3(t, p) {
+    return t * t * t * p;
+  }
+  function CubicBezier(t, p0, p1, p2, p3) {
+    return CubicBezierP0(t, p0) + CubicBezierP1(t, p1) + CubicBezierP2(t, p2) + CubicBezierP3(t, p3);
+  }
+  var CubicBezierCurve = class extends Curve {
+    constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2(), v3 = new Vector2()) {
+      super();
+      this.isCubicBezierCurve = true;
+      this.type = "CubicBezierCurve";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+    }
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+      point.set(
+        CubicBezier(t, v0.x, v1.x, v2.x, v3.x),
+        CubicBezier(t, v0.y, v1.y, v2.y, v3.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      this.v3.copy(source.v3);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      data.v3 = this.v3.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      this.v3.fromArray(json.v3);
+      return this;
+    }
+  };
+  var CubicBezierCurve3 = class extends Curve {
+    constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3()) {
+      super();
+      this.isCubicBezierCurve3 = true;
+      this.type = "CubicBezierCurve3";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+    }
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+      point.set(
+        CubicBezier(t, v0.x, v1.x, v2.x, v3.x),
+        CubicBezier(t, v0.y, v1.y, v2.y, v3.y),
+        CubicBezier(t, v0.z, v1.z, v2.z, v3.z)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      this.v3.copy(source.v3);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      data.v3 = this.v3.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      this.v3.fromArray(json.v3);
+      return this;
+    }
+  };
+  var LineCurve = class extends Curve {
+    constructor(v1 = new Vector2(), v2 = new Vector2()) {
+      super();
+      this.isLineCurve = true;
+      this.type = "LineCurve";
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      if (t === 1) {
+        point.copy(this.v2);
+      } else {
+        point.copy(this.v2).sub(this.v1);
+        point.multiplyScalar(t).add(this.v1);
+      }
+      return point;
+    }
+    // Line curve is linear, so we can overwrite default getPointAt
+    getPointAt(u, optionalTarget) {
+      return this.getPoint(u, optionalTarget);
+    }
+    getTangent(t, optionalTarget = new Vector2()) {
+      return optionalTarget.subVectors(this.v2, this.v1).normalize();
+    }
+    getTangentAt(u, optionalTarget) {
+      return this.getTangent(u, optionalTarget);
+    }
+    copy(source) {
+      super.copy(source);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var LineCurve3 = class extends Curve {
+    constructor(v1 = new Vector3(), v2 = new Vector3()) {
+      super();
+      this.isLineCurve3 = true;
+      this.type = "LineCurve3";
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      if (t === 1) {
+        point.copy(this.v2);
+      } else {
+        point.copy(this.v2).sub(this.v1);
+        point.multiplyScalar(t).add(this.v1);
+      }
+      return point;
+    }
+    // Line curve is linear, so we can overwrite default getPointAt
+    getPointAt(u, optionalTarget) {
+      return this.getPoint(u, optionalTarget);
+    }
+    getTangent(t, optionalTarget = new Vector3()) {
+      return optionalTarget.subVectors(this.v2, this.v1).normalize();
+    }
+    getTangentAt(u, optionalTarget) {
+      return this.getTangent(u, optionalTarget);
+    }
+    copy(source) {
+      super.copy(source);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var QuadraticBezierCurve = class extends Curve {
+    constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2()) {
+      super();
+      this.isQuadraticBezierCurve = true;
+      this.type = "QuadraticBezierCurve";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+      point.set(
+        QuadraticBezier(t, v0.x, v1.x, v2.x),
+        QuadraticBezier(t, v0.y, v1.y, v2.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var QuadraticBezierCurve3 = class extends Curve {
+    constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3()) {
+      super();
+      this.isQuadraticBezierCurve3 = true;
+      this.type = "QuadraticBezierCurve3";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+      point.set(
+        QuadraticBezier(t, v0.x, v1.x, v2.x),
+        QuadraticBezier(t, v0.y, v1.y, v2.y),
+        QuadraticBezier(t, v0.z, v1.z, v2.z)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var SplineCurve = class extends Curve {
+    constructor(points = []) {
+      super();
+      this.isSplineCurve = true;
+      this.type = "SplineCurve";
+      this.points = points;
+    }
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const points = this.points;
+      const p = (points.length - 1) * t;
+      const intPoint = Math.floor(p);
+      const weight = p - intPoint;
+      const p0 = points[intPoint === 0 ? intPoint : intPoint - 1];
+      const p1 = points[intPoint];
+      const p2 = points[intPoint > points.length - 2 ? points.length - 1 : intPoint + 1];
+      const p3 = points[intPoint > points.length - 3 ? points.length - 1 : intPoint + 2];
+      point.set(
+        CatmullRom(weight, p0.x, p1.x, p2.x, p3.x),
+        CatmullRom(weight, p0.y, p1.y, p2.y, p3.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.points = [];
+      for (let i = 0, l = source.points.length; i < l; i++) {
+        const point = source.points[i];
+        this.points.push(point.clone());
+      }
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.points = [];
+      for (let i = 0, l = this.points.length; i < l; i++) {
+        const point = this.points[i];
+        data.points.push(point.toArray());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.points = [];
+      for (let i = 0, l = json.points.length; i < l; i++) {
+        const point = json.points[i];
+        this.points.push(new Vector2().fromArray(point));
+      }
+      return this;
+    }
+  };
+  var Curves = /* @__PURE__ */ Object.freeze({
+    __proto__: null,
+    ArcCurve,
+    CatmullRomCurve3,
+    CubicBezierCurve,
+    CubicBezierCurve3,
+    EllipseCurve,
+    LineCurve,
+    LineCurve3,
+    QuadraticBezierCurve,
+    QuadraticBezierCurve3,
+    SplineCurve
+  });
+  var CurvePath = class extends Curve {
+    constructor() {
+      super();
+      this.type = "CurvePath";
+      this.curves = [];
+      this.autoClose = false;
+    }
+    add(curve) {
+      this.curves.push(curve);
+    }
+    closePath() {
+      const startPoint = this.curves[0].getPoint(0);
+      const endPoint = this.curves[this.curves.length - 1].getPoint(1);
+      if (!startPoint.equals(endPoint)) {
+        const lineType = startPoint.isVector2 === true ? "LineCurve" : "LineCurve3";
+        this.curves.push(new Curves[lineType](endPoint, startPoint));
+      }
+      return this;
+    }
+    // To get accurate point with reference to
+    // entire path distance at time t,
+    // following has to be done:
+    // 1. Length of each sub path have to be known
+    // 2. Locate and identify type of curve
+    // 3. Get t for the curve
+    // 4. Return curve.getPointAt(t')
+    getPoint(t, optionalTarget) {
+      const d = t * this.getLength();
+      const curveLengths = this.getCurveLengths();
+      let i = 0;
+      while (i < curveLengths.length) {
+        if (curveLengths[i] >= d) {
+          const diff = curveLengths[i] - d;
+          const curve = this.curves[i];
+          const segmentLength = curve.getLength();
+          const u = segmentLength === 0 ? 0 : 1 - diff / segmentLength;
+          return curve.getPointAt(u, optionalTarget);
+        }
+        i++;
+      }
+      return null;
+    }
+    // We cannot use the default THREE.Curve getPoint() with getLength() because in
+    // THREE.Curve, getLength() depends on getPoint() but in THREE.CurvePath
+    // getPoint() depends on getLength
+    getLength() {
+      const lens = this.getCurveLengths();
+      return lens[lens.length - 1];
+    }
+    // cacheLengths must be recalculated.
+    updateArcLengths() {
+      this.needsUpdate = true;
+      this.cacheLengths = null;
+      this.getCurveLengths();
+    }
+    // Compute lengths and cache them
+    // We cannot overwrite getLengths() because UtoT mapping uses it.
+    getCurveLengths() {
+      if (this.cacheLengths && this.cacheLengths.length === this.curves.length) {
+        return this.cacheLengths;
+      }
+      const lengths = [];
+      let sums = 0;
+      for (let i = 0, l = this.curves.length; i < l; i++) {
+        sums += this.curves[i].getLength();
+        lengths.push(sums);
+      }
+      this.cacheLengths = lengths;
+      return lengths;
+    }
+    getSpacedPoints(divisions = 40) {
+      const points = [];
+      for (let i = 0; i <= divisions; i++) {
+        points.push(this.getPoint(i / divisions));
+      }
+      if (this.autoClose) {
+        points.push(points[0]);
+      }
+      return points;
+    }
+    getPoints(divisions = 12) {
+      const points = [];
+      let last;
+      for (let i = 0, curves = this.curves; i < curves.length; i++) {
+        const curve = curves[i];
+        const resolution = curve.isEllipseCurve ? divisions * 2 : curve.isLineCurve || curve.isLineCurve3 ? 1 : curve.isSplineCurve ? divisions * curve.points.length : divisions;
+        const pts = curve.getPoints(resolution);
+        for (let j = 0; j < pts.length; j++) {
+          const point = pts[j];
+          if (last && last.equals(point)) continue;
+          points.push(point);
+          last = point;
+        }
+      }
+      if (this.autoClose && points.length > 1 && !points[points.length - 1].equals(points[0])) {
+        points.push(points[0]);
+      }
+      return points;
+    }
+    copy(source) {
+      super.copy(source);
+      this.curves = [];
+      for (let i = 0, l = source.curves.length; i < l; i++) {
+        const curve = source.curves[i];
+        this.curves.push(curve.clone());
+      }
+      this.autoClose = source.autoClose;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.autoClose = this.autoClose;
+      data.curves = [];
+      for (let i = 0, l = this.curves.length; i < l; i++) {
+        const curve = this.curves[i];
+        data.curves.push(curve.toJSON());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.autoClose = json.autoClose;
+      this.curves = [];
+      for (let i = 0, l = json.curves.length; i < l; i++) {
+        const curve = json.curves[i];
+        this.curves.push(new Curves[curve.type]().fromJSON(curve));
+      }
+      return this;
+    }
+  };
+  var Path = class extends CurvePath {
+    constructor(points) {
+      super();
+      this.type = "Path";
+      this.currentPoint = new Vector2();
+      if (points) {
+        this.setFromPoints(points);
+      }
+    }
+    setFromPoints(points) {
+      this.moveTo(points[0].x, points[0].y);
+      for (let i = 1, l = points.length; i < l; i++) {
+        this.lineTo(points[i].x, points[i].y);
+      }
+      return this;
+    }
+    moveTo(x, y) {
+      this.currentPoint.set(x, y);
+      return this;
+    }
+    lineTo(x, y) {
+      const curve = new LineCurve(this.currentPoint.clone(), new Vector2(x, y));
+      this.curves.push(curve);
+      this.currentPoint.set(x, y);
+      return this;
+    }
+    quadraticCurveTo(aCPx, aCPy, aX, aY) {
+      const curve = new QuadraticBezierCurve(
+        this.currentPoint.clone(),
+        new Vector2(aCPx, aCPy),
+        new Vector2(aX, aY)
+      );
+      this.curves.push(curve);
+      this.currentPoint.set(aX, aY);
+      return this;
+    }
+    bezierCurveTo(aCP1x, aCP1y, aCP2x, aCP2y, aX, aY) {
+      const curve = new CubicBezierCurve(
+        this.currentPoint.clone(),
+        new Vector2(aCP1x, aCP1y),
+        new Vector2(aCP2x, aCP2y),
+        new Vector2(aX, aY)
+      );
+      this.curves.push(curve);
+      this.currentPoint.set(aX, aY);
+      return this;
+    }
+    splineThru(pts) {
+      const npts = [this.currentPoint.clone()].concat(pts);
+      const curve = new SplineCurve(npts);
+      this.curves.push(curve);
+      this.currentPoint.copy(pts[pts.length - 1]);
+      return this;
+    }
+    arc(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      const x0 = this.currentPoint.x;
+      const y0 = this.currentPoint.y;
+      this.absarc(
+        aX + x0,
+        aY + y0,
+        aRadius,
+        aStartAngle,
+        aEndAngle,
+        aClockwise
+      );
+      return this;
+    }
+    absarc(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      this.absellipse(aX, aY, aRadius, aRadius, aStartAngle, aEndAngle, aClockwise);
+      return this;
+    }
+    ellipse(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation) {
+      const x0 = this.currentPoint.x;
+      const y0 = this.currentPoint.y;
+      this.absellipse(aX + x0, aY + y0, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation);
+      return this;
+    }
+    absellipse(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation) {
+      const curve = new EllipseCurve(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation);
+      if (this.curves.length > 0) {
+        const firstPoint = curve.getPoint(0);
+        if (!firstPoint.equals(this.currentPoint)) {
+          this.lineTo(firstPoint.x, firstPoint.y);
+        }
+      }
+      this.curves.push(curve);
+      const lastPoint = curve.getPoint(1);
+      this.currentPoint.copy(lastPoint);
+      return this;
+    }
+    copy(source) {
+      super.copy(source);
+      this.currentPoint.copy(source.currentPoint);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.currentPoint = this.currentPoint.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.currentPoint.fromArray(json.currentPoint);
+      return this;
     }
   };
   var CircleGeometry = class _CircleGeometry extends BufferGeometry {
@@ -18323,10 +19518,10 @@
         const vertex2 = new Vector3();
         let groupCount = 0;
         const radius = top === true ? radiusTop : radiusBottom;
-        const sign = top === true ? 1 : -1;
+        const sign2 = top === true ? 1 : -1;
         for (let x = 1; x <= radialSegments; x++) {
-          vertices.push(0, halfHeight * sign, 0);
-          normals.push(0, sign, 0);
+          vertices.push(0, halfHeight * sign2, 0);
+          normals.push(0, sign2, 0);
           uvs.push(0.5, 0.5);
           index++;
         }
@@ -18337,12 +19532,12 @@
           const cosTheta = Math.cos(theta);
           const sinTheta = Math.sin(theta);
           vertex2.x = radius * sinTheta;
-          vertex2.y = halfHeight * sign;
+          vertex2.y = halfHeight * sign2;
           vertex2.z = radius * cosTheta;
           vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          normals.push(0, sign, 0);
+          normals.push(0, sign2, 0);
           uv.x = cosTheta * 0.5 + 0.5;
-          uv.y = sinTheta * 0.5 * sign + 0.5;
+          uv.y = sinTheta * 0.5 * sign2 + 0.5;
           uvs.push(uv.x, uv.y);
           index++;
         }
@@ -18546,6 +19741,581 @@
       return new _PolyhedronGeometry(data.vertices, data.indices, data.radius, data.details);
     }
   };
+  var _v0 = /* @__PURE__ */ new Vector3();
+  var _v1$1 = /* @__PURE__ */ new Vector3();
+  var _normal = /* @__PURE__ */ new Vector3();
+  var _triangle = /* @__PURE__ */ new Triangle();
+  var EdgesGeometry = class extends BufferGeometry {
+    constructor(geometry = null, thresholdAngle = 1) {
+      super();
+      this.type = "EdgesGeometry";
+      this.parameters = {
+        geometry,
+        thresholdAngle
+      };
+      if (geometry !== null) {
+        const precisionPoints = 4;
+        const precision = Math.pow(10, precisionPoints);
+        const thresholdDot = Math.cos(DEG2RAD * thresholdAngle);
+        const indexAttr = geometry.getIndex();
+        const positionAttr = geometry.getAttribute("position");
+        const indexCount = indexAttr ? indexAttr.count : positionAttr.count;
+        const indexArr = [0, 0, 0];
+        const vertKeys = ["a", "b", "c"];
+        const hashes = new Array(3);
+        const edgeData = {};
+        const vertices = [];
+        for (let i = 0; i < indexCount; i += 3) {
+          if (indexAttr) {
+            indexArr[0] = indexAttr.getX(i);
+            indexArr[1] = indexAttr.getX(i + 1);
+            indexArr[2] = indexAttr.getX(i + 2);
+          } else {
+            indexArr[0] = i;
+            indexArr[1] = i + 1;
+            indexArr[2] = i + 2;
+          }
+          const { a, b, c } = _triangle;
+          a.fromBufferAttribute(positionAttr, indexArr[0]);
+          b.fromBufferAttribute(positionAttr, indexArr[1]);
+          c.fromBufferAttribute(positionAttr, indexArr[2]);
+          _triangle.getNormal(_normal);
+          hashes[0] = `${Math.round(a.x * precision)},${Math.round(a.y * precision)},${Math.round(a.z * precision)}`;
+          hashes[1] = `${Math.round(b.x * precision)},${Math.round(b.y * precision)},${Math.round(b.z * precision)}`;
+          hashes[2] = `${Math.round(c.x * precision)},${Math.round(c.y * precision)},${Math.round(c.z * precision)}`;
+          if (hashes[0] === hashes[1] || hashes[1] === hashes[2] || hashes[2] === hashes[0]) {
+            continue;
+          }
+          for (let j = 0; j < 3; j++) {
+            const jNext = (j + 1) % 3;
+            const vecHash0 = hashes[j];
+            const vecHash1 = hashes[jNext];
+            const v0 = _triangle[vertKeys[j]];
+            const v1 = _triangle[vertKeys[jNext]];
+            const hash = `${vecHash0}_${vecHash1}`;
+            const reverseHash = `${vecHash1}_${vecHash0}`;
+            if (reverseHash in edgeData && edgeData[reverseHash]) {
+              if (_normal.dot(edgeData[reverseHash].normal) <= thresholdDot) {
+                vertices.push(v0.x, v0.y, v0.z);
+                vertices.push(v1.x, v1.y, v1.z);
+              }
+              edgeData[reverseHash] = null;
+            } else if (!(hash in edgeData)) {
+              edgeData[hash] = {
+                index0: indexArr[j],
+                index1: indexArr[jNext],
+                normal: _normal.clone()
+              };
+            }
+          }
+        }
+        for (const key in edgeData) {
+          if (edgeData[key]) {
+            const { index0, index1 } = edgeData[key];
+            _v0.fromBufferAttribute(positionAttr, index0);
+            _v1$1.fromBufferAttribute(positionAttr, index1);
+            vertices.push(_v0.x, _v0.y, _v0.z);
+            vertices.push(_v1$1.x, _v1$1.y, _v1$1.z);
+          }
+        }
+        this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+  };
+  var Shape = class extends Path {
+    constructor(points) {
+      super(points);
+      this.uuid = generateUUID();
+      this.type = "Shape";
+      this.holes = [];
+    }
+    getPointsHoles(divisions) {
+      const holesPts = [];
+      for (let i = 0, l = this.holes.length; i < l; i++) {
+        holesPts[i] = this.holes[i].getPoints(divisions);
+      }
+      return holesPts;
+    }
+    // get points of shape and holes (keypoints based on segments parameter)
+    extractPoints(divisions) {
+      return {
+        shape: this.getPoints(divisions),
+        holes: this.getPointsHoles(divisions)
+      };
+    }
+    copy(source) {
+      super.copy(source);
+      this.holes = [];
+      for (let i = 0, l = source.holes.length; i < l; i++) {
+        const hole = source.holes[i];
+        this.holes.push(hole.clone());
+      }
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.uuid = this.uuid;
+      data.holes = [];
+      for (let i = 0, l = this.holes.length; i < l; i++) {
+        const hole = this.holes[i];
+        data.holes.push(hole.toJSON());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.uuid = json.uuid;
+      this.holes = [];
+      for (let i = 0, l = json.holes.length; i < l; i++) {
+        const hole = json.holes[i];
+        this.holes.push(new Path().fromJSON(hole));
+      }
+      return this;
+    }
+  };
+  var Earcut = {
+    triangulate: function(data, holeIndices, dim = 2) {
+      const hasHoles = holeIndices && holeIndices.length;
+      const outerLen = hasHoles ? holeIndices[0] * dim : data.length;
+      let outerNode = linkedList(data, 0, outerLen, dim, true);
+      const triangles = [];
+      if (!outerNode || outerNode.next === outerNode.prev) return triangles;
+      let minX, minY, maxX, maxY, x, y, invSize;
+      if (hasHoles) outerNode = eliminateHoles(data, holeIndices, outerNode, dim);
+      if (data.length > 80 * dim) {
+        minX = maxX = data[0];
+        minY = maxY = data[1];
+        for (let i = dim; i < outerLen; i += dim) {
+          x = data[i];
+          y = data[i + 1];
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+        invSize = Math.max(maxX - minX, maxY - minY);
+        invSize = invSize !== 0 ? 32767 / invSize : 0;
+      }
+      earcutLinked(outerNode, triangles, dim, minX, minY, invSize, 0);
+      return triangles;
+    }
+  };
+  function linkedList(data, start, end, dim, clockwise) {
+    let i, last;
+    if (clockwise === signedArea(data, start, end, dim) > 0) {
+      for (i = start; i < end; i += dim) last = insertNode(i, data[i], data[i + 1], last);
+    } else {
+      for (i = end - dim; i >= start; i -= dim) last = insertNode(i, data[i], data[i + 1], last);
+    }
+    if (last && equals(last, last.next)) {
+      removeNode(last);
+      last = last.next;
+    }
+    return last;
+  }
+  function filterPoints(start, end) {
+    if (!start) return start;
+    if (!end) end = start;
+    let p = start, again;
+    do {
+      again = false;
+      if (!p.steiner && (equals(p, p.next) || area(p.prev, p, p.next) === 0)) {
+        removeNode(p);
+        p = end = p.prev;
+        if (p === p.next) break;
+        again = true;
+      } else {
+        p = p.next;
+      }
+    } while (again || p !== end);
+    return end;
+  }
+  function earcutLinked(ear, triangles, dim, minX, minY, invSize, pass) {
+    if (!ear) return;
+    if (!pass && invSize) indexCurve(ear, minX, minY, invSize);
+    let stop = ear, prev, next;
+    while (ear.prev !== ear.next) {
+      prev = ear.prev;
+      next = ear.next;
+      if (invSize ? isEarHashed(ear, minX, minY, invSize) : isEar(ear)) {
+        triangles.push(prev.i / dim | 0);
+        triangles.push(ear.i / dim | 0);
+        triangles.push(next.i / dim | 0);
+        removeNode(ear);
+        ear = next.next;
+        stop = next.next;
+        continue;
+      }
+      ear = next;
+      if (ear === stop) {
+        if (!pass) {
+          earcutLinked(filterPoints(ear), triangles, dim, minX, minY, invSize, 1);
+        } else if (pass === 1) {
+          ear = cureLocalIntersections(filterPoints(ear), triangles, dim);
+          earcutLinked(ear, triangles, dim, minX, minY, invSize, 2);
+        } else if (pass === 2) {
+          splitEarcut(ear, triangles, dim, minX, minY, invSize);
+        }
+        break;
+      }
+    }
+  }
+  function isEar(ear) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = ax < bx ? ax < cx ? ax : cx : bx < cx ? bx : cx, y0 = ay < by ? ay < cy ? ay : cy : by < cy ? by : cy, x1 = ax > bx ? ax > cx ? ax : cx : bx > cx ? bx : cx, y1 = ay > by ? ay > cy ? ay : cy : by > cy ? by : cy;
+    let p = c.next;
+    while (p !== a) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && pointInTriangle(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.next;
+    }
+    return true;
+  }
+  function isEarHashed(ear, minX, minY, invSize) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = ax < bx ? ax < cx ? ax : cx : bx < cx ? bx : cx, y0 = ay < by ? ay < cy ? ay : cy : by < cy ? by : cy, x1 = ax > bx ? ax > cx ? ax : cx : bx > cx ? bx : cx, y1 = ay > by ? ay > cy ? ay : cy : by > cy ? by : cy;
+    const minZ = zOrder(x0, y0, minX, minY, invSize), maxZ = zOrder(x1, y1, minX, minY, invSize);
+    let p = ear.prevZ, n = ear.nextZ;
+    while (p && p.z >= minZ && n && n.z <= maxZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangle(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangle(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    while (p && p.z >= minZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangle(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+    }
+    while (n && n.z <= maxZ) {
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangle(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    return true;
+  }
+  function cureLocalIntersections(start, triangles, dim) {
+    let p = start;
+    do {
+      const a = p.prev, b = p.next.next;
+      if (!equals(a, b) && intersects(a, p, p.next, b) && locallyInside(a, b) && locallyInside(b, a)) {
+        triangles.push(a.i / dim | 0);
+        triangles.push(p.i / dim | 0);
+        triangles.push(b.i / dim | 0);
+        removeNode(p);
+        removeNode(p.next);
+        p = start = b;
+      }
+      p = p.next;
+    } while (p !== start);
+    return filterPoints(p);
+  }
+  function splitEarcut(start, triangles, dim, minX, minY, invSize) {
+    let a = start;
+    do {
+      let b = a.next.next;
+      while (b !== a.prev) {
+        if (a.i !== b.i && isValidDiagonal(a, b)) {
+          let c = splitPolygon(a, b);
+          a = filterPoints(a, a.next);
+          c = filterPoints(c, c.next);
+          earcutLinked(a, triangles, dim, minX, minY, invSize, 0);
+          earcutLinked(c, triangles, dim, minX, minY, invSize, 0);
+          return;
+        }
+        b = b.next;
+      }
+      a = a.next;
+    } while (a !== start);
+  }
+  function eliminateHoles(data, holeIndices, outerNode, dim) {
+    const queue = [];
+    let i, len, start, end, list;
+    for (i = 0, len = holeIndices.length; i < len; i++) {
+      start = holeIndices[i] * dim;
+      end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
+      list = linkedList(data, start, end, dim, false);
+      if (list === list.next) list.steiner = true;
+      queue.push(getLeftmost(list));
+    }
+    queue.sort(compareX);
+    for (i = 0; i < queue.length; i++) {
+      outerNode = eliminateHole(queue[i], outerNode);
+    }
+    return outerNode;
+  }
+  function compareX(a, b) {
+    return a.x - b.x;
+  }
+  function eliminateHole(hole, outerNode) {
+    const bridge = findHoleBridge(hole, outerNode);
+    if (!bridge) {
+      return outerNode;
+    }
+    const bridgeReverse = splitPolygon(bridge, hole);
+    filterPoints(bridgeReverse, bridgeReverse.next);
+    return filterPoints(bridge, bridge.next);
+  }
+  function findHoleBridge(hole, outerNode) {
+    let p = outerNode, qx = -Infinity, m;
+    const hx = hole.x, hy = hole.y;
+    do {
+      if (hy <= p.y && hy >= p.next.y && p.next.y !== p.y) {
+        const x = p.x + (hy - p.y) * (p.next.x - p.x) / (p.next.y - p.y);
+        if (x <= hx && x > qx) {
+          qx = x;
+          m = p.x < p.next.x ? p : p.next;
+          if (x === hx) return m;
+        }
+      }
+      p = p.next;
+    } while (p !== outerNode);
+    if (!m) return null;
+    const stop = m, mx = m.x, my = m.y;
+    let tanMin = Infinity, tan;
+    p = m;
+    do {
+      if (hx >= p.x && p.x >= mx && hx !== p.x && pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
+        tan = Math.abs(hy - p.y) / (hx - p.x);
+        if (locallyInside(p, hole) && (tan < tanMin || tan === tanMin && (p.x > m.x || p.x === m.x && sectorContainsSector(m, p)))) {
+          m = p;
+          tanMin = tan;
+        }
+      }
+      p = p.next;
+    } while (p !== stop);
+    return m;
+  }
+  function sectorContainsSector(m, p) {
+    return area(m.prev, m, p.prev) < 0 && area(p.next, m, m.next) < 0;
+  }
+  function indexCurve(start, minX, minY, invSize) {
+    let p = start;
+    do {
+      if (p.z === 0) p.z = zOrder(p.x, p.y, minX, minY, invSize);
+      p.prevZ = p.prev;
+      p.nextZ = p.next;
+      p = p.next;
+    } while (p !== start);
+    p.prevZ.nextZ = null;
+    p.prevZ = null;
+    sortLinked(p);
+  }
+  function sortLinked(list) {
+    let i, p, q, e, tail, numMerges, pSize, qSize, inSize = 1;
+    do {
+      p = list;
+      list = null;
+      tail = null;
+      numMerges = 0;
+      while (p) {
+        numMerges++;
+        q = p;
+        pSize = 0;
+        for (i = 0; i < inSize; i++) {
+          pSize++;
+          q = q.nextZ;
+          if (!q) break;
+        }
+        qSize = inSize;
+        while (pSize > 0 || qSize > 0 && q) {
+          if (pSize !== 0 && (qSize === 0 || !q || p.z <= q.z)) {
+            e = p;
+            p = p.nextZ;
+            pSize--;
+          } else {
+            e = q;
+            q = q.nextZ;
+            qSize--;
+          }
+          if (tail) tail.nextZ = e;
+          else list = e;
+          e.prevZ = tail;
+          tail = e;
+        }
+        p = q;
+      }
+      tail.nextZ = null;
+      inSize *= 2;
+    } while (numMerges > 1);
+    return list;
+  }
+  function zOrder(x, y, minX, minY, invSize) {
+    x = (x - minX) * invSize | 0;
+    y = (y - minY) * invSize | 0;
+    x = (x | x << 8) & 16711935;
+    x = (x | x << 4) & 252645135;
+    x = (x | x << 2) & 858993459;
+    x = (x | x << 1) & 1431655765;
+    y = (y | y << 8) & 16711935;
+    y = (y | y << 4) & 252645135;
+    y = (y | y << 2) & 858993459;
+    y = (y | y << 1) & 1431655765;
+    return x | y << 1;
+  }
+  function getLeftmost(start) {
+    let p = start, leftmost = start;
+    do {
+      if (p.x < leftmost.x || p.x === leftmost.x && p.y < leftmost.y) leftmost = p;
+      p = p.next;
+    } while (p !== start);
+    return leftmost;
+  }
+  function pointInTriangle(ax, ay, bx, by, cx, cy, px2, py2) {
+    return (cx - px2) * (ay - py2) >= (ax - px2) * (cy - py2) && (ax - px2) * (by - py2) >= (bx - px2) * (ay - py2) && (bx - px2) * (cy - py2) >= (cx - px2) * (by - py2);
+  }
+  function isValidDiagonal(a, b) {
+    return a.next.i !== b.i && a.prev.i !== b.i && !intersectsPolygon(a, b) && // dones't intersect other edges
+    (locallyInside(a, b) && locallyInside(b, a) && middleInside(a, b) && // locally visible
+    (area(a.prev, a, b.prev) || area(a, b.prev, b)) || // does not create opposite-facing sectors
+    equals(a, b) && area(a.prev, a, a.next) > 0 && area(b.prev, b, b.next) > 0);
+  }
+  function area(p, q, r) {
+    return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+  }
+  function equals(p1, p2) {
+    return p1.x === p2.x && p1.y === p2.y;
+  }
+  function intersects(p1, q1, p2, q2) {
+    const o1 = sign(area(p1, q1, p2));
+    const o2 = sign(area(p1, q1, q2));
+    const o3 = sign(area(p2, q2, p1));
+    const o4 = sign(area(p2, q2, q1));
+    if (o1 !== o2 && o3 !== o4) return true;
+    if (o1 === 0 && onSegment(p1, p2, q1)) return true;
+    if (o2 === 0 && onSegment(p1, q2, q1)) return true;
+    if (o3 === 0 && onSegment(p2, p1, q2)) return true;
+    if (o4 === 0 && onSegment(p2, q1, q2)) return true;
+    return false;
+  }
+  function onSegment(p, q, r) {
+    return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) && q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+  }
+  function sign(num) {
+    return num > 0 ? 1 : num < 0 ? -1 : 0;
+  }
+  function intersectsPolygon(a, b) {
+    let p = a;
+    do {
+      if (p.i !== a.i && p.next.i !== a.i && p.i !== b.i && p.next.i !== b.i && intersects(p, p.next, a, b)) return true;
+      p = p.next;
+    } while (p !== a);
+    return false;
+  }
+  function locallyInside(a, b) {
+    return area(a.prev, a, a.next) < 0 ? area(a, b, a.next) >= 0 && area(a, a.prev, b) >= 0 : area(a, b, a.prev) < 0 || area(a, a.next, b) < 0;
+  }
+  function middleInside(a, b) {
+    let p = a, inside = false;
+    const px2 = (a.x + b.x) / 2, py2 = (a.y + b.y) / 2;
+    do {
+      if (p.y > py2 !== p.next.y > py2 && p.next.y !== p.y && px2 < (p.next.x - p.x) * (py2 - p.y) / (p.next.y - p.y) + p.x)
+        inside = !inside;
+      p = p.next;
+    } while (p !== a);
+    return inside;
+  }
+  function splitPolygon(a, b) {
+    const a2 = new Node(a.i, a.x, a.y), b2 = new Node(b.i, b.x, b.y), an = a.next, bp = b.prev;
+    a.next = b;
+    b.prev = a;
+    a2.next = an;
+    an.prev = a2;
+    b2.next = a2;
+    a2.prev = b2;
+    bp.next = b2;
+    b2.prev = bp;
+    return b2;
+  }
+  function insertNode(i, x, y, last) {
+    const p = new Node(i, x, y);
+    if (!last) {
+      p.prev = p;
+      p.next = p;
+    } else {
+      p.next = last.next;
+      p.prev = last;
+      last.next.prev = p;
+      last.next = p;
+    }
+    return p;
+  }
+  function removeNode(p) {
+    p.next.prev = p.prev;
+    p.prev.next = p.next;
+    if (p.prevZ) p.prevZ.nextZ = p.nextZ;
+    if (p.nextZ) p.nextZ.prevZ = p.prevZ;
+  }
+  function Node(i, x, y) {
+    this.i = i;
+    this.x = x;
+    this.y = y;
+    this.prev = null;
+    this.next = null;
+    this.z = 0;
+    this.prevZ = null;
+    this.nextZ = null;
+    this.steiner = false;
+  }
+  function signedArea(data, start, end, dim) {
+    let sum = 0;
+    for (let i = start, j = end - dim; i < end; i += dim) {
+      sum += (data[j] - data[i]) * (data[i + 1] + data[j + 1]);
+      j = i;
+    }
+    return sum;
+  }
+  var ShapeUtils = class _ShapeUtils {
+    // calculate area of the contour polygon
+    static area(contour) {
+      const n = contour.length;
+      let a = 0;
+      for (let p = n - 1, q = 0; q < n; p = q++) {
+        a += contour[p].x * contour[q].y - contour[q].x * contour[p].y;
+      }
+      return a * 0.5;
+    }
+    static isClockWise(pts) {
+      return _ShapeUtils.area(pts) < 0;
+    }
+    static triangulateShape(contour, holes) {
+      const vertices = [];
+      const holeIndices = [];
+      const faces = [];
+      removeDupEndPts(contour);
+      addContour(vertices, contour);
+      let holeIndex = contour.length;
+      holes.forEach(removeDupEndPts);
+      for (let i = 0; i < holes.length; i++) {
+        holeIndices.push(holeIndex);
+        holeIndex += holes[i].length;
+        addContour(vertices, holes[i]);
+      }
+      const triangles = Earcut.triangulate(vertices, holeIndices);
+      for (let i = 0; i < triangles.length; i += 3) {
+        faces.push(triangles.slice(i, i + 3));
+      }
+      return faces;
+    }
+  };
+  function removeDupEndPts(points) {
+    const l = points.length;
+    if (l > 2 && points[l - 1].equals(points[0])) {
+      points.pop();
+    }
+  }
+  function addContour(vertices, contour) {
+    for (let i = 0; i < contour.length; i++) {
+      vertices.push(contour[i].x);
+      vertices.push(contour[i].y);
+    }
+  }
   var OctahedronGeometry = class _OctahedronGeometry extends PolyhedronGeometry {
     constructor(radius = 1, detail = 0) {
       const vertices = [
@@ -18605,6 +20375,161 @@
       return new _OctahedronGeometry(data.radius, data.detail);
     }
   };
+  var RingGeometry = class _RingGeometry extends BufferGeometry {
+    constructor(innerRadius = 0.5, outerRadius = 1, thetaSegments = 32, phiSegments = 1, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super();
+      this.type = "RingGeometry";
+      this.parameters = {
+        innerRadius,
+        outerRadius,
+        thetaSegments,
+        phiSegments,
+        thetaStart,
+        thetaLength
+      };
+      thetaSegments = Math.max(3, thetaSegments);
+      phiSegments = Math.max(1, phiSegments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      let radius = innerRadius;
+      const radiusStep = (outerRadius - innerRadius) / phiSegments;
+      const vertex2 = new Vector3();
+      const uv = new Vector2();
+      for (let j = 0; j <= phiSegments; j++) {
+        for (let i = 0; i <= thetaSegments; i++) {
+          const segment = thetaStart + i / thetaSegments * thetaLength;
+          vertex2.x = radius * Math.cos(segment);
+          vertex2.y = radius * Math.sin(segment);
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          normals.push(0, 0, 1);
+          uv.x = (vertex2.x / outerRadius + 1) / 2;
+          uv.y = (vertex2.y / outerRadius + 1) / 2;
+          uvs.push(uv.x, uv.y);
+        }
+        radius += radiusStep;
+      }
+      for (let j = 0; j < phiSegments; j++) {
+        const thetaSegmentLevel = j * (thetaSegments + 1);
+        for (let i = 0; i < thetaSegments; i++) {
+          const segment = i + thetaSegmentLevel;
+          const a = segment;
+          const b = segment + thetaSegments + 1;
+          const c = segment + thetaSegments + 2;
+          const d = segment + 1;
+          indices.push(a, b, d);
+          indices.push(b, c, d);
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    static fromJSON(data) {
+      return new _RingGeometry(data.innerRadius, data.outerRadius, data.thetaSegments, data.phiSegments, data.thetaStart, data.thetaLength);
+    }
+  };
+  var ShapeGeometry = class _ShapeGeometry extends BufferGeometry {
+    constructor(shapes = new Shape([new Vector2(0, 0.5), new Vector2(-0.5, -0.5), new Vector2(0.5, -0.5)]), curveSegments = 12) {
+      super();
+      this.type = "ShapeGeometry";
+      this.parameters = {
+        shapes,
+        curveSegments
+      };
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      let groupStart = 0;
+      let groupCount = 0;
+      if (Array.isArray(shapes) === false) {
+        addShape(shapes);
+      } else {
+        for (let i = 0; i < shapes.length; i++) {
+          addShape(shapes[i]);
+          this.addGroup(groupStart, groupCount, i);
+          groupStart += groupCount;
+          groupCount = 0;
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      function addShape(shape) {
+        const indexOffset = vertices.length / 3;
+        const points = shape.extractPoints(curveSegments);
+        let shapeVertices = points.shape;
+        const shapeHoles = points.holes;
+        if (ShapeUtils.isClockWise(shapeVertices) === false) {
+          shapeVertices = shapeVertices.reverse();
+        }
+        for (let i = 0, l = shapeHoles.length; i < l; i++) {
+          const shapeHole = shapeHoles[i];
+          if (ShapeUtils.isClockWise(shapeHole) === true) {
+            shapeHoles[i] = shapeHole.reverse();
+          }
+        }
+        const faces = ShapeUtils.triangulateShape(shapeVertices, shapeHoles);
+        for (let i = 0, l = shapeHoles.length; i < l; i++) {
+          const shapeHole = shapeHoles[i];
+          shapeVertices = shapeVertices.concat(shapeHole);
+        }
+        for (let i = 0, l = shapeVertices.length; i < l; i++) {
+          const vertex2 = shapeVertices[i];
+          vertices.push(vertex2.x, vertex2.y, 0);
+          normals.push(0, 0, 1);
+          uvs.push(vertex2.x, vertex2.y);
+        }
+        for (let i = 0, l = faces.length; i < l; i++) {
+          const face = faces[i];
+          const a = face[0] + indexOffset;
+          const b = face[1] + indexOffset;
+          const c = face[2] + indexOffset;
+          indices.push(a, b, c);
+          groupCount += 3;
+        }
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      const shapes = this.parameters.shapes;
+      return toJSON(shapes, data);
+    }
+    static fromJSON(data, shapes) {
+      const geometryShapes = [];
+      for (let j = 0, jl = data.shapes.length; j < jl; j++) {
+        const shape = shapes[data.shapes[j]];
+        geometryShapes.push(shape);
+      }
+      return new _ShapeGeometry(geometryShapes, data.curveSegments);
+    }
+  };
+  function toJSON(shapes, data) {
+    data.shapes = [];
+    if (Array.isArray(shapes)) {
+      for (let i = 0, l = shapes.length; i < l; i++) {
+        const shape = shapes[i];
+        data.shapes.push(shape.uuid);
+      }
+    } else {
+      data.shapes.push(shapes.uuid);
+    }
+    return data;
+  }
   var SphereGeometry = class _SphereGeometry extends BufferGeometry {
     constructor(radius = 1, widthSegments = 32, heightSegments = 16, phiStart = 0, phiLength = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI) {
       super();
@@ -18733,6 +20658,103 @@
     }
     static fromJSON(data) {
       return new _TorusGeometry(data.radius, data.tube, data.radialSegments, data.tubularSegments, data.arc);
+    }
+  };
+  var TubeGeometry = class _TubeGeometry extends BufferGeometry {
+    constructor(path = new QuadraticBezierCurve3(new Vector3(-1, -1, 0), new Vector3(-1, 1, 0), new Vector3(1, 1, 0)), tubularSegments = 64, radius = 1, radialSegments = 8, closed = false) {
+      super();
+      this.type = "TubeGeometry";
+      this.parameters = {
+        path,
+        tubularSegments,
+        radius,
+        radialSegments,
+        closed
+      };
+      const frames = path.computeFrenetFrames(tubularSegments, closed);
+      this.tangents = frames.tangents;
+      this.normals = frames.normals;
+      this.binormals = frames.binormals;
+      const vertex2 = new Vector3();
+      const normal = new Vector3();
+      const uv = new Vector2();
+      let P = new Vector3();
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const indices = [];
+      generateBufferData();
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      function generateBufferData() {
+        for (let i = 0; i < tubularSegments; i++) {
+          generateSegment(i);
+        }
+        generateSegment(closed === false ? tubularSegments : 0);
+        generateUVs();
+        generateIndices();
+      }
+      function generateSegment(i) {
+        P = path.getPointAt(i / tubularSegments, P);
+        const N = frames.normals[i];
+        const B = frames.binormals[i];
+        for (let j = 0; j <= radialSegments; j++) {
+          const v = j / radialSegments * Math.PI * 2;
+          const sin = Math.sin(v);
+          const cos = -Math.cos(v);
+          normal.x = cos * N.x + sin * B.x;
+          normal.y = cos * N.y + sin * B.y;
+          normal.z = cos * N.z + sin * B.z;
+          normal.normalize();
+          normals.push(normal.x, normal.y, normal.z);
+          vertex2.x = P.x + radius * normal.x;
+          vertex2.y = P.y + radius * normal.y;
+          vertex2.z = P.z + radius * normal.z;
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+        }
+      }
+      function generateIndices() {
+        for (let j = 1; j <= tubularSegments; j++) {
+          for (let i = 1; i <= radialSegments; i++) {
+            const a = (radialSegments + 1) * (j - 1) + (i - 1);
+            const b = (radialSegments + 1) * j + (i - 1);
+            const c = (radialSegments + 1) * j + i;
+            const d = (radialSegments + 1) * (j - 1) + i;
+            indices.push(a, b, d);
+            indices.push(b, c, d);
+          }
+        }
+      }
+      function generateUVs() {
+        for (let i = 0; i <= tubularSegments; i++) {
+          for (let j = 0; j <= radialSegments; j++) {
+            uv.x = i / tubularSegments;
+            uv.y = j / radialSegments;
+            uvs.push(uv.x, uv.y);
+          }
+        }
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.path = this.parameters.path.toJSON();
+      return data;
+    }
+    static fromJSON(data) {
+      return new _TubeGeometry(
+        new Curves[data.path.type]().fromJSON(data.path),
+        data.tubularSegments,
+        data.radius,
+        data.radialSegments,
+        data.closed
+      );
     }
   };
   var MeshLambertMaterial = class extends Material {
@@ -20087,57 +22109,549 @@
   }
 
   // src/config.js
+  var BASE = {
+    "casual.playerCount": 5,
+    "casual.durationSeconds": 120,
+    "casual.countdownStart": 3,
+    "casual.matchFillMs": 230,
+    "casual.initialFillMs": 180,
+    "casual.countdownMs": 1e3,
+    "casual.goDisplayMs": 550,
+    "movement.gridSize": 1.2,
+    "movement.boundsX": 6,
+    "movement.jumpDuration": 0.16,
+    "movement.jumpHeight": 0.5,
+    "respawn.deathAnimationSeconds": 0.65,
+    "respawn.penaltySeconds": 3,
+    "respawn.finishInvulnerabilitySeconds": 1,
+    "camera.startZ": -3,
+    "camera.challengeScrollSpeed": 0.45,
+    "camera.targetAhead": 2.2,
+    "camera.orthoSize": 4.2,
+    "camera.near": 1,
+    "camera.far": 1e3,
+    "camera.offsetX": -10,
+    "camera.offsetY": 14,
+    "camera.offsetZ": -10,
+    "camera.pixelRatioMax": 2,
+    "camera.challengeCatchupLerp": 0.18,
+    "camera.casualFollowLerp": 0.12,
+    "camera.casualBackRows": 15,
+    "player.maxHp": 100,
+    "player.damageInvulnerabilitySeconds": 2,
+    "traffic.carDamageBase": 10,
+    "traffic.carDamageSpeedScale": 8,
+    "traffic.carDamageCap": 60,
+    "traffic.trainDamage": 70,
+    "bot.decisionMin": 0.1,
+    "bot.decisionMax": 0.22,
+    "bot.decisionJitter": 0.03,
+    "bot.aggressionScale": 1,
+    "bot.interferenceThreshold": 0.46,
+    "bot.pressureChanceScale": 0.18,
+    "bot.itemSearchDepth": 5,
+    "bot.pathSearchDepth": 10,
+    "bot.repairWaitSeconds": 0.7,
+    "bot.vehicleSafetyDistance": 2.2,
+    "bot.actionRateBase": 0.93,
+    "bot.actionRateAggression": 0.08,
+    "map.generationAhead": 35,
+    "map.despawnBehind": 25,
+    "map.roadSpeedMin": 2,
+    "map.roadSpeedMax": 4.2,
+    "map.roadSpeedRangeMin": 1.2,
+    "map.roadSpeedRangeMax": 2.3,
+    "map.riverSpeedMin": 1.5,
+    "map.riverSpeedMax": 3.2,
+    "map.riverSpeedJitter": 1,
+    "map.trainSpeed": 38,
+    "map.trainWarningSeconds": 2,
+    "items.pool": ["rocket", "shield", "eagle", "lightning"],
+    "items.slotCount": 2,
+    "items.rouletteSeconds": 1.1,
+    "items.roulettePreviewRate": 15,
+    "items.triggerInterval": 0.75,
+    "rocket.speed": 10,
+    "rocket.stunSeconds": 1.5,
+    "rocket.impactSeconds": 0.72,
+    "rocket.hitRadius": 0.24,
+    "lightning.warningSeconds": 0.8,
+    "lightning.stunSeconds": 1.5,
+    "shield.durationSeconds": 10,
+    "shield.blocks": 1,
+    "shield.finalFlashSeconds": 2,
+    "shield.flashRate": 8,
+    "eagle.warningSeconds": 1.25,
+    "eagle.partyRespawnPenaltySeconds": 0,
+    "eagle.challengeTriggerSeconds": 7.5,
+    "eagle.challengeCarrySeconds": 0.4,
+    "holes.warningSeconds": 1.2,
+    "holes.activeSeconds": 2.2,
+    "holes.repairSeconds": 0.6,
+    "holes.intervalSeconds": 0.8,
+    "holes.safetyBufferSeconds": 0.15,
+    "holes.fireballHeight": 5,
+    "boxes.safeEndZ": 7,
+    "boxes.batchMin": 2,
+    "boxes.batchMax": 3,
+    "boxes.rowSpacing": 3,
+    "boxes.regenSeconds": 2,
+    "vfx.feedbackSeconds": 0.75,
+    "vfx.stunStarRadius": 0.35
+  };
+  var DEFAULT_GAME_CONFIG = Object.freeze({ ...BASE });
+  var CASUAL_PLAYER_COUNT = BASE["casual.playerCount"];
   var CONFIG = {
     GRID_SIZE: 1.2,
     MAP_BOUNDS_X: 6,
-    // 可移動範圍 -6 ~ +6
     GENERATION_AHEAD: 35,
-    // 前方預先生成網格數
     DESPAWN_BEHIND: 25,
-    // 身後保留網格數
     JUMP_DURATION: 0.16,
-    // 跳躍時間 (秒)
     JUMP_HEIGHT: 0.5,
-    // 跳躍高度
-    SPRING_PUNCH: {
-      WINDUP: 0.3,
-      SPEED: 6 * 1.2,
-      RANGE: 6 * 1.2,
-      HIT_RADIUS: 0.42 * 1.2,
-      STUN_DURATION: 1,
-      IMMUNITY_DURATION: 1
-    },
-    LEADER_STRIKE: {
-      WARNING_DURATION: 0.8,
-      STUN_DURATION: 3
-    },
-    ROW_TYPES: {
-      GRASS: "grass",
-      ROAD: "road",
-      RIVER: "river",
-      RAILROAD: "railroad"
-    },
-    COLORS: {
-      GRASS_PRIMARY: 6142819,
-      GRASS_SECONDARY: 5416023,
-      ROAD: 3426654,
-      ROAD_LINE: 15844367,
-      RIVER: 3447003,
-      RAILROAD_GRAVEL: 8359053,
-      RAILROAD_TIE: 6111287,
-      RAILROAD_RAIL: 12436423,
-      CHICKEN: 16777215,
-      COMB: 15158332,
-      BEAK: 15105570,
-      TREE_TRUNK: 6111287,
-      TREE_LEAVES: [2600544, 3066993, 1999945],
-      CAR_COLORS: [15158332, 3447003, 15844367, 10181046, 1752220],
-      TRUCK_CAB: 15105570,
-      TRUCK_CARGO: 15528177,
-      WHEEL: 2899536,
-      LOG: 9268835
-    }
+    MATCH: { CASUAL_DURATION: 120, COUNTDOWN_START: 3, FILL_MS: 230, INITIAL_FILL_MS: 180, COUNTDOWN_MS: 1e3, GO_DISPLAY_MS: 550 },
+    RESPAWN: { DEATH_ANIMATION: 0.65, PENALTY: 3, INVULNERABILITY: 1 },
+    CAMERA: { START_Z: -3, CHALLENGE_SCROLL_SPEED: 0.45, TARGET_AHEAD: 2.2, ORTHO_SIZE: 4.2, NEAR: 1, FAR: 1e3, OFFSET_X: -10, OFFSET_Y: 14, OFFSET_Z: -10, PIXEL_RATIO_MAX: 2, CHALLENGE_CATCHUP_LERP: 0.18, CASUAL_FOLLOW_LERP: 0.12, CASUAL_BACK_ROWS: 15 },
+    PLAYER: { MAX_HP: 100, DAMAGE_INVULNERABILITY: 2 },
+    TRAFFIC: { CAR_DAMAGE_BASE: 10, CAR_DAMAGE_SPEED_SCALE: 8, CAR_DAMAGE_CAP: 60, TRAIN_DAMAGE: 70 },
+    BOT: { DECISION_MIN: 0.1, DECISION_MAX: 0.22, DECISION_JITTER: 0.03, AGGRESSION_SCALE: 1, INTERFERENCE_THRESHOLD: 0.46, PRESSURE_CHANCE_SCALE: 0.18, ITEM_SEARCH_DEPTH: 5, PATH_SEARCH_DEPTH: 10, REPAIR_WAIT_SECONDS: 0.7, VEHICLE_SAFETY_DISTANCE: 2.2, ACTION_RATE_BASE: 0.93, ACTION_RATE_AGGRESSION: 0.08 },
+    MAP: { ROAD_SPEED_MIN: 2, ROAD_SPEED_MAX: 4.2, ROAD_SPEED_RANGE_MIN: 1.2, ROAD_SPEED_RANGE_MAX: 2.3, RIVER_SPEED_MIN: 1.5, RIVER_SPEED_MAX: 3.2, RIVER_SPEED_JITTER: 1, TRAIN_SPEED: 38, TRAIN_WARNING_SECONDS: 2 },
+    ITEMS: { POOL: ["rocket", "shield", "eagle", "lightning"], SLOT_COUNT: 2, ROULETTE_SECONDS: 1.1, ROULETTE_PREVIEW_RATE: 15, TRIGGER_INTERVAL: 0.75 },
+    ROCKET: { SPEED: 10, STUN_DURATION: 1.5, IMPACT_DURATION: 0.72, HIT_RADIUS: 0.24 },
+    LEADER_STRIKE: { WARNING_DURATION: 0.8, STUN_DURATION: 1.5 },
+    SHIELD: { DURATION: 10, BLOCKS: 1, FINAL_FLASH: 2, FLASH_RATE: 8 },
+    EAGLE: { WARNING_DURATION: 1.25, PARTY_RESPAWN_PENALTY_SECONDS: 0, CHALLENGE_TRIGGER_SECONDS: 7.5, CHALLENGE_CARRY_SECONDS: 0.4 },
+    HOLES: { WARNING_DURATION: 1.2, HOLE_DURATION: 2.2, REPAIR_DURATION: 0.6, WAVE_COOLDOWN: 0.8, WARNING_SAFETY_BUFFER: 0.15, FIREBALL_HEIGHT: 5 },
+    BOXES: { SAFE_END_Z: 7, BATCH_MIN: 2, BATCH_MAX: 3, ROW_SPACING: 3, REGEN_SECONDS: 2 },
+    VFX: { FEEDBACK_SECONDS: 0.75, STUN_STAR_RADIUS: 0.35 },
+    SPRING_PUNCH: { WINDUP: 0.3, SPEED: 7.2, RANGE: 7.2, HIT_RADIUS: 0.504, STUN_DURATION: 1, IMMUNITY_DURATION: 1 },
+    ROW_TYPES: { GRASS: "grass", ROAD: "road", RIVER: "river", RAILROAD: "railroad" },
+    COLORS: { GRASS_PRIMARY: 6142819, GRASS_SECONDARY: 5416023, ROAD: 3426654, ROAD_LINE: 15844367, RIVER: 3447003, RAILROAD_GRAVEL: 8359053, RAILROAD_TIE: 6111287, RAILROAD_RAIL: 12436423, CHICKEN: 16777215, COMB: 15158332, BEAK: 15105570, TREE_TRUNK: 6111287, TREE_LEAVES: [2600544, 3066993, 1999945], CAR_COLORS: [15158332, 3447003, 15844367, 10181046, 1752220], TRUCK_CAB: 15105570, TRUCK_CARGO: 15528177, WHEEL: 2899536, LOG: 9268835 }
   };
+  var PATHS = {
+    "casual.playerCount": [
+      "CASUAL_PLAYER_COUNT"
+    ],
+    "casual.durationSeconds": [
+      "MATCH",
+      "CASUAL_DURATION"
+    ],
+    "casual.countdownStart": [
+      "MATCH",
+      "COUNTDOWN_START"
+    ],
+    "casual.matchFillMs": [
+      "MATCH",
+      "FILL_MS"
+    ],
+    "casual.initialFillMs": [
+      "MATCH",
+      "INITIAL_FILL_MS"
+    ],
+    "casual.countdownMs": [
+      "MATCH",
+      "COUNTDOWN_MS"
+    ],
+    "casual.goDisplayMs": [
+      "MATCH",
+      "GO_DISPLAY_MS"
+    ],
+    "movement.gridSize": [
+      "GRID_SIZE"
+    ],
+    "movement.boundsX": [
+      "MAP_BOUNDS_X"
+    ],
+    "movement.jumpDuration": [
+      "JUMP_DURATION"
+    ],
+    "movement.jumpHeight": [
+      "JUMP_HEIGHT"
+    ],
+    "respawn.deathAnimationSeconds": [
+      "RESPAWN",
+      "DEATH_ANIMATION"
+    ],
+    "respawn.penaltySeconds": [
+      "RESPAWN",
+      "PENALTY"
+    ],
+    "respawn.finishInvulnerabilitySeconds": [
+      "RESPAWN",
+      "INVULNERABILITY"
+    ],
+    "camera.startZ": [
+      "CAMERA",
+      "START_Z"
+    ],
+    "camera.challengeScrollSpeed": [
+      "CAMERA",
+      "CHALLENGE_SCROLL_SPEED"
+    ],
+    "camera.targetAhead": [
+      "CAMERA",
+      "TARGET_AHEAD"
+    ],
+    "camera.orthoSize": [
+      "CAMERA",
+      "ORTHO_SIZE"
+    ],
+    "camera.near": [
+      "CAMERA",
+      "NEAR"
+    ],
+    "camera.far": [
+      "CAMERA",
+      "FAR"
+    ],
+    "camera.offsetX": [
+      "CAMERA",
+      "OFFSET_X"
+    ],
+    "camera.offsetY": [
+      "CAMERA",
+      "OFFSET_Y"
+    ],
+    "camera.offsetZ": [
+      "CAMERA",
+      "OFFSET_Z"
+    ],
+    "camera.pixelRatioMax": [
+      "CAMERA",
+      "PIXEL_RATIO_MAX"
+    ],
+    "camera.challengeCatchupLerp": [
+      "CAMERA",
+      "CHALLENGE_CATCHUP_LERP"
+    ],
+    "camera.casualFollowLerp": [
+      "CAMERA",
+      "CASUAL_FOLLOW_LERP"
+    ],
+    "camera.casualBackRows": [
+      "CAMERA",
+      "CASUAL_BACK_ROWS"
+    ],
+    "player.maxHp": [
+      "PLAYER",
+      "MAX_HP"
+    ],
+    "player.damageInvulnerabilitySeconds": [
+      "PLAYER",
+      "DAMAGE_INVULNERABILITY"
+    ],
+    "traffic.carDamageBase": [
+      "TRAFFIC",
+      "CAR_DAMAGE_BASE"
+    ],
+    "traffic.carDamageSpeedScale": [
+      "TRAFFIC",
+      "CAR_DAMAGE_SPEED_SCALE"
+    ],
+    "traffic.carDamageCap": [
+      "TRAFFIC",
+      "CAR_DAMAGE_CAP"
+    ],
+    "traffic.trainDamage": [
+      "TRAFFIC",
+      "TRAIN_DAMAGE"
+    ],
+    "bot.decisionMin": [
+      "BOT",
+      "DECISION_MIN"
+    ],
+    "bot.decisionMax": [
+      "BOT",
+      "DECISION_MAX"
+    ],
+    "bot.decisionJitter": [
+      "BOT",
+      "DECISION_JITTER"
+    ],
+    "bot.aggressionScale": [
+      "BOT",
+      "AGGRESSION_SCALE"
+    ],
+    "bot.interferenceThreshold": [
+      "BOT",
+      "INTERFERENCE_THRESHOLD"
+    ],
+    "bot.pressureChanceScale": [
+      "BOT",
+      "PRESSURE_CHANCE_SCALE"
+    ],
+    "bot.itemSearchDepth": [
+      "BOT",
+      "ITEM_SEARCH_DEPTH"
+    ],
+    "bot.pathSearchDepth": [
+      "BOT",
+      "PATH_SEARCH_DEPTH"
+    ],
+    "bot.repairWaitSeconds": [
+      "BOT",
+      "REPAIR_WAIT_SECONDS"
+    ],
+    "bot.vehicleSafetyDistance": [
+      "BOT",
+      "VEHICLE_SAFETY_DISTANCE"
+    ],
+    "bot.actionRateBase": [
+      "BOT",
+      "ACTION_RATE_BASE"
+    ],
+    "bot.actionRateAggression": [
+      "BOT",
+      "ACTION_RATE_AGGRESSION"
+    ],
+    "map.generationAhead": [
+      "GENERATION_AHEAD"
+    ],
+    "map.despawnBehind": [
+      "DESPAWN_BEHIND"
+    ],
+    "map.roadSpeedMin": [
+      "MAP",
+      "ROAD_SPEED_MIN"
+    ],
+    "map.roadSpeedMax": [
+      "MAP",
+      "ROAD_SPEED_MAX"
+    ],
+    "map.roadSpeedRangeMin": [
+      "MAP",
+      "ROAD_SPEED_RANGE_MIN"
+    ],
+    "map.roadSpeedRangeMax": [
+      "MAP",
+      "ROAD_SPEED_RANGE_MAX"
+    ],
+    "map.riverSpeedMin": [
+      "MAP",
+      "RIVER_SPEED_MIN"
+    ],
+    "map.riverSpeedMax": [
+      "MAP",
+      "RIVER_SPEED_MAX"
+    ],
+    "map.riverSpeedJitter": [
+      "MAP",
+      "RIVER_SPEED_JITTER"
+    ],
+    "map.trainSpeed": [
+      "MAP",
+      "TRAIN_SPEED"
+    ],
+    "map.trainWarningSeconds": [
+      "MAP",
+      "TRAIN_WARNING_SECONDS"
+    ],
+    "items.pool": [
+      "ITEMS",
+      "POOL"
+    ],
+    "items.slotCount": [
+      "ITEMS",
+      "SLOT_COUNT"
+    ],
+    "items.rouletteSeconds": [
+      "ITEMS",
+      "ROULETTE_SECONDS"
+    ],
+    "items.roulettePreviewRate": [
+      "ITEMS",
+      "ROULETTE_PREVIEW_RATE"
+    ],
+    "items.triggerInterval": [
+      "ITEMS",
+      "TRIGGER_INTERVAL"
+    ],
+    "rocket.speed": [
+      "ROCKET",
+      "SPEED"
+    ],
+    "rocket.stunSeconds": [
+      "ROCKET",
+      "STUN_DURATION"
+    ],
+    "rocket.impactSeconds": [
+      "ROCKET",
+      "IMPACT_DURATION"
+    ],
+    "rocket.hitRadius": [
+      "ROCKET",
+      "HIT_RADIUS"
+    ],
+    "lightning.warningSeconds": [
+      "LEADER_STRIKE",
+      "WARNING_DURATION"
+    ],
+    "lightning.stunSeconds": [
+      "LEADER_STRIKE",
+      "STUN_DURATION"
+    ],
+    "shield.durationSeconds": [
+      "SHIELD",
+      "DURATION"
+    ],
+    "shield.blocks": [
+      "SHIELD",
+      "BLOCKS"
+    ],
+    "shield.finalFlashSeconds": [
+      "SHIELD",
+      "FINAL_FLASH"
+    ],
+    "shield.flashRate": [
+      "SHIELD",
+      "FLASH_RATE"
+    ],
+    "eagle.warningSeconds": [
+      "EAGLE",
+      "WARNING_DURATION"
+    ],
+    "eagle.partyRespawnPenaltySeconds": [
+      "EAGLE",
+      "PARTY_RESPAWN_PENALTY_SECONDS"
+    ],
+    "eagle.challengeTriggerSeconds": [
+      "EAGLE",
+      "CHALLENGE_TRIGGER_SECONDS"
+    ],
+    "eagle.challengeCarrySeconds": [
+      "EAGLE",
+      "CHALLENGE_CARRY_SECONDS"
+    ],
+    "holes.warningSeconds": [
+      "HOLES",
+      "WARNING_DURATION"
+    ],
+    "holes.activeSeconds": [
+      "HOLES",
+      "HOLE_DURATION"
+    ],
+    "holes.repairSeconds": [
+      "HOLES",
+      "REPAIR_DURATION"
+    ],
+    "holes.intervalSeconds": [
+      "HOLES",
+      "WAVE_COOLDOWN"
+    ],
+    "holes.safetyBufferSeconds": [
+      "HOLES",
+      "WARNING_SAFETY_BUFFER"
+    ],
+    "holes.fireballHeight": [
+      "HOLES",
+      "FIREBALL_HEIGHT"
+    ],
+    "boxes.safeEndZ": [
+      "BOXES",
+      "SAFE_END_Z"
+    ],
+    "boxes.batchMin": [
+      "BOXES",
+      "BATCH_MIN"
+    ],
+    "boxes.batchMax": [
+      "BOXES",
+      "BATCH_MAX"
+    ],
+    "boxes.rowSpacing": [
+      "BOXES",
+      "ROW_SPACING"
+    ],
+    "boxes.regenSeconds": [
+      "BOXES",
+      "REGEN_SECONDS"
+    ],
+    "vfx.feedbackSeconds": [
+      "VFX",
+      "FEEDBACK_SECONDS"
+    ],
+    "vfx.stunStarRadius": [
+      "VFX",
+      "STUN_STAR_RADIUS"
+    ]
+  };
+  function put(key, value) {
+    const target = PATHS[key];
+    if (target[0] === "CASUAL_PLAYER_COUNT") {
+      CASUAL_PLAYER_COUNT = value;
+      return;
+    }
+    let node = CONFIG;
+    for (let index = 0; index < target.length - 1; index++) node = node[target[index]];
+    node[target.at(-1)] = Array.isArray(value) ? [...value] : value;
+  }
+  function resetGameConfig() {
+    Object.entries(BASE).forEach(([key, value]) => put(key, value));
+    return CONFIG;
+  }
+  function parseGameConfigYaml(text) {
+    const values = {}, errors = [];
+    String(text).split(/\r?\n/).forEach((raw, index) => {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) return;
+      const withoutComment = line.replace(/\s+#.*$/, "").trim();
+      const match = withoutComment.match(/^([a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*):\s*(\S(?:.*\S)?)$/i);
+      if (!match) {
+        errors.push(`\u7B2C${index + 1}\u884C\u683C\u5F0F\u932F\u8AA4`);
+        return;
+      }
+      const [, key, rawValue] = match;
+      if (!(key in BASE)) errors.push(`\u7B2C${index + 1}\u884C\u672A\u77E5\u9375 ${key}`);
+      else if (key in values) errors.push(`\u7B2C${index + 1}\u884C\u91CD\u8907\u9375 ${key}`);
+      else {
+        const value = Array.isArray(BASE[key]) ? rawValue.split(",").map((x) => x.trim()).filter(Boolean) : Number(rawValue);
+        if (Array.isArray(BASE[key]) ? !value.length : !Number.isFinite(value)) errors.push(`\u7B2C${index + 1}\u884C\u6578\u503C\u932F\u8AA4`);
+        else values[key] = value;
+      }
+    });
+    return { values, errors };
+  }
+  var positive = /* @__PURE__ */ new Set(["casual.durationSeconds", "casual.matchFillMs", "casual.initialFillMs", "casual.countdownMs", "movement.gridSize", "movement.boundsX", "movement.jumpHeight", "traffic.carDamageBase", "traffic.carDamageSpeedScale", "traffic.carDamageCap", "traffic.trainDamage", "bot.decisionMin", "bot.decisionMax", "bot.aggressionScale", "bot.interferenceThreshold", "bot.pressureChanceScale", "bot.itemSearchDepth", "bot.pathSearchDepth", "bot.repairWaitSeconds", "bot.vehicleSafetyDistance", "map.roadSpeedMin", "map.roadSpeedMax", "map.roadSpeedRangeMin", "map.roadSpeedRangeMax", "map.riverSpeedMin", "map.riverSpeedMax", "map.riverSpeedJitter", "holes.fireballHeight", "boxes.batchMin", "boxes.batchMax", "boxes.safeEndZ", "movement.gridSize", "movement.jumpDuration", "respawn.deathAnimationSeconds", "respawn.penaltySeconds", "respawn.finishInvulnerabilitySeconds", "camera.challengeScrollSpeed", "camera.orthoSize", "camera.near", "camera.far", "camera.pixelRatioMax", "player.maxHp", "player.damageInvulnerabilitySeconds", "map.generationAhead", "map.despawnBehind", "map.trainSpeed", "map.trainWarningSeconds", "items.rouletteSeconds", "items.roulettePreviewRate", "items.triggerInterval", "rocket.speed", "rocket.stunSeconds", "rocket.impactSeconds", "rocket.hitRadius", "lightning.warningSeconds", "lightning.stunSeconds", "shield.durationSeconds", "shield.finalFlashSeconds", "shield.flashRate", "eagle.warningSeconds", "eagle.challengeTriggerSeconds", "eagle.challengeCarrySeconds", "holes.warningSeconds", "holes.activeSeconds", "holes.repairSeconds", "holes.intervalSeconds", "boxes.rowSpacing", "boxes.regenSeconds", "vfx.feedbackSeconds", "vfx.stunStarRadius"]);
+  var signed = /* @__PURE__ */ new Set(["camera.offsetX", "camera.offsetY", "camera.offsetZ", "camera.startZ", "camera.targetAhead"]);
+  var integers = /* @__PURE__ */ new Set(["casual.playerCount", "casual.countdownStart", "casual.matchFillMs", "casual.initialFillMs", "casual.countdownMs", "casual.goDisplayMs", "items.slotCount", "items.roulettePreviewRate", "shield.blocks", "boxes.safeEndZ", "boxes.batchMin", "boxes.batchMax", "boxes.rowSpacing"]);
+  function applyGameConfig(values) {
+    const errors = [];
+    for (const [key, value2] of Object.entries(values || {})) {
+      if (!(key in BASE)) errors.push(`\u672A\u77E5\u9375 ${key}`);
+      else if (Array.isArray(BASE[key]) ? !Array.isArray(value2) || !value2.length : typeof value2 !== "number" || !Number.isFinite(value2)) errors.push(`\u9375 ${key} \u7684\u503C\u7121\u6548`);
+      else if (!Array.isArray(value2) && !signed.has(key) && value2 < 0) errors.push(`\u9375 ${key} \u4E0D\u53EF\u5C0F\u65BC 0`);
+      else if (positive.has(key) && value2 <= 0) errors.push(`\u9375 ${key} \u5FC5\u9808\u5927\u65BC 0`);
+      else if (integers.has(key) && !Number.isInteger(value2)) errors.push(`\u9375 ${key} \u5FC5\u9808\u70BA\u6574\u6578`);
+    }
+    const value = (key) => values?.[key] ?? BASE[key];
+    if (value("casual.playerCount") < 2 || value("casual.playerCount") > 5) errors.push("casual.playerCount \u5FC5\u9808\u70BA 2 \u81F3 5");
+    if (value("items.slotCount") < 1 || value("items.slotCount") > 2) errors.push("items.slotCount \u5FC5\u9808\u70BA 1 \u6216 2");
+    if (value("shield.blocks") < 1) errors.push("shield.blocks \u5FC5\u9808\u5927\u65BC 0");
+    if (value("boxes.batchMin") < 1 || value("boxes.batchMin") > value("boxes.batchMax")) errors.push("boxes batch \u7BC4\u570D\u7121\u6548");
+    if (value("bot.decisionMin") > value("bot.decisionMax")) errors.push("bot decision \u7BC4\u570D\u7121\u6548");
+    if (value("camera.near") >= value("camera.far")) errors.push("camera near/far \u7BC4\u570D\u7121\u6548");
+    if (value("map.roadSpeedMin") > value("map.roadSpeedMax") || value("map.roadSpeedRangeMin") > value("map.roadSpeedRangeMax") || value("map.riverSpeedMin") > value("map.riverSpeedMax")) errors.push("map speed \u7BC4\u570D\u7121\u6548");
+    if (values?.["items.pool"]) {
+      const allowed = /* @__PURE__ */ new Set(["rocket", "shield", "eagle", "lightning"]);
+      if (new Set(values["items.pool"]).size !== values["items.pool"].length || values["items.pool"].some((item) => !allowed.has(item))) errors.push("items.pool \u5FC5\u9808\u70BA\u4E0D\u91CD\u8907\u7684\u65E2\u5B9A\u9053\u5177");
+    }
+    if (errors.length) return { ok: false, errors, config: CONFIG };
+    Object.entries(values).forEach(([key, value2]) => put(key, value2));
+    return { ok: true, errors: [], config: CONFIG };
+  }
+  async function loadGameConfig(url = "./docs/game-config.yaml", fetchImpl = globalThis.fetch) {
+    resetGameConfig();
+    if (typeof fetchImpl !== "function") return { ok: false, source: "defaults", errors: ["fetch \u4E0D\u53EF\u7528"], config: CONFIG };
+    try {
+      const response = await fetchImpl(url);
+      if (!response?.ok) throw new Error(`HTTP ${response?.status ?? "error"}`);
+      const parsed = parseGameConfigYaml(await response.text());
+      if (parsed.errors.length) return { ok: false, source: "defaults", errors: parsed.errors, config: CONFIG };
+      const applied = applyGameConfig(parsed.values);
+      return { ...applied, source: applied.ok ? "yaml" : "defaults" };
+    } catch (error) {
+      return { ok: false, source: "defaults", errors: [error.message], config: CONFIG };
+    }
+  }
 
   // src/graphics/SceneSetup.js
   var SceneSetup = class {
@@ -20147,22 +22661,22 @@
       this.scene.background = new Color(10212845);
       this.scene.fog = new FogExp2(10212845, 0.012);
       const aspect2 = window.innerWidth / window.innerHeight;
-      const d = 4.2;
+      const d = CONFIG.CAMERA.ORTHO_SIZE;
       this.camera = new OrthographicCamera(
         -d * aspect2,
         d * aspect2,
         d,
         -d,
-        1,
-        1e3
+        CONFIG.CAMERA.NEAR,
+        CONFIG.CAMERA.FAR
       );
-      this.cameraOffset = new Vector3(-10, 14, -10);
-      this.cameraTarget = new Vector3(0, 0, 2.2 * CONFIG.GRID_SIZE);
+      this.cameraOffset = new Vector3(CONFIG.CAMERA.OFFSET_X, CONFIG.CAMERA.OFFSET_Y, CONFIG.CAMERA.OFFSET_Z);
+      this.cameraTarget = new Vector3(0, 0, CONFIG.CAMERA.TARGET_AHEAD * CONFIG.GRID_SIZE);
       this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
       this.camera.lookAt(this.cameraTarget);
       this.renderer = new WebGLRenderer({ antialias: true, alpha: false });
       this.renderer.setSize(window.innerWidth, window.innerHeight);
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, CONFIG.CAMERA.PIXEL_RATIO_MAX));
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = PCFSoftShadowMap;
       if (this.container) {
@@ -20194,7 +22708,7 @@
       this.scene.add(this.dirLight.target);
     }
     resetCamera() {
-      this.cameraTarget.set(0, 0, 2.2 * CONFIG.GRID_SIZE);
+      this.cameraTarget.set(0, 0, CONFIG.CAMERA.TARGET_AHEAD * CONFIG.GRID_SIZE);
       this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
       this.camera.lookAt(this.cameraTarget);
     }
@@ -20202,7 +22716,10 @@
       if (!targetPosition) return;
       const x = Number.isFinite(targetPosition.x) ? targetPosition.x : 0;
       const z = Number.isFinite(targetPosition.z) ? targetPosition.z : 1.2 * CONFIG.GRID_SIZE;
-      this.cameraTarget.set(x * 0.4, 0, z);
+      const playerZ = Number.isFinite(targetPosition.playerZ) ? targetPosition.playerZ : z;
+      const aspect2 = (this.camera.right - this.camera.left) / (this.camera.top - this.camera.bottom);
+      const targetX = aspect2 < 1 ? x + (z - playerZ) : x * 0.4;
+      this.cameraTarget.set(targetX, 0, z);
       this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
       if (this.dirLight) {
         this.dirLight.position.set(
@@ -20217,7 +22734,7 @@
     }
     onWindowResize() {
       const aspect2 = window.innerWidth / window.innerHeight;
-      const d = 4.2;
+      const d = CONFIG.CAMERA.ORTHO_SIZE;
       this.camera.left = -d * aspect2;
       this.camera.right = d * aspect2;
       this.camera.top = d;
@@ -20479,8 +22996,10 @@
       this.minAllowedZ = -4;
       this.isDead = false;
       this.isRespawning = false;
-      this.hp = 100;
-      this.maxHp = 100;
+      this.respawnRemaining = 0;
+      this.deathCount = 0;
+      this.hp = CONFIG.PLAYER.MAX_HP;
+      this.maxHp = CONFIG.PLAYER.MAX_HP;
       this.isInvulnerable = false;
       this.invulnerableTimer = 0;
       this.stunTimer = 0;
@@ -20500,7 +23019,9 @@
       this.jumpProgress = 0;
       this.isDead = false;
       this.isRespawning = false;
-      this.hp = 100;
+      this.respawnRemaining = 0;
+      this.deathCount = 0;
+      this.hp = CONFIG.PLAYER.MAX_HP;
       this.isInvulnerable = false;
       this.invulnerableTimer = 0;
       this.stunTimer = 0;
@@ -20610,6 +23131,7 @@
     }
     update(deltaTime) {
       const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
+      if (this.isDead) return;
       if (this.mesh) {
         this.mesh.rotation.y = MathUtils.lerp(
           this.mesh.rotation.y,
@@ -20665,7 +23187,7 @@
         return true;
       }
       this.isInvulnerable = true;
-      this.invulnerableTimer = 2;
+      this.invulnerableTimer = CONFIG.PLAYER.DAMAGE_INVULNERABILITY;
       return false;
     }
     applySpringPunchStun() {
@@ -20688,6 +23210,7 @@
       this.isJumping = false;
       this.isDead = false;
       this.isRespawning = false;
+      this.respawnRemaining = 0;
       this.inputBuffer = [];
       this.isInvulnerable = true;
       this.invulnerableTimer = invulnerableDuration;
@@ -20737,7 +23260,8 @@
       this.startZ = startZ;
       this.baseAggression = baseAggression;
       this.decisionTimer = 0;
-      this.decisionInterval = 0.18;
+      this.decisionInterval = CONFIG.BOT.DECISION_MIN + (botName.length + Math.round(baseAggression * 10)) % 4 * 0.02;
+      this.routeBias = (botName.length + Math.round(baseAggression * 100)) % 2 === 0 ? "LEFT" : "RIGHT";
       this.lastDirection = null;
       this.lateralCooldown = 0;
       this.retreatCooldown = 0;
@@ -20748,6 +23272,9 @@
       this.scoreItemRetryCooldown = 0;
       this.springPunchDodgeCooldown = 0;
       this.lastDodgedPunchId = null;
+      this.behaviorStats = { progress: 0, item: 0, interfere: 0, dodge: 0 };
+      this.lastIntent = "\u7B49\u5F85";
+      this.interferenceCooldown = 0;
       this.resetAt(startX, startZ);
     }
     resetAt(startX, startZ) {
@@ -20781,23 +23308,27 @@
         this.checkpoint = { x: this.gridX, z: this.gridZ };
       }
     }
-    updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null, springPunchItems = [], leaderStrikeItems = [], springPunches = [], actors = []) {
+    updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null, springPunchItems = [], leaderStrikeItems = [], springPunches = [], actors = [], isActiveHazard = null) {
       if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return;
       this.decisionTimer += deltaTime;
       this.lateralCooldown = Math.max(0, this.lateralCooldown - deltaTime);
       this.retreatCooldown = Math.max(0, this.retreatCooldown - deltaTime);
       this.scoreItemRetryCooldown = Math.max(0, this.scoreItemRetryCooldown - deltaTime);
       this.springPunchDodgeCooldown = Math.max(0, this.springPunchDodgeCooldown - deltaTime);
+      this.interferenceCooldown = Math.max(0, this.interferenceCooldown - deltaTime);
       if (this.scoreItemRetryCooldown === 0) this.scoreItemIgnoredId = null;
       if (this.decisionTimer < this.decisionInterval) return;
       this.decisionTimer = 0;
+      this.decisionInterval = Math.max(CONFIG.BOT.DECISION_MIN, Math.min(CONFIG.BOT.DECISION_MAX, this.decisionInterval + (Math.random() - 0.5) * CONFIG.BOT.DECISION_JITTER));
       const dodgeDirection = this.findSpringPunchDodgeDirection(springPunches, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
       const itemDirection = dodgeDirection || this.findLeaderStrikeItemDirection(leaderStrikeItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findSpringPunchItemDirection(springPunchItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
-      const direction = itemDirection || this.findPathDirection(activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+      const interfereDirection = !dodgeDirection && this.findInterferenceDirection(actors, activeRows, physics, canMove, isDynamicHoleUnsafe, isActiveHazard);
+      const pressureDirection = !dodgeDirection && !interfereDirection && this.findPressureDirection(actors, activeRows, physics, canMove, isDynamicHoleUnsafe);
+      const direction = dodgeDirection || interfereDirection || itemDirection || pressureDirection || this.findPathDirection(activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
       if (!direction) {
         const forward = this.getTargetGridPosition("UP");
         const repairTime = getDynamicHoleRepairTime?.(forward);
-        if (repairTime !== null && repairTime <= 0.7) {
+        if (repairTime !== null && repairTime <= CONFIG.BOT.REPAIR_WAIT_SECONDS) {
           this.waitedForPath = true;
           return;
         }
@@ -20810,7 +23341,7 @@
         return;
       }
       this.waitedForPath = false;
-      const actionRate = Math.min(1, Math.max(0.96, this.baseAggression + 0.55));
+      const actionRate = Math.min(0.995, CONFIG.BOT.ACTION_RATE_BASE + this.baseAggression * CONFIG.BOT.AGGRESSION_SCALE * CONFIG.BOT.ACTION_RATE_AGGRESSION);
       if (Math.random() >= actionRate) return;
       const moved = tryMove ? tryMove(this, direction) : this.move(direction);
       if (!moved) {
@@ -20823,14 +23354,61 @@
         return;
       }
       this.scoreItemBlockedAttempts = 0;
+      if (dodgeDirection) {
+        this.lastIntent = "\u9583\u907F\u5371\u96AA";
+        this.behaviorStats.dodge++;
+      } else if (interfereDirection) {
+        this.lastIntent = "\u653B\u64CA\u63A8\u64E0\u6210\u529F";
+        this.behaviorStats.interfere++;
+        this.interferenceCooldown = 0.55;
+      } else if (itemDirection) {
+        this.lastIntent = "\u722D\u6436\u9053\u5177";
+        this.behaviorStats.item++;
+      } else if (pressureDirection) {
+        this.lastIntent = "\u903C\u8FD1\u7AF6\u722D\u8005";
+        this.behaviorStats.interfere++;
+      } else {
+        this.lastIntent = "\u6301\u7E8C\u524D\u9032";
+        this.behaviorStats.progress++;
+      }
       this.lastDirection = direction;
       if (direction === "LEFT" || direction === "RIGHT") this.lateralCooldown = 0.6;
       if (direction === "DOWN") this.retreatCooldown = 0.7;
     }
+    findPressureDirection(actors, activeRows, physics, canMove, isDynamicHoleUnsafe) {
+      if (!canMove || this.baseAggression < 0.52) return null;
+      const target = actors.filter((actor) => actor !== this && !actor.isDead && !actor.isRespawning && actor.gridZ >= this.gridZ).sort((a, b) => (a.botName ? 1 : 0) - (b.botName ? 1 : 0) || b.gridZ - a.gridZ)[0];
+      if (!target) return null;
+      const dx = target.gridX - this.gridX;
+      const dz = target.gridZ - this.gridZ;
+      if (Math.abs(dx) + Math.abs(dz) > 3) return null;
+      const lateral = dx > 0 ? "LEFT" : dx < 0 ? "RIGHT" : null;
+      const candidates = dz > 0 ? ["UP", lateral].filter(Boolean) : [lateral].filter(Boolean);
+      for (const direction of candidates) {
+        const landing = this.getTargetGridPosition(direction);
+        if (this.isCellSafe(landing, activeRows, physics, CONFIG.JUMP_DURATION || 0.16, isDynamicHoleUnsafe) && canMove(this, direction)) return direction;
+      }
+      return null;
+    }
+    // 戰術推擠只請既有 canMove 管線做最終裁定：不穿人、不瞬移，也會跟著整條隊列原子移動。
+    findInterferenceDirection(actors, activeRows, physics, canMove, isDynamicHoleUnsafe, isActiveHazard) {
+      if (!canMove || this.baseAggression * CONFIG.BOT.AGGRESSION_SCALE < CONFIG.BOT.INTERFERENCE_THRESHOLD || this.interferenceCooldown > 0) return null;
+      const targets = actors.filter((actor) => actor !== this && !actor.isDead && !actor.isRespawning && !actor.isJumping).sort((left, right) => (left.botName ? 1 : 0) - (right.botName ? 1 : 0));
+      for (const target of targets) {
+        const dx = target.gridX - this.gridX;
+        const dz = target.gridZ - this.gridZ;
+        if (Math.abs(dx) + Math.abs(dz) !== 1) continue;
+        const direction = dx === 1 ? "LEFT" : dx === -1 ? "RIGHT" : dz === 1 ? "UP" : "DOWN";
+        const targetLanding = target.getTargetGridPosition(direction);
+        const intoHazard = Boolean(isActiveHazard?.(targetLanding));
+        const ownLanding = this.getTargetGridPosition(direction);
+        if (!this.isCellSafe(ownLanding, activeRows, physics, CONFIG.JUMP_DURATION || 0.16, isDynamicHoleUnsafe)) continue;
+        if ((intoHazard || Math.random() < this.baseAggression * CONFIG.BOT.PRESSURE_CHANCE_SCALE) && canMove(this, direction)) return direction;
+      }
+      return null;
+    }
     findSpringPunchItemDirection(items, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
-      const valuable = items.filter((item) => this.isSpringPunchUsefulFrom(item, actors));
-      if (!valuable.length) return null;
-      return this.findScoreItemDirection(valuable, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
+      return this.findScoreItemDirection(items, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
     }
     findLeaderStrikeItemDirection(items, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
       const valuable = items.filter((item) => this.getLeaderStrikeTarget(actors));
@@ -20896,7 +23474,7 @@
             if (!best || utility > best.utility) best = target;
           }
         }
-        if (current.depth >= 5) continue;
+        if (current.depth >= CONFIG.BOT.ITEM_SEARCH_DEPTH) continue;
         for (const move of [{ name: "UP", dx: 0, dz: 1 }, { name: "LEFT", dx: 1, dz: 0 }, { name: "RIGHT", dx: -1, dz: 0 }]) {
           const reversesRecentLateralMove = current.depth === 0 && this.lateralCooldown > 0 && (this.lastDirection === "LEFT" && move.name === "RIGHT" || this.lastDirection === "RIGHT" && move.name === "LEFT");
           if (reversesRecentLateralMove) continue;
@@ -20927,10 +23505,10 @@
     findPathDirection(activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) {
       const start = { x: this.gridX, z: this.gridZ };
       const lowestReachableZ = Number.isFinite(this.minAllowedZ) ? this.minAllowedZ : -4;
+      const lateralMoves = this.routeBias === "LEFT" ? [{ name: "LEFT", dx: 1, dz: 0 }, { name: "RIGHT", dx: -1, dz: 0 }] : [{ name: "RIGHT", dx: -1, dz: 0 }, { name: "LEFT", dx: 1, dz: 0 }];
       const moves = [
         { name: "UP", dx: 0, dz: 1 },
-        { name: "LEFT", dx: 1, dz: 0 },
-        { name: "RIGHT", dx: -1, dz: 0 },
+        ...lateralMoves,
         { name: "DOWN", dx: 0, dz: -1 }
       ];
       const queue = [{ ...start, firstDirection: null, depth: 0 }];
@@ -20942,7 +23520,7 @@
           const score = current.z * 100 - current.depth * 3 - Math.abs(current.x - start.x);
           if (!best || score > best.score) best = { direction: current.firstDirection, score };
         }
-        if (current.depth >= 10) continue;
+        if (current.depth >= CONFIG.BOT.PATH_SEARCH_DEPTH) continue;
         for (const move of moves) {
           const next = { x: current.x + move.dx, z: current.z + move.dz };
           if (Math.abs(next.x) > CONFIG.MAP_BOUNDS_X || next.z < lowestReachableZ) continue;
@@ -20990,13 +23568,13 @@
       if (physics.checkTreeCollision(targetPos, activeRows)) return false;
       if (isDynamicHoleUnsafe?.(targetPos, predictionSeconds)) return false;
       const row = activeRows.get(targetPos.z);
-      if (!row) return true;
+      if (!row) return false;
       if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
         const targetX = targetPos.x * CONFIG.GRID_SIZE;
         if (row.vehicles.some((vehicle) => {
           const vehicleX = vehicle.position ? vehicle.position.x : vehicle.mesh.position.x;
           const predictedVehicleX = this.predictLaneObjectX(vehicleX, row, predictionSeconds);
-          return Math.abs(targetX - vehicleX) < 2.2 || Math.abs(targetX - predictedVehicleX) < 2.2;
+          return Math.abs(targetX - vehicleX) < CONFIG.BOT.VEHICLE_SAFETY_DISTANCE || Math.abs(targetX - predictedVehicleX) < CONFIG.BOT.VEHICLE_SAFETY_DISTANCE;
         })) return false;
       }
       if (row.type === CONFIG.ROW_TYPES.RAILROAD && row.trainState !== "IDLE") return false;
@@ -21020,6 +23598,8 @@
       this.scene = scene;
       this.random = typeof random === "function" ? random : Math.random;
       this.activeRows = /* @__PURE__ */ new Map();
+      this.destroyedTreeCells = /* @__PURE__ */ new Set();
+      this.actorBoundsGetter = null;
       this.highestZGenerated = -CONFIG.DESPAWN_BEHIND;
       this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
       this.currentClusterType = CONFIG.ROW_TYPES.GRASS;
@@ -21044,6 +23624,7 @@
       this.springPunchItems = /* @__PURE__ */ new Map();
       this.springPunchItemsEnabled = false;
       this.springPunchCellBlocked = null;
+      this.springPunchReferenceX = null;
       this.leaderStrikeItems = /* @__PURE__ */ new Map();
       this.leaderStrikeItemsEnabled = false;
       this.leaderStrikeCellBlocked = null;
@@ -21055,7 +23636,8 @@
       this.dynamicHoleCells = /* @__PURE__ */ new Map();
       this.dynamicHoleCellBlocked = null;
       this.dynamicHolePlayerZ = 0;
-      this.dynamicHoleWaveCooldown = 1.5;
+      this.dynamicHoleWaveCooldown = CONFIG.HOLES.WAVE_COOLDOWN;
+      this.partyItemRegenTimer = 0;
       this.dynamicHoleWaveId = 0;
       this.reachableXs = /* @__PURE__ */ new Set();
       this.reachabilityInitialized = false;
@@ -21063,11 +23645,11 @@
       this.carrierHorizon = 12;
       this.carrierStep = 0.08;
       this.dynamicHoleConfig = {
-        warningDuration: 1.2,
-        holeDuration: 2.2,
-        repairDuration: 0.6,
-        waveCooldown: 0.8,
-        warningSafetyBuffer: 0.15
+        warningDuration: CONFIG.HOLES.WARNING_DURATION,
+        holeDuration: CONFIG.HOLES.HOLE_DURATION,
+        repairDuration: CONFIG.HOLES.REPAIR_DURATION,
+        waveCooldown: CONFIG.HOLES.WAVE_COOLDOWN,
+        warningSafetyBuffer: CONFIG.HOLES.WARNING_SAFETY_BUFFER
       };
       this.initGeometriesAndMaterials();
     }
@@ -21091,14 +23673,15 @@
     }
     initMap() {
       this.reset();
-      for (let z = -CONFIG.DESPAWN_BEHIND; z <= 7; z++) {
+      for (let z = -CONFIG.DESPAWN_BEHIND; z <= CONFIG.BOXES.SAFE_END_Z; z++) {
         this.generateRow(z, CONFIG.ROW_TYPES.GRASS, true);
       }
-      this.highestZGenerated = 7;
+      this.highestZGenerated = CONFIG.BOXES.SAFE_END_Z;
       this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
       this.update(0);
     }
     reset() {
+      this.destroyedTreeCells.clear();
       this.clearDynamicHoles();
       for (const [z, row] of this.activeRows.entries()) {
         this.removeRow(z, row);
@@ -21128,7 +23711,8 @@
       this.leaderStrikePendingBlockIndex = null;
       this.leaderStrikeSpawnHistory = [];
       this.dynamicHolePlayerZ = 0;
-      this.dynamicHoleWaveCooldown = 1.5;
+      this.dynamicHoleWaveCooldown = CONFIG.HOLES.WAVE_COOLDOWN;
+      this.partyItemRegenTimer = 0;
       this.dynamicHoleWaveId = 0;
       this.reachableXs.clear();
       this.reachabilityInitialized = false;
@@ -21136,13 +23720,23 @@
     }
     update(playerZ) {
       this.dynamicHolePlayerZ = playerZ;
-      const targetAheadZ = playerZ + CONFIG.GENERATION_AHEAD;
+      const actorBounds = this.actorBoundsGetter?.() || null;
+      const highestActorZ = Number.isFinite(actorBounds?.highestZ) ? actorBounds.highestZ : playerZ;
+      const targetAheadZ = Math.max(playerZ, highestActorZ) + CONFIG.GENERATION_AHEAD;
       while (this.highestZGenerated < targetAheadZ) {
         this.highestZGenerated++;
         const nextType = this.getNextRowType(this.highestZGenerated);
         this.generateRow(this.highestZGenerated, nextType);
       }
-      const minKeepZ = playerZ - CONFIG.DESPAWN_BEHIND;
+      if (this.partyItemRegenTimer <= 0) {
+        const before = this.springPunchItems.size;
+        this.ensureSpringPunchItem(playerZ, this.springPunchReferenceX?.() ?? 0);
+        if (highestActorZ > playerZ + 6) this.ensureSpringPunchItem(highestActorZ, 0);
+        if (this.springPunchItems.size > before) this.partyItemRegenTimer = CONFIG.BOXES.REGEN_SECONDS;
+      }
+      const lowestActorZ = Number.isFinite(actorBounds?.lowestZ) ? actorBounds.lowestZ : playerZ;
+      const checkpointZs = Array.isArray(actorBounds?.checkpointZs) ? actorBounds.checkpointZs.filter(Number.isFinite) : [];
+      const minKeepZ = Math.min(playerZ, lowestActorZ, ...checkpointZs) - CONFIG.DESPAWN_BEHIND;
       for (const [z, row] of this.activeRows.entries()) {
         if (z < minKeepZ) {
           this.removeRow(z, row);
@@ -21498,40 +24092,45 @@
       return item;
     }
     ensureSpringPunchItem(referenceZ = 0, referenceX = 0) {
-      if (!this.springPunchItemsEnabled || this.springPunchItems.size) return;
-      const rows = [...this.activeRows.values()].filter((row) => row.z >= referenceZ + 2 && row.z <= referenceZ + 8 && row.type === CONFIG.ROW_TYPES.GRASS && !row.scoreItem);
+      if (!this.springPunchItemsEnabled || this.springPunchItems.size >= 8) return;
+      const batchSize = Math.min(CONFIG.BOXES.BATCH_MAX, 8 - this.springPunchItems.size);
+      if (batchSize < 2) return;
+      if ([...this.springPunchItems.values()].some((item) => item.z >= referenceZ + 1 && item.z <= referenceZ + 8)) return;
+      const rows = [...this.activeRows.values()].filter((row) => row.z >= Math.max(CONFIG.BOXES.SAFE_END_Z + 1, referenceZ + 2) && row.z <= Math.max(this.highestZGenerated, referenceZ + 8) && row.type === CONFIG.ROW_TYPES.GRASS && !row.dynamicHoleCluster && !row.scoreItem && !row.springPunchItems?.length);
       for (const row of rows) {
+        const candidates = [];
         for (let offset = 0; offset <= CONFIG.MAP_BOUNDS_X * 2; offset++) {
           const signedOffset = offset === 0 ? 0 : offset % 2 ? Math.ceil(offset / 2) : -offset / 2;
           const x = Math.round(referenceX) + signedOffset;
+          if (Math.abs(x) >= CONFIG.MAP_BOUNDS_X || !this.canPlacePartyItemAt({ x, z: row.z }) || row.trees.some((tree) => tree.gridX === x) || this.springPunchCellBlocked?.({ x, z: row.z })) continue;
+          candidates.push(x);
+          if (candidates.length === batchSize) break;
+        }
+        if (candidates.length < CONFIG.BOXES.BATCH_MIN) continue;
+        row.springPunchItems = [];
+        for (const x of candidates) {
           const key = `${x},${row.z}`;
-          if (Math.abs(x) >= CONFIG.MAP_BOUNDS_X || this.springPunchItems.has(key) || row.trees.some((tree) => tree.gridX === x) || this.springPunchCellBlocked?.({ x, z: row.z })) continue;
           const mesh = this.createSpringPunchItemMesh();
           mesh.position.set(x * CONFIG.GRID_SIZE, 0.46, 0);
           row.mesh.add(mesh);
           const item = { id: `spring-${row.z}-${x}`, x, z: row.z, type: "springPunch", mesh, row };
-          row.springPunchItem = item;
+          row.springPunchItems.push(item);
           this.springPunchItems.set(key, item);
-          return;
         }
+        row.springPunchItem = row.springPunchItems[0] || null;
+        return;
       }
     }
     createSpringPunchItemMesh() {
-      const group = new Group();
-      const glove = new Mesh(new SphereGeometry(0.25, 12, 8), new MeshLambertMaterial({ color: 16764719, emissive: 5849088 }));
-      glove.scale.set(1.15, 0.8, 0.9);
-      const spring = new Mesh(new TorusGeometry(0.17, 0.035, 6, 10), new MeshBasicMaterial({ color: 16774312 }));
-      spring.rotation.x = Math.PI / 2;
-      spring.position.y = -0.17;
-      group.add(glove, spring);
-      return group;
+      return this.createPartyBoxMesh(16758572);
     }
     collectSpringPunchItemAt(gridPosition) {
       const key = `${gridPosition.x},${gridPosition.z}`;
       const item = this.springPunchItems.get(key);
       if (!item) return null;
       this.springPunchItems.delete(key);
-      item.row.springPunchItem = null;
+      item.row.springPunchItems = (item.row.springPunchItems || []).filter((candidate) => candidate !== item);
+      item.row.springPunchItem = item.row.springPunchItems[0] || null;
       item.row.mesh.remove(item.mesh);
       item.mesh.traverse((node) => {
         node.geometry?.dispose();
@@ -21546,7 +24145,7 @@
         this.leaderStrikePendingBlockIndex = null;
         return;
       }
-      if (this.leaderStrikeBlockIndex % 3 !== 0) return;
+      if (this.leaderStrikeBlockIndex % CONFIG.BOXES.ROW_SPACING !== 0) return;
       this.leaderStrikePendingBlockIndex = this.leaderStrikeBlockIndex;
       if (!row.dynamicHoleCluster) this.placePendingLeaderStrike(row);
     }
@@ -21556,13 +24155,13 @@
         this.leaderStrikePendingBlockIndex = null;
         return false;
       }
-      if (row.type !== CONFIG.ROW_TYPES.GRASS || row.dynamicHoleCluster || row.scoreItem || row.springPunchItem) return false;
+      if (row.z <= CONFIG.BOXES.SAFE_END_Z || row.type !== CONFIG.ROW_TYPES.GRASS || row.dynamicHoleCluster || row.scoreItem) return false;
       const rawReferenceX = this.leaderStrikeReferenceX ? this.leaderStrikeReferenceX() : 0;
       const referenceX = Math.round(Number.isFinite(rawReferenceX) ? rawReferenceX : 0);
       const candidates = [...row.reachableXs || []].sort((a, b) => Math.abs(a - referenceX) - Math.abs(b - referenceX) || a - b);
       for (const x of candidates) {
         const key = `${x},${row.z}`;
-        if (row.trees.some((tree) => tree.gridX === x) || this.leaderStrikeItems.has(key) || this.leaderStrikeCellBlocked?.({ x, z: row.z })) continue;
+        if (row.trees.some((tree) => tree.gridX === x) || !this.canPlacePartyItemAt({ x, z: row.z }) || this.leaderStrikeCellBlocked?.({ x, z: row.z })) continue;
         const mesh = this.createLeaderStrikeItemMesh();
         mesh.position.set(x * CONFIG.GRID_SIZE, 0.48, 0);
         row.mesh.add(mesh);
@@ -21576,6 +24175,7 @@
           row
         };
         row.leaderStrikeItem = item;
+        row.leaderStrikeItems = [...row.leaderStrikeItems || [], item];
         this.leaderStrikeItems.set(key, item);
         this.leaderStrikeSpawnHistory.push({ blockIndex: item.blockIndex, x, z: row.z, dynamicHole: false });
         this.leaderStrikePendingBlockIndex = null;
@@ -21584,20 +24184,28 @@
       return false;
     }
     createLeaderStrikeItemMesh() {
+      return this.createPartyBoxMesh(5490943);
+    }
+    createPartyBoxMesh(color) {
       const group = new Group();
-      const core = new Mesh(new OctahedronGeometry(0.32, 0), new MeshLambertMaterial({ color: 8970239, emissive: 2792703 }));
-      const beacon = new Mesh(new CylinderGeometry(0.05, 0.1, 0.88, 6), new MeshBasicMaterial({ color: 8251647, transparent: true, opacity: 0.82 }));
-      beacon.position.y = 0.36;
-      const bolt = new Mesh(new ConeGeometry(0.17, 0.72, 4), new MeshBasicMaterial({ color: 15858687 }));
-      bolt.rotation.z = Math.PI;
-      bolt.position.y = 0.62;
-      const innerRing = new Mesh(new TorusGeometry(0.36, 0.04, 6, 12), new MeshBasicMaterial({ color: 16121343 }));
-      innerRing.rotation.x = Math.PI / 2;
-      innerRing.position.y = -0.12;
-      const outerRing = new Mesh(new TorusGeometry(0.54, 0.035, 6, 12), new MeshBasicMaterial({ color: 5099519, transparent: true, opacity: 0.9 }));
-      outerRing.rotation.x = Math.PI / 2;
-      outerRing.position.y = -0.15;
-      group.add(core, beacon, bolt, innerRing, outerRing);
+      const geometry = new BoxGeometry(0.62, 0.62, 0.62);
+      const box = new Mesh(geometry, new MeshLambertMaterial({ color: 7760895, emissive: 1648978, transparent: true, opacity: 0.92 }));
+      const edge = new LineSegments(new EdgesGeometry(geometry), new LineBasicMaterial({ color: 10744575, transparent: true, opacity: 0.8 }));
+      group.add(box, edge);
+      for (let side = 0; side < 4; side++) {
+        const face = new Group();
+        const points = [[-0.12, 0.1], [-0.09, 0.18], [0.01, 0.2], [0.12, 0.15], [0.11, 0.05], [0.01, -0.01], [0, -0.08]].map(([x, y]) => new Vector3(x, y, 0.326));
+        const mark = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 18, 0.033, 6, false), new MeshBasicMaterial({ color: 16774844 }));
+        const dot = new Mesh(new BoxGeometry(0.065, 0.065, 0.018), new MeshBasicMaterial({ color: 16777215 }));
+        dot.position.set(0, -0.19, 0.33);
+        face.add(mark, dot);
+        face.rotation.y = side * Math.PI / 2;
+        group.add(face);
+      }
+      const ring = new Mesh(new TorusGeometry(0.44, 0.025, 6, 20), new MeshBasicMaterial({ color: 10218239, transparent: true, opacity: 0.65 }));
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = -0.38;
+      group.add(ring);
       return group;
     }
     collectLeaderStrikeItemAt(gridPosition) {
@@ -21607,11 +24215,24 @@
       this.removeLeaderStrikeItem(item);
       return item;
     }
+    hasPartyItemAt(gridPosition) {
+      const { x, z } = this.normalizeGridPosition(gridPosition);
+      const key = `${x},${z}`;
+      return this.springPunchItems.has(key) || this.leaderStrikeItems.has(key);
+    }
+    hasPartyItemOnAdjacentRow(z) {
+      return [...this.springPunchItems.values(), ...this.leaderStrikeItems.values()].some((item) => Math.abs(item.z - z) > 0 && Math.abs(item.z - z) < CONFIG.BOXES.ROW_SPACING);
+    }
+    canPlacePartyItemAt(gridPosition) {
+      const { x, z } = this.normalizeGridPosition(gridPosition);
+      return z > CONFIG.BOXES.SAFE_END_Z && !this.hasPartyItemAt({ x, z }) && !this.hasPartyItemOnAdjacentRow(z);
+    }
     removeLeaderStrikeItem(item) {
       if (!item) return;
       const key = `${item.x},${item.z}`;
       this.leaderStrikeItems.delete(key);
-      item.row.leaderStrikeItem = null;
+      item.row.leaderStrikeItems = (item.row.leaderStrikeItems || []).filter((candidate) => candidate !== item);
+      item.row.leaderStrikeItem = item.row.leaderStrikeItems[0] || null;
       item.row.mesh.remove(item.mesh);
       item.mesh.traverse((node) => {
         node.geometry?.dispose();
@@ -21641,7 +24262,7 @@
         if (isInitialSafe && rowData.z >= -3 && rowData.z <= 3 && Math.abs(x) <= 4) {
           placeTree = false;
         }
-        if (placeTree) {
+        if (placeTree && !this.destroyedTreeCells.has(`${x},${rowData.z}`)) {
           const treeType = Math.floor(this.random() * 3);
           const treeMesh = createTreeMesh(treeType);
           treeMesh.position.set(x * CONFIG.GRID_SIZE, 0.2, 0);
@@ -21664,8 +24285,8 @@
       this.lastRiverDirection = void 0;
       this.lastRiverSpeed = void 0;
       const zProgress = Math.min(1, Math.max(0, (rowData.z || 0) / 220));
-      const minSpeed = MathUtils.lerp(2, 4.2, zProgress);
-      const speedRange = MathUtils.lerp(1.2, 2.3, zProgress);
+      const minSpeed = MathUtils.lerp(CONFIG.MAP.ROAD_SPEED_MIN, CONFIG.MAP.ROAD_SPEED_MAX, zProgress);
+      const speedRange = MathUtils.lerp(CONFIG.MAP.ROAD_SPEED_RANGE_MIN, CONFIG.MAP.ROAD_SPEED_RANGE_MAX, zProgress);
       rowData.speed = minSpeed + this.random() * speedRange;
       const adjRowRoad = this.activeRows.get(rowData.z - 1) || this.activeRows.get(rowData.z + 1);
       if (adjRowRoad && adjRowRoad.type === CONFIG.ROW_TYPES.RIVER) {
@@ -21791,7 +24412,7 @@
           rowData.direction = -this.lastRiverDirection;
         }
         this.lastRiverDirection = rowData.direction;
-        let speed = MathUtils.lerp(1.5, 3.2, zProgress) + this.random() * 1;
+        let speed = MathUtils.lerp(CONFIG.MAP.RIVER_SPEED_MIN, CONFIG.MAP.RIVER_SPEED_MAX, zProgress) + this.random() * CONFIG.MAP.RIVER_SPEED_JITTER;
         if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1) {
           speed += 1.2;
         }
@@ -21859,6 +24480,7 @@
     }
     animateObstacles(deltaTime) {
       const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
+      this.partyItemRegenTimer = Math.max(0, this.partyItemRegenTimer - safeDelta);
       const boundX = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
       this.updateDynamicHoles(safeDelta);
       for (const [z, row] of this.activeRows.entries()) {
@@ -21866,14 +24488,14 @@
           row.scoreItem.mesh.rotation.y += safeDelta * 3.5;
           row.scoreItem.mesh.position.y = 0.5 + Math.sin(performance.now() * 4e-3 + z) * 0.08;
         }
-        if (row.springPunchItem?.mesh) {
-          row.springPunchItem.mesh.rotation.y += safeDelta * 4;
-          row.springPunchItem.mesh.position.y = 0.48 + Math.sin(performance.now() * 5e-3 + z) * 0.07;
-        }
-        if (row.leaderStrikeItem?.mesh) {
-          row.leaderStrikeItem.mesh.rotation.y -= safeDelta * 3.2;
-          row.leaderStrikeItem.mesh.position.y = 0.48 + Math.sin(performance.now() * 45e-4 + z) * 0.08;
-        }
+        (row.springPunchItems || (row.springPunchItem ? [row.springPunchItem] : [])).forEach((item, index) => {
+          item.mesh.rotation.y += safeDelta * 4;
+          item.mesh.position.y = 0.48 + Math.sin(performance.now() * 5e-3 + z + index) * 0.07;
+        });
+        (row.leaderStrikeItems || (row.leaderStrikeItem ? [row.leaderStrikeItem] : [])).forEach((item, index) => {
+          item.mesh.rotation.y -= safeDelta * 3.2;
+          item.mesh.position.y = 0.48 + Math.sin(performance.now() * 45e-4 + z + index) * 0.08;
+        });
         if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
           row.vehicles.forEach((veh) => {
             veh.mesh.position.x += row.direction * row.speed * safeDelta;
@@ -21906,7 +24528,7 @@
             }
             if (row.idleTimer <= 0) {
               row.trainState = "SIGNAL_FLASHING";
-              row.warningTimer = 2;
+              row.warningTimer = CONFIG.MAP.TRAIN_WARNING_SECONDS;
               row.flashTick = 0;
             }
           } else if (row.trainState === "SIGNAL_FLASHING") {
@@ -21941,7 +24563,7 @@
                 sig.rightLightMat.color.setHex(isLeftOn ? 4456448 : 16711680);
               });
             }
-            const trainSpeed = 38;
+            const trainSpeed = CONFIG.MAP.TRAIN_SPEED;
             row.train.position.x += row.direction * trainSpeed * safeDelta;
             if (Math.abs(row.train.position.x) > boundX * 2) {
               row.mesh.remove(row.train);
@@ -21962,7 +24584,7 @@
     setDynamicHolesEnabled(enabled) {
       this.dynamicHolesEnabled = Boolean(enabled);
       if (!this.dynamicHolesEnabled) this.clearDynamicHoles();
-      this.dynamicHoleWaveCooldown = 1.5;
+      this.dynamicHoleWaveCooldown = CONFIG.HOLES.WAVE_COOLDOWN;
     }
     getDynamicHoleState(gridPosition) {
       const { x, z } = this.normalizeGridPosition(gridPosition);
@@ -22017,6 +24639,7 @@
       if (!this.dynamicHolesEnabled) return;
       for (const hole of [...this.dynamicHoleCells.values()]) {
         hole.timer -= deltaTime;
+        hole.visualElapsed = (hole.visualElapsed || 0) + deltaTime;
         if (hole.state === "WARNING" && hole.timer <= 0) {
           this.setDynamicHoleState(hole, "HOLE", this.dynamicHoleConfig.holeDuration);
         } else if (hole.state === "HOLE" && hole.timer <= 0) {
@@ -22113,7 +24736,8 @@
         z: row.z,
         visual,
         state: "WARNING",
-        timer: this.dynamicHoleConfig.warningDuration
+        timer: this.dynamicHoleConfig.warningDuration,
+        visualElapsed: 0
       };
       this.dynamicHoleCells.set(hole.key, hole);
       this.applyDynamicHoleVisual(hole);
@@ -22123,9 +24747,26 @@
       const size = CONFIG.GRID_SIZE * 0.78;
       const warning = new Mesh(
         new PlaneGeometry(size, size),
-        new MeshBasicMaterial({ color: 16753967, transparent: true, opacity: 0.7, depthWrite: false })
+        new MeshBasicMaterial({ color: 16721981, transparent: true, opacity: 0.58, depthWrite: false })
       );
       warning.rotation.x = -Math.PI / 2;
+      const warningRing = new Mesh(
+        new RingGeometry(size * 0.37, size * 0.49, 12),
+        new MeshBasicMaterial({ color: 16732772, transparent: true, opacity: 0.8, side: DoubleSide, depthWrite: false })
+      );
+      warningRing.rotation.x = -Math.PI / 2;
+      warningRing.position.y = 0.028;
+      const fireball = new Group();
+      const fireCore = new Mesh(new SphereGeometry(0.19, 10, 8), new MeshBasicMaterial({ color: 16769146, transparent: true, opacity: 1 }));
+      const fireTail = new Mesh(new ConeGeometry(0.16, 0.62, 8), new MeshBasicMaterial({ color: 16735281, transparent: true, opacity: 0.9 }));
+      fireTail.position.y = 0.35;
+      fireball.add(fireCore, fireTail);
+      for (let index = 0; index < 4; index++) {
+        const ember = new Mesh(new SphereGeometry(0.045, 6, 5), new MeshBasicMaterial({ color: 16753213, transparent: true, opacity: 0.8 }));
+        ember.position.set((index - 1.5) * 0.07, 0.55 + index * 0.12, 0);
+        fireball.add(ember);
+      }
+      fireball.position.y = CONFIG.HOLES.FIREBALL_HEIGHT;
       const crackA = new Mesh(
         new BoxGeometry(size * 0.08, 0.025, size * 0.78),
         new MeshBasicMaterial({ color: 7152896 })
@@ -22139,7 +24780,7 @@
         new BoxGeometry(size, 0.16, size),
         new MeshLambertMaterial({ color: 1052696, emissive: 197382 })
       );
-      hole.position.y = 0.05;
+      hole.position.y = -0.08;
       const brokenEdge = new Group();
       const edgeMaterial = new MeshLambertMaterial({ color: 7156758, emissive: 2493698 });
       const edgeLength = size * 0.9;
@@ -22159,33 +24800,82 @@
         new MeshBasicMaterial({ color: 3731932, transparent: true, opacity: 0.55, depthWrite: false })
       );
       repair.rotation.x = -Math.PI / 2;
-      group.add(warning, crackA, crackB, hole, brokenEdge, repair);
-      group.userData = { warning, crackA, crackB, hole, brokenEdge, repair };
+      const fragments = new Group();
+      for (let index = 0; index < 6; index++) {
+        const fragment2 = new Mesh(new BoxGeometry(0.1, 0.07, 0.13), edgeMaterial.clone());
+        const angle = Math.PI * 2 * index / 6;
+        fragment2.position.set(Math.cos(angle) * size * 0.42, 0.12, Math.sin(angle) * size * 0.42);
+        fragment2.rotation.y = angle;
+        fragments.add(fragment2);
+      }
+      const impact = new Group();
+      const impactFlash = new Mesh(new SphereGeometry(0.32, 10, 8), new MeshBasicMaterial({ color: 16771500, transparent: true, opacity: 1 }));
+      const impactRing = new Mesh(new RingGeometry(0.12, 0.42, 16), new MeshBasicMaterial({ color: 16743237, transparent: true, opacity: 0.9, side: DoubleSide }));
+      impactRing.rotation.x = -Math.PI / 2;
+      impact.add(impactFlash, impactRing);
+      for (let index = 0; index < 8; index++) {
+        const ember = new Mesh(new BoxGeometry(0.07, 0.07, 0.07), new MeshBasicMaterial({ color: 16757844, transparent: true, opacity: 0.9 }));
+        const angle = index * Math.PI * 2 / 8;
+        ember.userData.velocity = new Vector3(Math.cos(angle) * 1.4, 0.8 + index % 3 * 0.25, Math.sin(angle) * 1.4);
+        impact.add(ember);
+      }
+      group.add(warning, warningRing, fireball, crackA, crackB, hole, brokenEdge, repair, fragments, impact);
+      group.userData = { warning, warningRing, fireball, crackA, crackB, hole, brokenEdge, repair, fragments, impact, impactFlash, impactRing };
       return group;
     }
     setDynamicHoleState(hole, state, duration) {
       hole.state = state;
       hole.timer = duration;
+      hole.visualElapsed = 0;
       this.applyDynamicHoleVisual(hole);
     }
     applyDynamicHoleVisual(hole) {
-      const { warning, crackA, crackB, hole: holeMesh, brokenEdge, repair } = hole.visual.userData;
+      const { warning, warningRing, fireball, crackA, crackB, hole: holeMesh, brokenEdge, repair, fragments, impact } = hole.visual.userData;
       warning.visible = hole.state === "WARNING";
+      warningRing.visible = hole.state === "WARNING";
+      fireball.visible = hole.state === "WARNING";
       crackA.visible = hole.state === "WARNING";
       crackB.visible = hole.state === "WARNING";
       holeMesh.visible = hole.state === "HOLE" || hole.state === "REPAIR_WARNING";
       brokenEdge.visible = hole.state === "HOLE" || hole.state === "REPAIR_WARNING";
       repair.visible = hole.state === "REPAIR_WARNING";
+      fragments.visible = hole.state === "HOLE" || hole.state === "REPAIR_WARNING";
+      impact.visible = hole.state === "HOLE";
       this.animateDynamicHoleVisual(hole);
     }
     animateDynamicHoleVisual(hole) {
-      const { warning, repair } = hole.visual.userData;
+      const { warning, warningRing, fireball, repair, hole: holeMesh, brokenEdge, fragments, impact, impactFlash, impactRing } = hole.visual.userData;
       if (hole.state === "WARNING") {
         const pulse = 0.72 + Math.sin(performance.now() * 0.018) * 0.22;
         warning.material.opacity = pulse;
         warning.scale.setScalar(0.9 + pulse * 0.12);
+        warningRing.material.opacity = 0.35 + pulse * 0.5;
+        warningRing.scale.setScalar(0.92 + pulse * 0.16);
+        const descend = Math.max(0, Math.min(1, hole.timer / this.dynamicHoleConfig.warningDuration));
+        fireball.position.y = 0.2 + descend * Math.max(0, CONFIG.HOLES.FIREBALL_HEIGHT - 0.2);
+        fireball.rotation.y += 0.12;
+      } else if (hole.state === "HOLE") {
+        holeMesh.position.y = -0.1 - Math.sin(performance.now() * 0.012) * 0.025;
+        brokenEdge.rotation.y += 3e-3;
+        fragments.children.forEach((fragment2, index) => {
+          fragment2.position.y = 0.1 + Math.sin(performance.now() * 0.014 + index) * 0.035;
+        });
+        const impactProgress = Math.min(1, hole.visualElapsed / 0.72);
+        impactFlash.scale.setScalar(1 + impactProgress * 2.5);
+        impactFlash.material.opacity = Math.max(0, 1 - impactProgress * 1.3);
+        impactRing.scale.setScalar(1 + impactProgress * 3.6);
+        impactRing.material.opacity = Math.max(0, 0.9 - impactProgress);
+        impact.children.forEach((child) => {
+          if (!child.userData.velocity) return;
+          child.position.addScaledVector(child.userData.velocity, 0.016);
+          child.material.opacity = Math.max(0, 1 - impactProgress);
+        });
       } else if (hole.state === "REPAIR_WARNING") {
         repair.material.opacity = 0.45 + Math.sin(performance.now() * 0.02) * 0.2;
+        holeMesh.position.y = -0.08 + (1 - hole.timer / this.dynamicHoleConfig.repairDuration) * 0.12;
+        fragments.children.forEach((fragment2) => {
+          fragment2.position.y = Math.max(0.08, fragment2.position.y - 0.01);
+        });
       }
     }
     checkSafeZoneReset(playerZ) {
@@ -22196,12 +24886,19 @@
       return false;
     }
     removeRow(z, row) {
-      if (row?.leaderStrikeItem) this.removeLeaderStrikeItem(row.leaderStrikeItem);
+      (row?.leaderStrikeItems || (row?.leaderStrikeItem ? [row.leaderStrikeItem] : [])).slice().forEach((item) => this.removeLeaderStrikeItem(item));
       if (row && row.mesh) {
         this.scene.remove(row.mesh);
       }
       if (row?.scoreItem) this.scoreItems.delete(`${row.scoreItem.x},${row.scoreItem.z}`);
-      if (row?.springPunchItem) this.springPunchItems.delete(`${row.springPunchItem.x},${row.springPunchItem.z}`);
+      (row?.springPunchItems || (row?.springPunchItem ? [row.springPunchItem] : [])).slice().forEach((item) => {
+        this.springPunchItems.delete(`${item.x},${item.z}`);
+        row.mesh?.remove(item.mesh);
+        item.mesh?.traverse((node) => {
+          node.geometry?.dispose();
+          node.material?.dispose();
+        });
+      });
       this.activeRows.delete(z);
     }
     getActiveRows() {
@@ -22508,6 +25205,132 @@
     }
   };
 
+  // src/ui/ItemIcons.js
+  var ITEM_META = {
+    rocket: { name: "\u958B\u8DEF\u706B\u7BAD", icon: "\u{1F680}", color: "#ff7b55", hint: "\u627E\u5230\u5C0D\u624B\u5F8C\u81EA\u52D5\u8FFD\u64CA" },
+    shield: { name: "\u6CE1\u6CE1\u76FE", icon: "\u{1FAE7}", color: "#7aeaff", hint: "\u7372\u5F97\u5F8C 10 \u79D2\u5167\u81EA\u52D5\u62B5\u64CB\u4E00\u6B21\u9053\u5177\u653B\u64CA" },
+    eagle: { name: "\u53EC\u559A\u8001\u9DF9", icon: "\u{1F985}", color: "#ffc96b", hint: "\u81EA\u52D5\u653B\u64CA\u9818\u5148\u7684\u5C0D\u624B" },
+    lightning: { name: "\u5168\u5716\u843D\u96F7", icon: "\u26A1", color: "#ffea63", hint: "\u62BD\u4E2D\u5F8C\u7ACB\u5373\u767C\u52D5" }
+  };
+  function drawItemIcon(ctx, type, x, y, size) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(size / 100, size / 100);
+    ctx.lineWidth = 4;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#172943";
+    const polygon = (points, fill) => {
+      ctx.beginPath();
+      points.forEach(([px2, py2], i) => i ? ctx.lineTo(px2, py2) : ctx.moveTo(px2, py2));
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.stroke();
+    };
+    if (type === "rocket") {
+      ctx.rotate(Math.PI / 5);
+      polygon([[-12, 25], [0, 47], [12, 25]], "#ffbd32");
+      polygon([[-5, 25], [0, 39], [5, 25]], "#fff0a0");
+      polygon([[-13, 0], [-27, 24], [-11, 19]], "#ff574b");
+      polygon([[13, 0], [27, 24], [11, 19]], "#ff574b");
+      ctx.fillStyle = "#f2f8ff";
+      ctx.beginPath();
+      ctx.roundRect(-14, -22, 28, 48, 8);
+      ctx.fill();
+      ctx.stroke();
+      polygon([[-14, -20], [0, -43], [14, -20]], "#ff574b");
+      ctx.beginPath();
+      ctx.arc(0, -7, 8, 0, Math.PI * 2);
+      ctx.fillStyle = "#5bddff";
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "#b6d1df";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(7, 8);
+      ctx.lineTo(7, 19);
+      ctx.stroke();
+    } else if (type === "shield") {
+      const gradient = ctx.createRadialGradient(-15, -18, 2, 0, 0, 41);
+      gradient.addColorStop(0, "#e6fdff");
+      gradient.addColorStop(0.5, "#83eaff");
+      gradient.addColorStop(1, "#527ff0");
+      ctx.beginPath();
+      ctx.arc(0, 0, 39, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 29, Math.PI * 1.08, Math.PI * 1.48);
+      ctx.stroke();
+      ctx.strokeStyle = "#172943";
+      polygon([[-17, -13], [0, -20], [17, -13], [13, 10], [0, 23], [-13, 10]], "#e8faff");
+      ctx.strokeStyle = "#4294d2";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-7, 0);
+      ctx.lineTo(-1, 6);
+      ctx.lineTo(9, -7);
+      ctx.stroke();
+    } else if (type === "eagle") {
+      polygon([[-7, 2], [-27, -23], [-44, -30], [-34, -4], [-20, 12], [-4, 17]], "#b27a46");
+      polygon([[7, 2], [27, -23], [44, -30], [34, -4], [20, 12], [4, 17]], "#b27a46");
+      polygon([[-10, 18], [-15, 37], [0, 31], [15, 37], [10, 18]], "#805439");
+      ctx.beginPath();
+      ctx.ellipse(0, 11, 17, 22, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#98653e";
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(3, -9, 15, 16, -0.15, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff9e8";
+      ctx.fill();
+      ctx.stroke();
+      polygon([[12, -11], [27, -3], [12, 1]], "#ffd056");
+      ctx.fillStyle = "#172943";
+      ctx.beginPath();
+      ctx.arc(8, -12, 3, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (type === "lightning") {
+      polygon([[4, -43], [-28, 6], [-4, 6], [-12, 42], [31, -11], [7, -11], [18, -43]], "#ffe253");
+      ctx.strokeStyle = "#fff8cd";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(5, -28);
+      ctx.lineTo(-14, -1);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = "#ffe55e";
+      ctx.beginPath();
+      ctx.roundRect(-36, -36, 72, 72, 14);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = "900 62px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeText("?", 0, 3);
+      ctx.fillText("?", 0, 3);
+    }
+    ctx.restore();
+  }
+  var iconCache = /* @__PURE__ */ new Map();
+  function itemIconDataUrl(type) {
+    if (!iconCache.has(type)) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 160;
+      canvas.height = 160;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return "";
+      drawItemIcon(ctx, type, 80, 80, 144);
+      iconCache.set(type, canvas.toDataURL());
+    }
+    return iconCache.get(type);
+  }
+
   // src/ui/UIManager.js
   var UIManager = class {
     constructor() {
@@ -22537,6 +25360,21 @@
       this.leaderboardList = document.getElementById("leaderboard-list");
       this.combatAnnouncement = document.getElementById("combat-announcement");
       this.combatAnnouncementTimer = null;
+      this.matchingOverlay = document.getElementById("matching-overlay");
+      this.matchingStatus = document.getElementById("matching-status");
+      this.matchingSeats = document.getElementById("matching-seats");
+      this.btnCancelMatching = document.getElementById("btn-cancel-matching");
+      this.raceCountdown = document.getElementById("race-countdown");
+      this.raceCountdownValue = document.getElementById("race-countdown-value");
+      this.respawnCountdown = document.getElementById("respawn-countdown");
+      this.respawnCountdownValue = document.getElementById("respawn-countdown-value");
+      this.respawnCountdownNote = document.getElementById("respawn-countdown-note");
+      this.globalStrikeFlash = document.getElementById("global-strike-flash");
+      this.soloResults = document.getElementById("solo-results");
+      this.multiplayerResults = document.getElementById("multiplayer-results");
+      this.itemHud = document.getElementById("item-hud");
+      this.itemSlots = document.getElementById("item-slots");
+      this.itemHudKey = null;
       let savedHighScore = 0;
       try {
         savedHighScore = parseInt(localStorage.getItem("crossy_highscore") || "0", 10);
@@ -22579,7 +25417,7 @@
         });
       });
     }
-    init(onStart, onRestart, onReturnLobby) {
+    init(onStart, onRestart, onReturnLobby, onCancelMatching = null) {
       if (this.btnStart) {
         this.btnStart.addEventListener("click", () => {
           if (this.isCasualGuideOpen()) return;
@@ -22592,6 +25430,7 @@
       }
       if (this.btnRestart) this.btnRestart.addEventListener("click", () => onRestart(this.selectedMode));
       if (this.btnLobby) this.btnLobby.addEventListener("click", () => onReturnLobby());
+      if (this.btnCancelMatching && onCancelMatching) this.btnCancelMatching.addEventListener("click", onCancelMatching);
       this.setupCasualGuide(onStart);
       this.updateCasualGuideAvailability(true);
     }
@@ -22691,7 +25530,9 @@
       if (this.isCasualGuideOpen()) this.tutorialSceneRenderer.setActive(["move", "push", "respawn"][target]);
     }
     setMode(mode) {
+      this.currentMode = mode;
       const isCasual = mode === "casual";
+      if (this.itemHud) this.itemHud.hidden = !isCasual;
       if (this.healthBarContainer) this.healthBarContainer.style.display = isCasual ? "none" : "flex";
       if (this.timerCard) this.timerCard.style.display = isCasual ? "flex" : "none";
       if (this.leaderboard) this.leaderboard.style.display = isCasual ? "block" : "none";
@@ -22718,6 +25559,120 @@
         this.leaderboardList.append(row);
       });
     }
+    showMatching(seats, status) {
+      if (this.matchingStatus) this.matchingStatus.textContent = status;
+      if (this.matchingSeats) {
+        this.matchingSeats.replaceChildren();
+        for (let index = 0; index < CASUAL_PLAYER_COUNT; index++) {
+          const seat = document.createElement("span");
+          seat.className = `matching-seat${index < seats ? " filled" : ""}${index === 0 ? " player-seat" : ""}`;
+          seat.textContent = index === 0 ? "\u4F60" : index < seats ? "BOT" : "\u2026";
+          this.matchingSeats.append(seat);
+        }
+      }
+      if (this.matchingOverlay) {
+        this.matchingOverlay.classList.remove("hidden");
+        this.matchingOverlay.style.display = "flex";
+      }
+    }
+    hideMatching() {
+      if (!this.matchingOverlay) return;
+      this.matchingOverlay.classList.add("hidden");
+      this.matchingOverlay.style.display = "none";
+    }
+    showRaceCountdown(value) {
+      if (!this.raceCountdown) return;
+      this.hideMatching();
+      this.raceCountdown.hidden = false;
+      this.raceCountdown.classList.toggle("race-go", value === "GO");
+      this.raceCountdownValue.textContent = value === "GO" ? "\u885D\u554A\uFF01" : String(value);
+      this.raceCountdownValue.classList.remove("countdown-pop");
+      void this.raceCountdownValue.offsetWidth;
+      this.raceCountdownValue.classList.add("countdown-pop");
+    }
+    hideRaceCountdown() {
+      if (this.raceCountdown) this.raceCountdown.hidden = true;
+    }
+    updateRespawnCountdown(seconds, phase = "countdown") {
+      if (!this.respawnCountdown) return;
+      this.respawnCountdown.hidden = seconds === null || seconds === void 0;
+      if (this.respawnCountdown.hidden) return;
+      const travelling = phase === "dying" || phase === "returning";
+      this.respawnCountdown.classList.toggle("respawn-travelling", travelling);
+      const title = document.getElementById("respawn-countdown-title");
+      if (title) title.textContent = travelling ? "\u5931\u8AA4\u4E86\uFF01" : "\u56DE\u5230\u5B89\u5168\u9EDE \xB7 \u6E96\u5099\u518D\u51FA\u767C";
+      if (travelling) {
+        this.respawnCountdownValue.textContent = phase === "dying" ? "\u54CE\u5440\uFF01" : "\u8FD4\u56DE\u4E2D";
+        this.respawnCountdownNote.textContent = phase === "dying" ? "\u5373\u5C07\u8FD4\u56DE\u4E0A\u4E00\u500B\u5B89\u5168\u9EDE" : "\u62B5\u9054\u5B89\u5168\u9EDE\u5F8C\u958B\u59CB\u5012\u6578";
+        return;
+      }
+      const count = Math.max(0, Math.ceil(seconds));
+      const text = count > 0 ? String(count) : "\u2026";
+      if (this.respawnCountdownValue.textContent !== text) this.respawnCountdownValue.textContent = text;
+      this.respawnCountdownNote.textContent = count > 0 ? "\u5012\u6578\u7D50\u675F\u5F8C\u6062\u5FA9\u79FB\u52D5" : "\u6B63\u5728\u7B49\u5F85\u5B89\u5168\u7A7A\u4F4D";
+    }
+    updateItemHUD(slots = [], time = 0) {
+      if (!this.itemHud || !this.itemSlots) return;
+      this.itemHud.hidden = this.currentMode !== "casual";
+      const normalizedSlots = Array.from({ length: CONFIG.ITEMS.SLOT_COUNT }, (_, index) => slots[index] || null);
+      const key = normalizedSlots.map((slot) => {
+        if (!slot) return "empty";
+        if (slot.roulette) return `rolling:${slot.roulette.preview}:${Math.ceil(slot.roulette.remaining * 10)}`;
+        return `${slot.type}:${slot.expiresAt ? Math.ceil(slot.expiresAt - time) : "ready"}`;
+      }).join("|");
+      if (key !== this.itemHudKey) {
+        this.itemHudKey = key;
+        this.itemSlots.replaceChildren();
+        for (let index = 0; index < CONFIG.ITEMS.SLOT_COUNT; index++) {
+          const entry = normalizedSlots[index];
+          const type = entry?.roulette?.preview || entry?.type;
+          const meta = ITEM_META[type];
+          const slot = document.createElement("div");
+          const rolling = Boolean(entry?.roulette);
+          slot.className = `item-slot ${rolling ? "item-slot-rolling" : meta ? "item-slot-held" : "item-slot-empty"}`;
+          slot.dataset.item = type || "";
+          if (meta) {
+            slot.style.setProperty("--item-color", meta.color);
+            slot.title = meta.hint;
+            const icon = document.createElement("img");
+            icon.src = itemIconDataUrl(type);
+            icon.alt = "";
+            icon.width = 58;
+            icon.height = 58;
+            const name = document.createElement("strong");
+            name.textContent = meta.name;
+            const status = document.createElement("span");
+            if (rolling) status.textContent = `\u62BD\u53D6\u4E2D ${Math.ceil(entry.roulette.remaining * 10) / 10}s`;
+            else if (entry.type === "shield") status.textContent = `\u8B77\u76FE ${Math.max(0, Math.ceil(entry.expiresAt - time))}\u79D2`;
+            else status.textContent = "\u5F85\u547D";
+            slot.append(icon, name, status);
+          } else {
+            const mark = document.createElement("span");
+            mark.className = "empty-slot-mark";
+            mark.textContent = "?";
+            const label = document.createElement("span");
+            label.textContent = "\u7A7A\u69FD";
+            slot.append(mark, label);
+          }
+          this.itemSlots.append(slot);
+        }
+      }
+      const hint = document.getElementById("item-hud-hint");
+      const hasRolling = normalizedSlots.some((slot) => slot?.roulette);
+      const hasHeld = normalizedSlots.some((slot) => slot?.type);
+      if (hint) hint.textContent = hasRolling ? "\u9053\u5177\u6B63\u5728\u5404\u81EA\u62BD\u53D6\uFF01" : hasHeld ? "\u689D\u4EF6\u7B26\u5408\u6642\u81EA\u52D5\u4F7F\u7528" : "\u78B0\u554F\u865F\u7BB1\uFF0C\u62BD\u53D6\u9053\u5177";
+    }
+    flashGlobalStrike() {
+      if (!this.globalStrikeFlash) return;
+      this.globalStrikeFlash.classList.remove("global-strike-active");
+      void this.globalStrikeFlash.offsetWidth;
+      this.globalStrikeFlash.classList.add("global-strike-active");
+    }
+    clearMatchFeedback() {
+      this.hideRaceCountdown();
+      this.updateRespawnCountdown(null);
+      this.globalStrikeFlash?.classList.remove("global-strike-active");
+    }
     showCombatAnnouncement(message) {
       if (!this.combatAnnouncement) return;
       if (this.combatAnnouncementTimer) clearTimeout(this.combatAnnouncementTimer);
@@ -22740,6 +25695,9 @@
       this.combatAnnouncement.textContent = "";
     }
     showLobby() {
+      if (this.itemHud) this.itemHud.hidden = true;
+      this.clearMatchFeedback();
+      this.hideMatching();
       this.clearCombatAnnouncement();
       if (this.startOverlay) {
         this.startOverlay.classList.remove("hidden");
@@ -22752,6 +25710,8 @@
       }
     }
     hideOverlays() {
+      this.clearMatchFeedback();
+      this.hideMatching();
       this.clearCombatAnnouncement();
       if (this.startOverlay) {
         this.startOverlay.classList.add("hidden");
@@ -22791,6 +25751,12 @@
       }
     }
     showGameOver(score, reason = "\u88AB\u8ECA\u649E\u98DB\u4E86\uFF01") {
+      if (this.itemHud) this.itemHud.hidden = true;
+      this.clearMatchFeedback();
+      if (this.soloResults) this.soloResults.hidden = false;
+      if (this.multiplayerResults) this.multiplayerResults.hidden = true;
+      this.gameoverOverlay?.querySelector(".gameover-card")?.classList.remove("multiplayer-card");
+      if (this.btnRestart) this.btnRestart.textContent = "\u518D\u8A66\u4E00\u6B21";
       this.clearCombatAnnouncement();
       if (this.finalScoreEl) this.finalScoreEl.innerText = score;
       if (this.finalBestEl) this.finalBestEl.innerText = this.highScore;
@@ -22800,13 +25766,729 @@
         this.gameoverOverlay.style.display = "flex";
       }
     }
+    showMultiplayerResults({ entries = [], playerRank, duration = 120 } = {}) {
+      if (this.itemHud) this.itemHud.hidden = true;
+      if (!this.multiplayerResults || !this.gameoverOverlay) return;
+      this.clearCombatAnnouncement();
+      this.clearMatchFeedback();
+      if (this.soloResults) this.soloResults.hidden = true;
+      this.multiplayerResults.hidden = false;
+      this.gameoverOverlay.querySelector(".gameover-card")?.classList.add("multiplayer-card");
+      const standings = entries.slice().sort((a, b) => b.distance - a.distance || a.order - b.order);
+      const player = standings.find((entry) => entry.isPlayer);
+      const rank = player?.rank ?? playerRank ?? standings.indexOf(player) + 1;
+      const tied = standings.filter((entry) => entry.rank === rank).length > 1;
+      document.getElementById("results-title").textContent = rank === 1 ? tied ? "\u4E26\u5217\u51A0\u8ECD\uFF01" : "\u4F60\u662F\u672C\u5C40\u51A0\u8ECD\uFF01" : `\u672C\u5C40\u7B2C ${rank} \u540D`;
+      document.getElementById("results-subtitle").textContent = `${duration} \u79D2\u5C0D\u6C7A\u5B8C\u6210 \xB7 ${standings.length} \u4F4D\u9078\u624B\u7684\u6700\u7D42\u6230\u7E3E`;
+      const makeText = (tag, className, text) => {
+        const element = document.createElement(tag);
+        element.className = className;
+        element.textContent = text;
+        return element;
+      };
+      const avatar = (entry) => entry.isPlayer ? "\u{1F414}" : entry.name.includes("\u9752\u86D9") ? "\u{1F438}" : entry.name.includes("\u67F4\u72AC") ? "\u{1F415}" : "\u{1F986}";
+      const podium = document.getElementById("results-podium");
+      podium.replaceChildren();
+      [1, 0, 2].forEach((index) => {
+        const entry = standings[index];
+        if (!entry) return;
+        const place = makeText("div", `podium-place podium-${index + 1}${entry.isPlayer ? " podium-you" : ""}`, "");
+        place.append(
+          makeText("span", "podium-medal", entry.rank === 1 ? "\u{1F451}" : `\u7B2C ${entry.rank} \u540D`),
+          makeText("span", "podium-avatar", avatar(entry)),
+          makeText("strong", "podium-name", entry.isPlayer ? `${entry.name}\uFF08\u4F60\uFF09` : entry.name),
+          makeText("span", "podium-distance", `${entry.distance} \u683C`)
+        );
+        podium.append(place);
+      });
+      const personal = document.getElementById("results-personal");
+      personal.replaceChildren();
+      if (player) {
+        for (const [label, value] of [["\u4F60\u7684\u540D\u6B21", `${tied ? "\u4E26\u5217 " : ""}${rank} / ${standings.length}`], ["\u6700\u9060\u7D00\u9304", `${player.maxDistance} \u683C`], ["\u5931\u8AA4\u6B21\u6578", `${player.deaths} \u6B21`]]) {
+          const stat = makeText("div", "result-stat", "");
+          stat.append(makeText("span", "", label), makeText("strong", "", value));
+          personal.append(stat);
+        }
+      }
+      const rows = document.getElementById("results-rows");
+      rows.replaceChildren();
+      standings.forEach((entry) => {
+        const row = document.createElement("tr");
+        if (entry.isPlayer) row.className = "result-player-row";
+        [entry.rank, entry.isPlayer ? `${entry.name}\uFF08\u4F60\uFF09` : entry.name, entry.distance, entry.itemScore, entry.deaths].forEach((value, index) => {
+          const cell = makeText(index === 1 ? "th" : "td", "", String(value));
+          if (index === 1) cell.scope = "row";
+          row.append(cell);
+        });
+        rows.append(row);
+      });
+      if (this.btnRestart) this.btnRestart.textContent = "\u518D\u914D\u4E00\u5834";
+      this.gameoverOverlay.classList.remove("hidden");
+      this.gameoverOverlay.style.display = "flex";
+      this.btnRestart?.focus();
+    }
+  };
+
+  // src/mechanics/PartyItemSystem.js
+  var pool = () => CONFIG.ITEMS.POOL;
+  var PartyItemSystem = class {
+    constructor(game, random = Math.random) {
+      this.game = game;
+      this.random = random;
+      this.states = /* @__PURE__ */ new Map();
+      this.rockets = [];
+      this.eagles = [];
+      this.feedback = [];
+      this.bursts = [];
+      this.shieldEffects = /* @__PURE__ */ new Map();
+      this.stunEffects = /* @__PURE__ */ new Map();
+      this.impactEffects = [];
+      this.activeShields = /* @__PURE__ */ new Map();
+      this.time = 0;
+      this.eaglePenaltySeconds = 0;
+      this.stats = { acquired: 0, rocket: 0, shield: 0, eagle: 0, lightning: 0, destroyedTrees: 0, destroyedCars: 0, destroyedTrains: 0 };
+    }
+    state(actor) {
+      if (!this.states.has(actor)) this.states.set(actor, { slots: Array.from({ length: CONFIG.ITEMS.SLOT_COUNT }, () => null), nextTriggerAt: 0 });
+      return this.states.get(actor);
+    }
+    canReceive(actor) {
+      return Boolean(actor && !actor.isDead && !actor.isRespawning && this.state(actor).slots.some((slot) => !slot));
+    }
+    beginRoulette(actor) {
+      if (!this.canReceive(actor)) return false;
+      const state = this.state(actor);
+      const slotIndex = state.slots.findIndex((slot) => !slot);
+      const reservedTypes = state.slots.map((slot) => slot?.type || slot?.roulette?.result).filter(Boolean);
+      const eligible = pool().filter((type) => !reservedTypes.includes(type));
+      const result = eligible[Math.floor(this.random() * eligible.length)] || "lightning";
+      state.slots[slotIndex] = { roulette: { remaining: CONFIG.ITEMS.ROULETTE_SECONDS, total: CONFIG.ITEMS.ROULETTE_SECONDS, preview: "rocket", result } };
+      this.showFeedback(actor, "box", "\u62BD\u53D6\u4E2D", CONFIG.ITEMS.ROULETTE_SECONDS);
+      this.refreshHUD();
+      return true;
+    }
+    award(actor, slotIndex, type) {
+      const state = this.state(actor);
+      const reservedTypes = state.slots.map((slot, index) => index === slotIndex ? null : slot?.type || slot?.roulette?.result).filter(Boolean);
+      if (reservedTypes.includes(type)) type = pool().find((candidate) => !reservedTypes.includes(candidate)) || type;
+      this.stats.acquired++;
+      this.showFeedback(actor, type, type === "shield" ? `\u8B77\u76FE ${CONFIG.SHIELD.DURATION}\u79D2` : "\u7372\u5F97", CONFIG.ITEMS.TRIGGER_INTERVAL);
+      state.slots[slotIndex] = { type, readyAt: this.time, expiresAt: null };
+      this.refreshHUD();
+    }
+    selectRocketTarget(owner) {
+      const candidates = this.game.getActiveActors().filter((a) => a !== owner && !a.isDead && !a.isRespawning);
+      if (!candidates.length) return null;
+      const positionOf = (actor) => actor.position || new Vector3(actor.gridX * CONFIG.GRID_SIZE, 0, actor.gridZ * CONFIG.GRID_SIZE);
+      const ownerPosition = positionOf(owner);
+      const distanceSquared = (actor) => {
+        const position = positionOf(actor);
+        const x = position.x - ownerPosition.x;
+        const z = position.z - ownerPosition.z;
+        return x * x + z * z;
+      };
+      const gap = Math.min(...candidates.map(distanceSquared));
+      const tied = candidates.filter((actor) => Math.abs(distanceSquared(actor) - gap) < 1e-8);
+      return tied[Math.floor(this.random() * tied.length)] || null;
+    }
+    selectEagleTarget(owner) {
+      const active = this.game.getActiveActors().filter((a) => !a.isDead && !a.isRespawning);
+      if (!active.length) return null;
+      const firstZ = Math.max(...active.map((a) => a.gridZ));
+      const targetZ = owner.gridZ === firstZ ? Math.max(...active.filter((a) => a.gridZ < firstZ).map((a) => a.gridZ), -Infinity) : firstZ;
+      if (!Number.isFinite(targetZ)) return null;
+      const candidates = active.filter((a) => a !== owner && a.gridZ === targetZ && !this.eagles.some((e) => e.target === a));
+      return candidates[Math.floor(this.random() * candidates.length)] || null;
+    }
+    update(dt) {
+      this.time += dt;
+      for (const [actor, shield] of this.activeShields) {
+        if (actor.isDead || actor.isRespawning || shield.expiresAt <= this.time) {
+          this.activeShields.delete(actor);
+          this.removeShieldEffect(actor);
+          if (!actor.isDead && !actor.isRespawning) this.showFeedback(actor, "shield", "\u8B77\u76FE\u5931\u6548");
+        }
+      }
+      this.states.forEach((state, actor) => {
+        if (actor.isDead || actor.isRespawning) return;
+        state.slots.forEach((slot, index) => {
+          if (!slot) return;
+          if (slot.roulette) {
+            const roulette = slot.roulette;
+            roulette.remaining = Math.max(0, roulette.remaining - dt);
+            roulette.preview = pool()[Math.floor((roulette.total - roulette.remaining) * CONFIG.ITEMS.ROULETTE_PREVIEW_RATE) % pool().length];
+            if (roulette.remaining === 0) this.award(actor, index, roulette.result);
+            return;
+          }
+          if (this.time < slot.readyAt || this.time < state.nextTriggerAt || actor.stunTimer > 0) return;
+          if (slot.type === "shield") {
+            state.slots[index] = null;
+            state.nextTriggerAt = this.time + CONFIG.ITEMS.TRIGGER_INTERVAL;
+            this.activeShields.set(actor, { expiresAt: this.time + CONFIG.SHIELD.DURATION, blocks: CONFIG.SHIELD.BLOCKS });
+            this.ensureShieldEffect(actor);
+            this.updateShieldEffect(actor, this.shieldEffects.get(actor));
+          } else if (slot.type === "lightning") {
+            state.slots[index] = null;
+            state.nextTriggerAt = this.time + CONFIG.ITEMS.TRIGGER_INTERVAL;
+            this.activate(actor, "lightning");
+          } else if (slot.type === "rocket") {
+            const target = this.selectRocketTarget(actor);
+            if (target) {
+              state.slots[index] = null;
+              state.nextTriggerAt = this.time + CONFIG.ITEMS.TRIGGER_INTERVAL;
+              this.launchRocket(actor, target);
+            }
+          } else if (slot.type === "eagle") {
+            const target = this.selectEagleTarget(actor);
+            if (target) {
+              state.slots[index] = null;
+              state.nextTriggerAt = this.time + CONFIG.ITEMS.TRIGGER_INTERVAL;
+              this.launchEagle(actor, target);
+            }
+          }
+        });
+      });
+      this.updateRockets(dt);
+      this.updateEagles(dt);
+      this.updateFeedback(dt);
+      this.updateBursts(dt);
+      this.updateStatusEffects();
+      this.updateImpactEffects(dt);
+      this.refreshHUD();
+    }
+    refreshHUD() {
+      const state = this.states.get(this.game.player);
+      this.game.uiManager.updateItemHUD?.(state?.slots || Array.from({ length: CONFIG.ITEMS.SLOT_COUNT }, () => null), this.time);
+    }
+    activate(actor, type) {
+      this.stats[type]++;
+      this.showFeedback(actor, type, "\u767C\u52D5");
+      if (type === "lightning") this.game.startGlobalLightning(actor);
+    }
+    blockAttack(actor, type) {
+      const shield = this.activeShields.get(actor);
+      if (!shield) return false;
+      if (shield.expiresAt <= this.time) {
+        this.activeShields.delete(actor);
+        this.removeShieldEffect(actor);
+        this.showFeedback(actor, "shield", "\u8B77\u76FE\u5931\u6548");
+        this.refreshHUD();
+        return false;
+      }
+      shield.blocks -= 1;
+      if (shield.blocks <= 0) this.activeShields.delete(actor);
+      if (shield.blocks <= 0) this.removeShieldEffect(actor);
+      this.stats.shield++;
+      this.showFeedback(actor, "shield", "\u64CB\u4E0B\u653B\u64CA\uFF01");
+      this.burst(actor.position, 8250879, true);
+      this.refreshHUD();
+      return true;
+    }
+    hit(actor, type, stun) {
+      if (actor.isDead || actor.isRespawning) return false;
+      if (this.blockAttack(actor, type)) return false;
+      this.showFeedback(actor, type, "\u53D7\u64CA");
+      return actor.applyStun(stun);
+    }
+    hasActiveShield(actor) {
+      const shield = this.activeShields.get(actor);
+      return Boolean(shield && shield.expiresAt > this.time && !actor.isDead && !actor.isRespawning);
+    }
+    ensureShieldEffect(actor) {
+      if (this.shieldEffects.has(actor)) return;
+      const group = new Group();
+      const bubble = new Mesh(
+        new SphereGeometry(0.58, 14, 10),
+        new MeshBasicMaterial({ color: 6216959, transparent: true, opacity: 0.22, wireframe: true })
+      );
+      const band = new Mesh(
+        new TorusGeometry(0.52, 0.035, 8, 20),
+        new MeshBasicMaterial({ color: 12974079, transparent: true, opacity: 0.85 })
+      );
+      band.rotation.x = Math.PI / 2;
+      group.add(bubble, band);
+      this.game.scene.add(group);
+      this.shieldEffects.set(actor, { group, bubble, band });
+    }
+    removeShieldEffect(actor) {
+      const effect = this.shieldEffects.get(actor);
+      if (!effect) return;
+      this.disposeMesh(effect.group);
+      this.shieldEffects.delete(actor);
+    }
+    ensureStunEffect(actor) {
+      if (this.stunEffects.has(actor)) return;
+      const group = new Group();
+      for (let index = 0; index < 5; index++) {
+        const shape = new Shape();
+        for (let point = 0; point < 10; point++) {
+          const radius = point % 2 === 0 ? 0.15 : 0.065;
+          const angle = Math.PI / 2 + point * Math.PI / 5;
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius;
+          if (point === 0) shape.moveTo(x, y);
+          else shape.lineTo(x, y);
+        }
+        shape.closePath();
+        const star = new Mesh(
+          new ShapeGeometry(shape),
+          new MeshBasicMaterial({ color: 16769628, transparent: true, opacity: 0.98, side: DoubleSide })
+        );
+        star.userData.isStunStar = true;
+        group.add(star);
+      }
+      this.game.scene.add(group);
+      this.stunEffects.set(actor, { group });
+    }
+    removeStunEffect(actor) {
+      const effect = this.stunEffects.get(actor);
+      if (!effect) return;
+      this.disposeMesh(effect.group);
+      this.stunEffects.delete(actor);
+    }
+    updateStatusEffects() {
+      const active = new Set(this.game.getActiveActors());
+      for (const [actor] of this.activeShields) {
+        if (actor.isDead || actor.isRespawning) {
+          this.activeShields.delete(actor);
+          this.removeShieldEffect(actor);
+        }
+      }
+      for (const actor of this.shieldEffects.keys()) {
+        if (!active.has(actor) || !this.hasActiveShield(actor)) this.removeShieldEffect(actor);
+      }
+      for (const actor of this.stunEffects.keys()) {
+        if (!active.has(actor) || actor.isDead || actor.isRespawning || actor.stunTimer <= 0) this.removeStunEffect(actor);
+      }
+      active.forEach((actor) => {
+        if (actor.isDead || actor.isRespawning) return;
+        if (this.hasActiveShield(actor)) {
+          this.ensureShieldEffect(actor);
+          const effect = this.shieldEffects.get(actor);
+          this.updateShieldEffect(actor, effect);
+        }
+        if (actor.stunTimer > 0) {
+          this.ensureStunEffect(actor);
+          const effect = this.stunEffects.get(actor);
+          effect.group.position.copy(actor.position).add(new Vector3(0, 1.25, 0));
+          effect.group.children.forEach((star, index) => {
+            const angle = this.time * 6 + index * Math.PI * 2 / effect.group.children.length;
+            star.position.set(Math.cos(angle) * CONFIG.VFX.STUN_STAR_RADIUS, Math.sin(angle * 2) * 0.07, Math.sin(angle) * CONFIG.VFX.STUN_STAR_RADIUS);
+            if (this.game.sceneSetup?.camera) star.lookAt(this.game.sceneSetup.camera.position);
+            star.rotateZ(-angle * 0.55);
+          });
+        }
+      });
+    }
+    updateShieldEffect(actor, effect) {
+      if (!effect) return;
+      const remaining = Math.max(0, (this.activeShields.get(actor)?.expiresAt ?? 0) - this.time);
+      const pulse = 1 + Math.sin(this.time * 7) * 0.06;
+      const flashing = remaining <= CONFIG.SHIELD.FINAL_FLASH && Math.floor(this.time * CONFIG.SHIELD.FLASH_RATE) % 2 === 0;
+      effect.group.position.copy(actor.position).add(new Vector3(0, 0.55, 0));
+      effect.group.scale.setScalar(pulse);
+      effect.bubble.material.opacity = flashing ? 0.055 : 0.24;
+      effect.band.material.opacity = flashing ? 0.22 : 0.9;
+      effect.band.rotation.z += 0.05;
+    }
+    createRocketImpact(position, shielded = false) {
+      const group = new Group();
+      const color = shielded ? 6675967 : 16765274;
+      const flash = new Mesh(new SphereGeometry(0.38, 12, 8), new MeshBasicMaterial({ color, transparent: true, opacity: 1 }));
+      const ring = new Mesh(new RingGeometry(0.15, 0.48, 20), new MeshBasicMaterial({ color, transparent: true, opacity: 0.95, side: DoubleSide }));
+      ring.rotation.x = -Math.PI / 2;
+      group.add(flash, ring);
+      for (let index = 0; index < 12; index++) {
+        const angle = index * Math.PI * 2 / 12;
+        const fragment2 = new Mesh(new BoxGeometry(0.11, 0.11, 0.11), new MeshBasicMaterial({ color, transparent: true, opacity: 0.95 }));
+        fragment2.userData.velocity = new Vector3(Math.cos(angle) * (1.8 + index % 3), 0.8 + index % 4 * 0.25, Math.sin(angle) * (1.8 + index % 3));
+        group.add(fragment2);
+      }
+      group.position.copy(position).add(new Vector3(0, 0.52, 0));
+      this.game.scene.add(group);
+      this.impactEffects.push({ group, flash, ring, age: 0, duration: CONFIG.ROCKET.IMPACT_DURATION, shielded });
+    }
+    updateImpactEffects(dt) {
+      this.impactEffects = this.impactEffects.filter((effect) => {
+        effect.age += dt;
+        const progress = Math.min(1, effect.age / effect.duration);
+        effect.flash.scale.setScalar(1 + progress * 2.8);
+        effect.flash.material.opacity = Math.max(0, 1 - progress * 1.35);
+        effect.ring.scale.setScalar(1 + progress * 4.2);
+        effect.ring.material.opacity = Math.max(0, 0.95 - progress);
+        effect.group.children.forEach((node) => {
+          if (!node.userData.velocity) return;
+          node.position.addScaledVector(node.userData.velocity, dt);
+          node.material.opacity = Math.max(0, 1 - progress);
+        });
+        if (effect.age < effect.duration) return true;
+        this.disposeMesh(effect.group);
+        return false;
+      });
+    }
+    launchRocket(owner, target) {
+      this.activate(owner, "rocket");
+      const mesh = new Group();
+      const body = new Mesh(new CylinderGeometry(0.14, 0.16, 0.55, 8), new MeshLambertMaterial({ color: 15857407 }));
+      body.rotation.x = Math.PI / 2;
+      const nose = new Mesh(new ConeGeometry(0.16, 0.3, 8), new MeshLambertMaterial({ color: 16735818 }));
+      nose.rotation.x = Math.PI / 2;
+      nose.position.z = 0.41;
+      const flame = new Mesh(new ConeGeometry(0.13, 0.4, 6), new MeshBasicMaterial({ color: 16764999 }));
+      flame.rotation.x = -Math.PI / 2;
+      flame.position.z = -0.44;
+      mesh.add(body, nose, flame);
+      for (const x of [-0.18, 0.18]) {
+        const fin = new Mesh(new BoxGeometry(0.13, 0.05, 0.26), new MeshLambertMaterial({ color: 16737109 }));
+        fin.position.set(x, 0, -0.17);
+        mesh.add(fin);
+      }
+      const position = owner.position.clone();
+      mesh.position.copy(position).add(new Vector3(0, 0.65, 0));
+      this.game.scene.add(mesh);
+      this.rockets.push({ owner, target, targetDeaths: target.deathCount || 0, mesh, flame, position, direction: new Vector3(0, 0, 1) });
+      this.showFeedback(target, "rocket", "\u88AB\u9396\u5B9A");
+    }
+    updateRockets(dt) {
+      this.rockets = this.rockets.filter((rocket) => {
+        const { target, mesh } = rocket;
+        const nonfatalReturn = this.game.casualRecovery?.states?.get(target)?.countDeath === false;
+        if (target.isDead && !nonfatalReturn || (target.deathCount || 0) !== rocket.targetDeaths) {
+          this.disposeMesh(mesh);
+          return false;
+        }
+        const delta = target.position.clone().sub(rocket.position);
+        delta.y = 0;
+        const distance = delta.length();
+        if (distance > 0) rocket.direction.copy(delta).normalize();
+        const previous = rocket.position.clone();
+        rocket.position.addScaledVector(rocket.direction, Math.min(CONFIG.ROCKET.SPEED * dt, distance));
+        this.destroyAlong(previous, rocket.position);
+        mesh.position.copy(rocket.position).add(new Vector3(0, 0.65, 0));
+        mesh.rotation.y = Math.atan2(rocket.direction.x, rocket.direction.z);
+        rocket.flame.scale.setScalar(0.8 + Math.sin(this.time * 55) * 0.2);
+        if (distance <= CONFIG.ROCKET.SPEED * dt + CONFIG.ROCKET.HIT_RADIUS && !target.isDead && !target.isRespawning) {
+          const shielded = this.hasActiveShield(target);
+          this.hit(target, "rocket", CONFIG.ROCKET.STUN_DURATION);
+          this.createRocketImpact(target.position, shielded);
+          this.disposeMesh(mesh);
+          return false;
+        }
+        return true;
+      });
+    }
+    destroyAlong(start, end) {
+      const map = this.game.mapGenerator;
+      const dx = end.x - start.x, dz = end.z - start.z;
+      const lengthSquared = dx * dx + dz * dz;
+      const distanceTo = (x, z) => {
+        const t = lengthSquared ? Math.max(0, Math.min(1, ((x - start.x) * dx + (z - start.z) * dz) / lengthSquared)) : 0;
+        return Math.hypot(start.x + dx * t - x, start.z + dz * t - z);
+      };
+      for (const row of map.activeRows.values()) {
+        const z = row.z * CONFIG.GRID_SIZE;
+        if (z < Math.min(start.z, end.z) - 0.7 || z > Math.max(start.z, end.z) + 0.7) continue;
+        row.trees = (row.trees || []).filter((tree) => {
+          const x = tree.gridX * CONFIG.GRID_SIZE;
+          if (distanceTo(x, z) > 0.55) return true;
+          map.destroyedTreeCells.add(`${tree.gridX},${row.z}`);
+          row.mesh.remove(tree.mesh);
+          this.stats.destroyedTrees++;
+          this.burst(new Vector3(x, 0, z), 9156951);
+          return false;
+        });
+        if (row.vehicles) row.vehicles = row.vehicles.filter((vehicle) => {
+          const halfWidth = (vehicle.width || 1.8) / 2;
+          const x = vehicle.mesh.position.x;
+          if (!this.segmentHitsTraffic(start, end, x, z, halfWidth, 0.48)) return true;
+          row.mesh.remove(vehicle.mesh);
+          this.stats.destroyedCars++;
+          this.burst(new Vector3(x, 0, z), 16754263);
+          return false;
+        });
+        if (row.train && this.segmentHitsTraffic(start, end, row.train.position.x, z, 4, 0.5)) {
+          const x = row.train.position.x;
+          row.mesh.remove(row.train);
+          row.train = null;
+          row.trainState = "IDLE";
+          row.idleTimer = 5;
+          this.stats.destroyedTrains++;
+          this.burst(new Vector3(x, 0, z), 16754263);
+        }
+      }
+    }
+    segmentHitsTraffic(a, b, x, z, halfX, halfZ) {
+      let low = 0, high = 1;
+      for (const [origin, delta, min, max] of [[a.x, b.x - a.x, x - halfX, x + halfX], [a.z, b.z - a.z, z - halfZ, z + halfZ]]) {
+        if (Math.abs(delta) < 1e-8) {
+          if (origin < min || origin > max) return false;
+        } else {
+          const t1 = (min - origin) / delta, t2 = (max - origin) / delta;
+          low = Math.max(low, Math.min(t1, t2));
+          high = Math.min(high, Math.max(t1, t2));
+          if (low > high) return false;
+        }
+      }
+      return true;
+    }
+    launchEagle(owner, target) {
+      this.activate(owner, "eagle");
+      this.showFeedback(target, "eagle", "\u8001\u9DF9\u4F86\u8972\uFF01", CONFIG.EAGLE.WARNING_DURATION);
+      const mesh = createEagle();
+      mesh.position.copy(target.position).add(new Vector3(-5, 7, 1));
+      this.game.scene.add(mesh);
+      this.eagles.push({ owner, target, targetDeaths: target.deathCount || 0, mesh, age: 0, hit: false });
+    }
+    updateEagles(dt) {
+      this.eagles = this.eagles.filter((eagle) => {
+        const { target, mesh } = eagle;
+        eagle.age += dt;
+        if (!eagle.hit && (target.isDead || target.isRespawning || (target.deathCount || 0) !== eagle.targetDeaths)) {
+          this.disposeMesh(mesh);
+          return false;
+        }
+        if (eagle.age < CONFIG.EAGLE.WARNING_DURATION) {
+          const t = Math.min(1, eagle.age / CONFIG.EAGLE.WARNING_DURATION);
+          mesh.position.copy(target.position).add(new Vector3(-5 * (1 - t), 0.6 + 6 * (1 - t) ** 2, 1 - t));
+          mesh.rotation.z = Math.sin(eagle.age * 16) * 0.13;
+        } else if (!eagle.hit) {
+          eagle.hit = true;
+          if (!this.blockAttack(target, "eagle")) {
+            this.showFeedback(target, "eagle", "\u9001\u56DE\u5B89\u5168\u9EDE");
+            this.game.casualRecovery.schedule(target, "eagle", CONFIG.EAGLE.PARTY_RESPAWN_PENALTY_SECONDS, { countDeath: false, animate: false });
+          }
+        } else {
+          mesh.position.y += dt * 9;
+          mesh.position.x += dt * 5;
+          if (eagle.age > 2) {
+            this.disposeMesh(mesh);
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+    showFeedback(actor, type, message = "", duration = CONFIG.VFX.FEEDBACK_SECONDS) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 112;
+      canvas.height = 112;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#132b43ee";
+      ctx.beginPath();
+      ctx.roundRect(8, 8, 96, 96, 22);
+      ctx.fill();
+      ctx.strokeStyle = ITEM_META[type]?.color || "#fff0a0";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      drawItemIcon(ctx, type, 56, 56, 78);
+      const texture = new CanvasTexture(canvas);
+      const sprite = new Sprite(new SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+      sprite.scale.set(0.78, 0.78, 1);
+      sprite.renderOrder = 30;
+      this.game.scene.add(sprite);
+      this.feedback.push({ actor, type, message, sprite, texture, offset: 0, remaining: duration, total: duration });
+      this.layoutFeedback(actor);
+    }
+    layoutFeedback(actor) {
+      const effects = this.feedback.filter((effect) => effect.actor === actor);
+      effects.forEach((effect, index) => {
+        effect.offset = (index - (effects.length - 1) / 2) * 0.86;
+        effect.sprite.position.copy(actor.position).add(new Vector3(effect.offset, 1.65, 0));
+      });
+    }
+    updateFeedback(dt) {
+      const affectedActors = /* @__PURE__ */ new Set();
+      this.feedback = this.feedback.filter((effect) => {
+        effect.remaining -= dt;
+        affectedActors.add(effect.actor);
+        effect.sprite.position.copy(effect.actor.position).add(new Vector3(effect.offset, 1.65, 0));
+        effect.sprite.material.opacity = Math.min(1, Math.max(0, effect.remaining / 0.2));
+        if (effect.remaining > 0) return true;
+        this.game.scene.remove(effect.sprite);
+        effect.sprite.material.dispose();
+        effect.texture.dispose();
+        return false;
+      });
+      affectedActors.forEach((actor) => this.layoutFeedback(actor));
+    }
+    burst(position, color, bubble = false) {
+      const group = new Group();
+      group.position.copy(position).add(new Vector3(0, 0.6, 0));
+      const material = new MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
+      if (bubble) group.add(new Mesh(new SphereGeometry(0.65, 12, 8), new MeshBasicMaterial({ color, transparent: true, opacity: 0.35, wireframe: true })));
+      for (let i = 0; i < 8; i++) {
+        const fragment2 = new Mesh(new BoxGeometry(0.1, 0.1, 0.1), material.clone());
+        fragment2.userData.velocity = new Vector3(Math.cos(i * Math.PI / 4) * 2, 1.6 + i % 3 * 0.3, Math.sin(i * Math.PI / 4) * 2);
+        group.add(fragment2);
+      }
+      material.dispose();
+      this.game.scene.add(group);
+      this.bursts.push({ group, age: 0 });
+    }
+    updateBursts(dt) {
+      this.bursts = this.bursts.filter((effect) => {
+        effect.age += dt;
+        effect.group.children.forEach((node) => {
+          if (node.userData.velocity) node.position.addScaledVector(node.userData.velocity, dt);
+          node.material.opacity = Math.max(0, 1 - effect.age / 0.5);
+        });
+        if (effect.age < 0.5) return true;
+        this.disposeMesh(effect.group);
+        return false;
+      });
+    }
+    disposeMesh(mesh) {
+      this.game.scene.remove(mesh);
+      mesh.traverse((node) => {
+        node.geometry?.dispose();
+        node.material?.dispose();
+      });
+    }
+    clear() {
+      [...this.rockets, ...this.eagles].forEach((effect) => this.disposeMesh(effect.mesh));
+      this.bursts.forEach((effect) => this.disposeMesh(effect.group));
+      this.impactEffects.forEach((effect) => this.disposeMesh(effect.group));
+      [...this.shieldEffects.keys()].forEach((actor) => this.removeShieldEffect(actor));
+      [...this.stunEffects.keys()].forEach((actor) => this.removeStunEffect(actor));
+      this.feedback.forEach((effect) => {
+        this.game.scene.remove(effect.sprite);
+        effect.sprite.material.dispose();
+        effect.texture.dispose();
+      });
+      this.rockets = [];
+      this.eagles = [];
+      this.bursts = [];
+      this.impactEffects = [];
+      this.feedback = [];
+      this.states.clear();
+      this.activeShields.clear();
+      this.time = 0;
+      Object.keys(this.stats).forEach((key) => {
+        this.stats[key] = 0;
+      });
+      this.refreshHUD();
+    }
+  };
+
+  // src/mechanics/CasualRecovery.js
+  var CasualRecovery = class {
+    constructor(game) {
+      this.game = game;
+      this.states = /* @__PURE__ */ new Map();
+    }
+    schedule(actor, reason = "impact", penaltySeconds = CONFIG.RESPAWN.PENALTY, options = {}) {
+      if (!actor || this.states.has(actor) || actor.isDead || actor.isRespawning) return false;
+      const checkpoint = actor === this.game.player ? this.game.casualCheckpoint : actor.checkpoint;
+      const state = { phase: options.animate === false ? "returning" : "dying", checkpoint, reason, elapsed: 0, penaltySeconds, countDeath: options.countDeath !== false, label: null, labelValue: null };
+      if (state.countDeath) actor.deathCount = (actor.deathCount || 0) + 1;
+      actor.isDead = true;
+      actor.isJumping = false;
+      actor.inputBuffer = [];
+      actor.respawnRemaining = 0;
+      if (actor.mesh) actor.mesh.visible = true;
+      if (state.countDeath && actor.behaviorStats) {
+        actor.behaviorStats.death = (actor.behaviorStats.death || 0) + 1;
+        actor.lastIntent = "\u6B7B\u4EA1\u91CD\u751F\u4E2D";
+      }
+      this.states.set(actor, state);
+      this.game.pendingRespawns.set(actor, state);
+      this.updateUI(actor, 0, state.phase);
+      return true;
+    }
+    update(dt) {
+      for (const [actor, state] of this.states) {
+        if (state.phase === "dying") {
+          state.elapsed += dt;
+          if (actor.mesh) {
+            if (state.reason === "fall") actor.mesh.position.y = -Math.min(0.55, state.elapsed * 0.85);
+            else {
+              actor.mesh.scale.y = Math.max(0.1, 0.95 - state.elapsed * 1.25);
+              actor.mesh.rotation.z = state.elapsed * 0.55;
+            }
+          }
+          if (state.elapsed < CONFIG.RESPAWN.DEATH_ANIMATION) continue;
+          state.phase = "returning";
+          if (actor.mesh) actor.mesh.visible = false;
+        }
+        if (state.phase === "returning") {
+          const position = this.game.findCasualRespawnPosition(actor, state.checkpoint);
+          this.updateUI(actor, 0, "returning");
+          if (!position) continue;
+          actor.respawnAt(position.x, position.z, 0);
+          actor.isDead = false;
+          actor.isRespawning = true;
+          actor.isInvulnerable = false;
+          actor.invulnerableTimer = 0;
+          actor.respawnRemaining = state.penaltySeconds;
+          if (actor.mesh) {
+            actor.mesh.visible = true;
+            actor.mesh.rotation.x = 0;
+            actor.mesh.rotation.z = 0;
+            actor.mesh.scale.set?.(0.95, 0.95, 0.95);
+          }
+          state.phase = "countdown";
+          state.elapsed = state.penaltySeconds;
+          this.updateUI(actor, Math.ceil(state.elapsed), "countdown", state);
+          if (state.penaltySeconds <= 0) this.finish(actor, state);
+          continue;
+        }
+        if (state.phase === "countdown") {
+          state.elapsed = Math.max(0, state.elapsed - dt);
+          const seconds = Math.ceil(state.elapsed);
+          actor.respawnRemaining = state.elapsed;
+          this.positionLabel(actor, state);
+          this.updateUI(actor, seconds, "countdown", state);
+          if (state.elapsed <= 0) this.finish(actor, state);
+        }
+      }
+    }
+    updateUI(actor, seconds, phase, state = this.states.get(actor)) {
+      if (actor === this.game.player) this.game.uiManager.updateRespawnCountdown?.(seconds, phase);
+      if (phase !== "countdown") return;
+      if (state.labelValue === seconds) return;
+      this.disposeLabel(state);
+      const label = this.game.createEffectLabel(String(seconds), "#ffffff", "#26324a");
+      label.sprite.scale.set(0.52, 0.52, 1);
+      this.game.scene.add(label.sprite);
+      state.label = label;
+      state.labelValue = seconds;
+      this.positionLabel(actor, state);
+    }
+    positionLabel(actor, state) {
+      if (!state?.label?.sprite || !actor.position) return;
+      state.label.sprite.position.copy(actor.position).add(new Vector3(0, 1.45, 0));
+    }
+    finish(actor, state) {
+      actor.isRespawning = false;
+      actor.respawnRemaining = 0;
+      actor.isInvulnerable = true;
+      actor.invulnerableTimer = CONFIG.RESPAWN.INVULNERABILITY;
+      this.updateUI(actor, null, "complete");
+      this.disposeLabel(state);
+      this.states.delete(actor);
+      this.game.pendingRespawns.delete(actor);
+    }
+    disposeLabel(state) {
+      if (!state?.label) return;
+      this.game.scene.remove(state.label.sprite);
+      state.label.sprite.material.dispose();
+      state.label.texture.dispose();
+      state.label = null;
+    }
+    clear() {
+      this.states.forEach((state) => this.disposeLabel(state));
+      this.states.clear();
+      this.game.pendingRespawns.clear();
+      this.game.uiManager.updateRespawnCountdown?.(null, "complete");
+    }
   };
 
   // src/main.js
   var SCORE_ITEM_PROTOTYPE_ENABLED = true;
   var DYNAMIC_HOLES_PROTOTYPE_ENABLED = true;
-  var SPRING_PUNCH_PROTOTYPE_ENABLED = false;
+  var SPRING_PUNCH_PROTOTYPE_ENABLED = true;
   var LEADER_STRIKE_PROTOTYPE_ENABLED = true;
+  var CASUAL_START_SLOTS = [0, -2, -1, 1, 2];
   var Game = class {
     constructor() {
       this.container = document.getElementById("canvas-container");
@@ -22814,23 +26496,38 @@
       this.sceneSetup = new SceneSetup(this.container);
       this.scene = this.sceneSetup.scene;
       this.mapGenerator = new MapGenerator(this.scene);
+      this.mapGenerator.actorBoundsGetter = () => {
+        if (this.currentMode !== "casual") return null;
+        const actors = this.getActiveActors();
+        const positions = actors.flatMap((actor) => [actor.gridZ, actor.targetGridZ]).filter(Number.isFinite);
+        const checkpointZs = [this.casualCheckpoint?.z, ...this.bots.map((bot) => bot.checkpoint?.z)].filter(Number.isFinite);
+        return {
+          highestZ: positions.length ? Math.max(...positions) : 0,
+          lowestZ: positions.length ? Math.min(...positions) : 0,
+          checkpointZs
+        };
+      };
       this.scoreItemsPrototypeEnabled = SCORE_ITEM_PROTOTYPE_ENABLED;
       this.dynamicHolesPrototypeEnabled = DYNAMIC_HOLES_PROTOTYPE_ENABLED;
       this.mapGenerator.scoreItemsEnabled = this.scoreItemsPrototypeEnabled;
       this.springPunchPrototypeEnabled = SPRING_PUNCH_PROTOTYPE_ENABLED;
       this.mapGenerator.springPunchItemsEnabled = this.springPunchPrototypeEnabled;
+      this.mapGenerator.springPunchReferenceX = () => this.player?.gridX ?? 0;
       this.leaderStrikePrototypeEnabled = LEADER_STRIKE_PROTOTYPE_ENABLED;
       this.mapGenerator.leaderStrikeItemsEnabled = this.leaderStrikePrototypeEnabled;
       this.mapGenerator.leaderStrikeReferenceX = () => this.player?.gridX ?? 0;
       this.physics = new Physics();
       this.isGameStarted = false;
       this.isGameOver = false;
-      this.cameraAutoScrollZ = -3 * CONFIG.GRID_SIZE;
+      this.matchState = "idle";
+      this.matchTimer = null;
+      this.pendingRespawns = /* @__PURE__ */ new Map();
+      this.cameraAutoScrollZ = CONFIG.CAMERA.START_Z * CONFIG.GRID_SIZE;
       this.idleTimer = 0;
       this.lastPlayerZ = 0;
       this.eagleMesh = null;
       this.isEagleAttacking = false;
-      this.casualDuration = 120;
+      this.casualDuration = CONFIG.MATCH.CASUAL_DURATION;
       this.casualTimeRemaining = this.casualDuration;
       this.casualCheckpoint = { x: 0, z: 0 };
       this.lastLandedZ = 0;
@@ -22839,10 +26536,14 @@
       this.springPunchEffects = [];
       this.leaderStrikes = [];
       this.leaderStrikeEffects = [];
+      this.partyItemStates = /* @__PURE__ */ new Map();
       this.chickenMesh = createChicken();
       this.scene.add(this.chickenMesh);
       this.player = new Player(this.chickenMesh);
       this.bots = [];
+      this.partyItems = new PartyItemSystem(this);
+      this.partyItemStates = this.partyItems.states;
+      this.casualRecovery = new CasualRecovery(this);
       this.mapGenerator.scoreItemCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition));
       this.mapGenerator.scoreItemReferenceX = () => this.player?.gridX ?? 0;
       this.mapGenerator.springPunchCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition)) || this.mapGenerator.scoreItems.has(`${gridPosition.x},${gridPosition.z}`) || this.mapGenerator.leaderStrikeItems.has(`${gridPosition.x},${gridPosition.z}`);
@@ -22857,7 +26558,8 @@
       this.uiManager.init(
         (mode) => this.startGame(mode),
         (mode) => this.restartGame(mode),
-        () => this.returnLobby()
+        () => this.returnLobby(),
+        () => this.cancelCasualMatching()
       );
       this.mapGenerator.initMap();
       this.animate = this.animate.bind(this);
@@ -22934,7 +26636,7 @@
         const occupant = this.getActorAtGrid(target, chain);
         if (!occupant) break;
         if (occupant.isJumping) return { canMove: false, waitForActor: occupant };
-        if (chain.length >= 4) return { canMove: false };
+        if (chain.length >= this.getActiveActors().length) return { canMove: false };
         chain.push(occupant);
         target = occupant.getTargetGridPosition(direction);
       }
@@ -22963,21 +26665,26 @@
     }
     createCasualBots() {
       const botSpawns = [
-        { x: -1, z: 0, aggression: 0.42 },
-        { x: 1, z: 0, aggression: 0.48 },
-        { x: 3, z: 0, aggression: 0.54 }
+        { x: -2, z: 0, aggression: 0.48, name: "\u9752\u86D9\u30FB\u6ED1\u6B65", color: 4906624 },
+        { x: -1, z: 0, aggression: 0.58, name: "\u67F4\u72AC\u30FB\u6436\u5206", color: 16486972 },
+        { x: 1, z: 0, aggression: 0.69, name: "\u9752\u86D9\u30FB\u57CB\u4F0F", color: 12616956 },
+        { x: 2, z: 0, aggression: 0.78, name: "\u523A\u5BA2\u30FB\u58DE\u58DE", color: 16281969 }
       ];
       const shuffledVariants = [...AI_CHARACTER_VARIANTS];
       for (let index = shuffledVariants.length - 1; index > 0; index--) {
         const randomIndex = Math.floor(Math.random() * (index + 1));
         [shuffledVariants[index], shuffledVariants[randomIndex]] = [shuffledVariants[randomIndex], shuffledVariants[index]];
       }
-      const selectedVariants = shuffledVariants.slice(0, botSpawns.length);
-      this.bots = botSpawns.map((spawn, index) => {
+      const activeSpawns = botSpawns.slice(0, Math.max(0, CASUAL_PLAYER_COUNT - 1));
+      const selectedVariants = activeSpawns.map((_, index) => shuffledVariants[index % shuffledVariants.length]);
+      this.bots = activeSpawns.map((spawn, index) => {
         const variant = selectedVariants[index];
         const mesh = variant.createMesh();
+        const marker = new Mesh(new BoxGeometry(0.5, 0.07, 0.5), new MeshBasicMaterial({ color: spawn.color }));
+        marker.position.y = 0.08;
+        mesh.add(marker);
         this.scene.add(mesh);
-        return new AIBot(mesh, variant.name, spawn.x, spawn.z, spawn.aggression);
+        return new AIBot(mesh, spawn.name, spawn.x, spawn.z, spawn.aggression);
       });
     }
     clearBots() {
@@ -22995,7 +26702,8 @@
     handlePlayerLanded() {
       if (!this.isGameStarted || this.isGameOver) return;
       if (this.currentMode === "casual" && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
-        this.respawnAtCasualCheckpoint();
+        if (!this.player.isRespawning) this.uiManager.showCombatAnnouncement("\u26A0\uFE0F \u5730\u9762\u5D29\u584C\uFF01\u6B63\u5728\u7B49\u5F85\u5B89\u5168\u91CD\u751F\u683C");
+        this.respawnAtCasualCheckpoint("fall");
         return;
       }
       this.mapGenerator.update(this.player.gridZ);
@@ -23010,7 +26718,7 @@
     }
     handleBotLanded(bot) {
       if (this.currentMode === "casual" && this.mapGenerator.isDynamicHoleActiveAt(bot)) {
-        this.respawnBotAtCheckpoint(bot);
+        this.respawnBotAtCheckpoint(bot, "fall");
         return;
       }
       this.collectScoreItem(bot);
@@ -23029,20 +26737,10 @@
     }
     collectSpringPunchItem(actor) {
       if (!this.springPunchPrototypeEnabled) return false;
+      if (this.currentMode !== "casual" || !this.partyItems.canReceive(actor)) return false;
       const item = this.mapGenerator.collectSpringPunchItemAt({ x: actor.gridX, z: actor.gridZ });
       if (!item) return false;
-      this.showSpringPunchEffect(actor, "\u9810\u8B66\uFF1A\u958B\u8DEF\u5F48\u7C27\u62F3\uFF01", 16768831);
-      this.springPunches.push({
-        id: `punch-${performance.now()}-${Math.random()}`,
-        owner: actor,
-        windup: CONFIG.SPRING_PUNCH.WINDUP,
-        distance: 0,
-        position: actor.position.clone(),
-        direction: this.directionVectorFromActor(actor),
-        mesh: null,
-        trail: null,
-        windupVisual: this.createSpringPunchWindup(actor)
-      });
+      this.beginPartyRoulette(actor);
       return true;
     }
     getLeaderStrikeTarget(owner) {
@@ -23053,41 +26751,64 @@
     }
     collectLeaderStrikeItem(actor) {
       if (!this.leaderStrikePrototypeEnabled) return false;
+      if (this.currentMode !== "casual" || !this.partyItems.canReceive(actor)) return false;
       const item = this.mapGenerator.collectLeaderStrikeItemAt({ x: actor.gridX, z: actor.gridZ });
       if (!item) return false;
-      const target = this.getLeaderStrikeTarget(actor);
-      if (!target) {
-        this.uiManager.showCombatAnnouncement(`${this.getActorName(actor)} \u767C\u52D5\u300C\u9AD8\u5206\u8FFD\u64CA\u843D\u96F7\u300D\u4F46\u6C92\u6709\u53EF\u653B\u64CA\u76EE\u6A19`);
-        this.showSpringPunchEffect(actor, "\u9AD8\u5206\u8FFD\u64CA\u843D\u96F7\uFF1A\u7121\u53EF\u653B\u64CA\u76EE\u6A19", 10214655);
+      this.beginPartyRoulette(actor);
+      return true;
+    }
+    startGlobalLightning(actor) {
+      const targets = this.getActiveActors().filter((target) => target !== actor && !target.isRespawning && !target.isDead);
+      if (!targets.length) {
+        this.uiManager.showCombatAnnouncement(`${this.getActorName(actor)} \u767C\u52D5\u300C\u5168\u5716\u843D\u96F7\u300D\u4F46\u6C92\u6709\u53EF\u653B\u64CA\u76EE\u6A19`);
+        this.showSpringPunchEffect(actor, "\u5168\u5716\u843D\u96F7\uFF1A\u7121\u53EF\u653B\u64CA\u76EE\u6A19", 10214655);
         return true;
       }
-      this.uiManager.showCombatAnnouncement(`\u26A1 ${this.getActorName(actor)} \u767C\u52D5\u300C\u9AD8\u5206\u8FFD\u64CA\u843D\u96F7\u300D\u653B\u64CA ${this.getActorName(target)}\uFF01`);
-      const warning = this.createLeaderStrikeWarning(target);
-      this.leaderStrikes.push({ owner: actor, target, timer: CONFIG.LEADER_STRIKE.WARNING_DURATION, warning });
+      this.uiManager.showCombatAnnouncement(`\u26A1 ${this.getActorName(actor)} \u767C\u52D5\u300C\u5168\u5716\u843D\u96F7\u300D\uFF1A\u6240\u6709\u5C0D\u624B\u6688\u7729 1.5 \u79D2\uFF01`);
+      this.uiManager.flashGlobalStrike?.();
+      targets.forEach((target) => {
+        const warning = this.createLeaderStrikeWarning(target);
+        this.leaderStrikes.push({ owner: actor, target, timer: CONFIG.LEADER_STRIKE.WARNING_DURATION, warning });
+      });
       return true;
+    }
+    beginPartyRoulette(actor) {
+      return this.partyItems.beginRoulette(actor);
+    }
+    updatePartyItems(deltaTime) {
+      if (this.currentMode === "casual") this.partyItems.update(deltaTime);
+    }
+    showItemFeedback(actor, type) {
+      this.partyItems.showFeedback(actor, type);
     }
     createLeaderStrikeWarning(target) {
       const ring = new Mesh(new TorusGeometry(0.48, 0.055, 8, 16), new MeshBasicMaterial({ color: 12382207, transparent: true, opacity: 0.9 }));
       ring.rotation.x = Math.PI / 2;
-      const label = this.createEffectLabel("\u9AD8\u5206\u8FFD\u64CA\u843D\u96F7\uFF01", "#eafaff", "#12528a");
-      this.scene.add(ring, label.sprite);
-      return { ring, ...label };
+      const lockRing = new Mesh(new TorusGeometry(0.74, 0.025, 6, 18), new MeshBasicMaterial({ color: 5099519, transparent: true, opacity: 0.65 }));
+      lockRing.rotation.x = Math.PI / 2;
+      const label = this.createEffectLabel("\u5168\u5716\u843D\u96F7\uFF01", "#eafaff", "#12528a");
+      this.scene.add(ring, lockRing, label.sprite);
+      return { ring, lockRing, ...label };
     }
     createEffectLabel(label, fillStyle, strokeStyle) {
       const canvas = document.createElement("canvas");
-      canvas.width = 220;
+      const isCountdownDigit = /^\d$/.test(label);
+      const measureContext = canvas.getContext("2d");
+      measureContext.font = "bold 24px sans-serif";
+      canvas.width = isCountdownDigit ? 56 : Math.max(220, Math.ceil(measureContext.measureText(label).width + 36));
       canvas.height = 56;
       const context = canvas.getContext("2d");
-      context.font = "bold 24px sans-serif";
+      context.font = isCountdownDigit ? "bold 42px sans-serif" : "bold 24px sans-serif";
       context.textAlign = "center";
       context.fillStyle = fillStyle;
       context.strokeStyle = strokeStyle;
       context.lineWidth = 5;
-      context.strokeText(label, 110, 36);
-      context.fillText(label, 110, 36);
+      const center = canvas.width / 2;
+      context.strokeText(label, center, isCountdownDigit ? 43 : 36);
+      context.fillText(label, center, isCountdownDigit ? 43 : 36);
       const texture = new CanvasTexture(canvas);
       const sprite = new Sprite(new SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
-      sprite.scale.set(1.7, 0.44, 1);
+      sprite.scale.set(Math.max(1.7, canvas.width / 128), 0.44, 1);
       return { sprite, texture };
     }
     updateLeaderStrikes(deltaTime) {
@@ -23099,9 +26820,12 @@
         }
         strike.timer -= deltaTime;
         warning.ring.position.copy(target.position).add(new Vector3(0, 0.08, 0));
+        warning.lockRing.position.copy(warning.ring.position);
         warning.sprite.position.copy(target.position).add(new Vector3(0, 1.32, 0));
         const pulse = 0.86 + Math.sin(performance.now() * 0.024) * 0.14;
         warning.ring.scale.setScalar(pulse);
+        warning.lockRing.scale.setScalar(1.1 - (pulse - 0.86) * 0.55);
+        warning.lockRing.material.opacity = 0.38 + pulse * 0.32;
         if (strike.timer > 0) return true;
         this.disposeLeaderStrikeWarning(warning);
         this.resolveLeaderStrike(target);
@@ -23109,16 +26833,18 @@
       });
     }
     disposeLeaderStrikeWarning(warning) {
-      this.scene.remove(warning.ring, warning.sprite);
+      this.scene.remove(warning.ring, warning.lockRing, warning.sprite);
       warning.ring.geometry.dispose();
       warning.ring.material.dispose();
+      warning.lockRing.geometry.dispose();
+      warning.lockRing.material.dispose();
       warning.sprite.material.dispose();
       warning.texture.dispose();
     }
     resolveLeaderStrike(target) {
-      const applied = target.applyStun(CONFIG.LEADER_STRIKE.STUN_DURATION);
+      const applied = this.partyItems ? this.partyItems.hit(target, "lightning", CONFIG.LEADER_STRIKE.STUN_DURATION) : target.applyStun(CONFIG.LEADER_STRIKE.STUN_DURATION);
       this.createLeaderStrikeBolt(target.position);
-      this.showSpringPunchEffect(target, applied ? "\u843D\u96F7\u6688\u7729 3 \u79D2\uFF01" : "\u843D\u96F7\u88AB\u62B5\u6297\uFF01", applied ? 10283007 : 11463423);
+      this.showSpringPunchEffect(target, applied ? "\u843D\u96F7\u6688\u7729 1.5 \u79D2\uFF01" : "\u843D\u96F7\u88AB\u62B5\u6297\uFF01", applied ? 10283007 : 11463423);
     }
     createLeaderStrikeBolt(position) {
       const group = new Group();
@@ -23128,7 +26854,23 @@
       const impact = new Mesh(new CircleGeometry(0.56, 16), new MeshBasicMaterial({ color: 7723007, transparent: true, opacity: 0.7, side: DoubleSide }));
       impact.rotation.x = -Math.PI / 2;
       impact.position.y = 0.03;
-      group.add(bolt, impact);
+      const shock = new Mesh(new RingGeometry(0.18, 0.62, 16), new MeshBasicMaterial({ color: 12973567, transparent: true, opacity: 0.78, side: DoubleSide }));
+      shock.rotation.x = -Math.PI / 2;
+      shock.position.y = 0.05;
+      group.add(bolt, impact, shock);
+      [-0.26, 0.26].forEach((x, index) => {
+        const branch = new Mesh(new BoxGeometry(0.055, 1.2, 0.055), material.clone());
+        branch.position.set(x, 1.12 + index * 0.14, 0.04);
+        branch.rotation.z = index ? -0.42 : 0.42;
+        group.add(branch);
+      });
+      for (let index = 0; index < 8; index++) {
+        const debris = new Mesh(new BoxGeometry(0.08, 0.08, 0.08), new MeshBasicMaterial({ color: index % 2 ? 9234687 : 16777215, transparent: true, opacity: 0.9 }));
+        const angle = Math.PI * 2 * index / 8;
+        debris.position.set(Math.cos(angle) * 0.35, 0.12 + index % 2 * 0.12, Math.sin(angle) * 0.35);
+        debris.userData.velocity = new Vector3(Math.cos(angle) * 1.6, 1 + index % 3 * 0.25, Math.sin(angle) * 1.6);
+        group.add(debris);
+      }
       group.position.copy(position);
       this.scene.add(group);
       this.leaderStrikeEffects.push({ group, age: 0 });
@@ -23138,6 +26880,7 @@
         effect.age += deltaTime;
         effect.group.children.forEach((child) => {
           if (child.material) child.material.opacity = Math.max(0, 1 - effect.age / 0.32);
+          if (child.userData.velocity) child.position.addScaledVector(child.userData.velocity, deltaTime);
         });
         effect.group.scale.setScalar(1 + effect.age * 0.65);
         if (effect.age < 0.32) return true;
@@ -23157,8 +26900,24 @@
       return new Vector3(0, 0, 1);
     }
     createSpringPunchProjectile(punch) {
-      const mesh = new Mesh(new SphereGeometry(0.23, 12, 8), new MeshBasicMaterial({ color: 16768057 }));
-      mesh.scale.set(1.25, 0.78, 0.9);
+      const mesh = new Group();
+      const gloveMaterial = new MeshBasicMaterial({ color: 16763183 });
+      const palm = new Mesh(new BoxGeometry(0.34, 0.3, 0.38), gloveMaterial);
+      palm.position.y = 0;
+      mesh.add(palm);
+      [-0.12, 0, 0.12].forEach((x) => {
+        const finger = new Mesh(new BoxGeometry(0.08, 0.11, 0.18), gloveMaterial);
+        finger.position.set(x, 0.03, 0.27);
+        mesh.add(finger);
+      });
+      const coils = [];
+      for (let index = 0; index < 5; index++) {
+        const coil = new Mesh(new TorusGeometry(0.12, 0.025, 6, 10), new MeshBasicMaterial({ color: 16774312 }));
+        coil.position.set(0, 0, -0.12 - index * 0.12);
+        mesh.add(coil);
+        coils.push(coil);
+      }
+      mesh.userData.coils = coils;
       const trail = new Mesh(new BoxGeometry(0.12, 0.08, 0.6), new MeshBasicMaterial({ color: 16773536, transparent: true, opacity: 0.7 }));
       this.scene.add(mesh, trail);
       punch.mesh = mesh;
@@ -23201,11 +26960,15 @@
           return false;
         }
         punch.mesh.position.copy(punch.position).add(new Vector3(0, 0.55, 0));
-        punch.trail.position.copy(punch.position).addScaledVector(punch.direction, -0.3).add(new Vector3(0, 0.48, 0));
-        punch.trail.rotation.y = Math.atan2(punch.direction.x, punch.direction.z);
+        punch.mesh.rotation.y = Math.atan2(punch.direction.x, punch.direction.z);
+        const stretch = 0.12 + Math.min(0.12, punch.distance / CONFIG.SPRING_PUNCH.RANGE * 0.12);
+        punch.mesh.userData.coils?.forEach((coil, index) => {
+          coil.position.z = -0.12 - index * stretch;
+        });
+        punch.trail.position.copy(punch.position).addScaledVector(punch.direction, -0.3).add(new Vector3(0, 0.55, 0));
+        punch.trail.rotation.y = punch.mesh.rotation.y;
         return true;
       });
-      this.updateSpringPunchEffects(deltaTime);
     }
     getFirstSpringPunchHit(punch, start) {
       return this.getActiveActors().filter((actor) => actor !== punch.owner && !actor.isRespawning).map((actor) => {
@@ -23224,6 +26987,10 @@
       for (const mesh of [punch.mesh, punch.trail]) {
         if (!mesh) continue;
         this.scene.remove(mesh);
+        mesh.traverse?.((node) => {
+          node.geometry?.dispose();
+          node.material?.dispose();
+        });
         mesh.geometry?.dispose();
         mesh.material?.dispose();
       }
@@ -23241,20 +27008,7 @@
       const ring = new Mesh(new TorusGeometry(0.38, 0.045, 6, 12), new MeshBasicMaterial({ color, transparent: true }));
       ring.rotation.x = Math.PI / 2;
       ring.position.copy(actor.position).add(new Vector3(0, 0.8, 0));
-      const canvas = document.createElement("canvas");
-      canvas.width = 160;
-      canvas.height = 56;
-      const context = canvas.getContext("2d");
-      context.font = "bold 26px sans-serif";
-      context.textAlign = "center";
-      context.fillStyle = "#fff7b0";
-      context.strokeStyle = "#533300";
-      context.lineWidth = 5;
-      context.strokeText(label, 80, 36);
-      context.fillText(label, 80, 36);
-      const texture = new CanvasTexture(canvas);
-      const sprite = new Sprite(new SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
-      sprite.scale.set(1.25, 0.44, 1);
+      const { sprite, texture } = this.createEffectLabel(label, "#fff7b0", "#533300");
       this.scene.add(ring, sprite);
       this.springPunchEffects.push({ actor, ring, sprite, texture, age: 0 });
     }
@@ -23306,13 +27060,13 @@
         return false;
       });
     }
-    respawnBotAtCheckpoint(bot) {
-      bot.respawnAt(bot.checkpoint.x, bot.checkpoint.z);
+    respawnBotAtCheckpoint(bot, reason = "impact") {
+      return this.scheduleCasualDeath(bot, reason);
     }
     updateCasualBotHazards(bot, activeRows, deltaTime) {
-      if (bot.isJumping || bot.isDead) return;
+      if (bot.isJumping || bot.isDead || bot.isRespawning) return;
       if (this.mapGenerator.isDynamicHoleActiveAt(bot)) {
-        this.respawnBotAtCheckpoint(bot);
+        this.respawnBotAtCheckpoint(bot, "fall");
         return;
       }
       const hitObstacle = this.physics.checkObstacleCollision(bot, activeRows);
@@ -23323,16 +27077,26 @@
       const riverStatus = this.physics.checkRiverStatus(bot, activeRows);
       if (!riverStatus.inRiver) return;
       if (!riverStatus.onLog) {
-        this.respawnBotAtCheckpoint(bot);
+        this.respawnBotAtCheckpoint(bot, "fall");
         return;
       }
       bot.position.x += riverStatus.logSpeed * deltaTime;
       bot.gridX = Math.round(bot.position.x / CONFIG.GRID_SIZE);
       if (Math.abs(bot.position.x) > (CONFIG.MAP_BOUNDS_X + 1.2) * CONFIG.GRID_SIZE) {
-        this.respawnBotAtCheckpoint(bot);
+        this.respawnBotAtCheckpoint(bot, "fall");
       }
     }
-    startGame(mode = "casual") {
+    clearRuntimeEffects() {
+      this.partyItems?.clear();
+      this.casualRecovery?.clear();
+      this.partyItemStates?.clear();
+      this.uiManager.updateItemHUD?.([], null);
+      this.scoreRewardEffects.forEach((effect) => {
+        this.scene.remove(effect.sprite);
+        effect.sprite.material.dispose();
+        effect.texture.dispose();
+      });
+      this.scoreRewardEffects = [];
       this.uiManager.hideOverlays();
       this.springPunches.forEach((punch) => this.disposeSpringPunch(punch));
       this.springPunches = [];
@@ -23354,11 +27118,82 @@
         });
       });
       this.leaderStrikeEffects = [];
-      this.currentMode = mode || "casual";
-      this.uiManager.selectedMode = this.currentMode;
-      this.isGameStarted = true;
+    }
+    startGame(mode = "casual") {
+      if (mode === "casual") {
+        this.beginCasualMatching();
+        return;
+      }
+      this.launchGame(mode);
+    }
+    beginCasualMatching() {
+      if (this.matchState === "matching" || this.matchState === "countdown" || this.matchState === "started") return;
+      this.matchState = "matching";
+      this.isGameStarted = false;
       this.isGameOver = false;
-      this.cameraScrollZ = 0;
+      this.clearRuntimeEffects();
+      this.pendingRespawns.clear();
+      this.clearBots();
+      this.player.reset();
+      this.casualTimeRemaining = this.casualDuration;
+      this.uiManager.setMode("casual");
+      this.uiManager.updateScore(0);
+      this.uiManager.updateTimer(this.casualTimeRemaining);
+      this.uiManager.updateLeaderboard([]);
+      this.uiManager.hideOverlays();
+      this.uiManager.showMatching(1, "\u6B63\u5728\u4EE5\u672C\u6A5F BOT \u88DC\u4F4D\u914D\u5C0D\u2026");
+      let seats = 1;
+      const fillSeat = () => {
+        if (this.matchState !== "matching") return;
+        seats += 1;
+        this.uiManager.showMatching(seats, seats < CASUAL_PLAYER_COUNT ? `\u5DF2\u627E\u5230 ${seats}/${CASUAL_PLAYER_COUNT} \u4F4D\u9078\u624B\uFF0CBOT \u6B63\u5728\u88DC\u4F4D\u2026` : "\u914D\u5C0D\u5B8C\u6210\uFF0C\u6E96\u5099\u540C\u6B65\u958B\u8DD1");
+        if (seats < CASUAL_PLAYER_COUNT) {
+          this.matchTimer = setTimeout(fillSeat, CONFIG.MATCH.FILL_MS);
+          return;
+        }
+        this.uiManager.hideMatching();
+        this.launchGame("casual", false);
+        this.matchState = "countdown";
+        let count = CONFIG.MATCH.COUNTDOWN_START;
+        const countdown = () => {
+          if (this.matchState !== "countdown") return;
+          this.uiManager.showRaceCountdown?.(count);
+          if (count-- > 0) {
+            this.matchTimer = setTimeout(countdown, CONFIG.MATCH.COUNTDOWN_MS);
+            return;
+          }
+          this.matchState = "started";
+          this.isGameStarted = true;
+          this.uiManager.showRaceCountdown?.("GO");
+          setTimeout(() => this.uiManager.hideRaceCountdown?.(), CONFIG.MATCH.GO_DISPLAY_MS);
+        };
+        countdown();
+      };
+      this.matchTimer = setTimeout(fillSeat, CONFIG.MATCH.INITIAL_FILL_MS);
+    }
+    cancelCasualMatching() {
+      if (this.matchTimer) clearTimeout(this.matchTimer);
+      this.matchTimer = null;
+      this.matchState = "idle";
+      this.isGameStarted = false;
+      this.pendingRespawns.clear();
+      this.clearBots();
+      this.uiManager.hideMatching();
+      this.uiManager.showLobby();
+    }
+    launchGame(mode = "casual", startImmediately = true) {
+      if (this.matchTimer) clearTimeout(this.matchTimer);
+      this.matchTimer = null;
+      this.matchState = mode === "casual" ? startImmediately ? "started" : "countdown" : "idle";
+      this.clearRuntimeEffects();
+      this.pendingRespawns.clear();
+      this.currentMode = mode || "casual";
+      this.mapGenerator.springPunchItemsEnabled = this.currentMode === "casual";
+      this.mapGenerator.leaderStrikeItemsEnabled = this.currentMode === "casual";
+      this.uiManager.selectedMode = this.currentMode;
+      this.isGameStarted = startImmediately;
+      this.isGameOver = false;
+      this.cameraScrollZ = CONFIG.CAMERA.START_Z * CONFIG.GRID_SIZE;
       this.idleTimer = 0;
       this.lastPlayerZ = 0;
       this.isEagleAttacking = false;
@@ -23376,8 +27211,8 @@
       this.mapGenerator.setDynamicHolesEnabled(this.currentMode === "casual" && this.dynamicHolesPrototypeEnabled);
       this.mapGenerator.initMap();
       if (this.currentMode === "casual") {
-        this.player.respawnAt(-3, 0, 0.1);
-        this.casualCheckpoint = { x: -3, z: 0 };
+        this.player.respawnAt(CASUAL_START_SLOTS[0], 0, 0.1);
+        this.casualCheckpoint = { x: CASUAL_START_SLOTS[0], z: 0 };
       }
       this.sceneSetup.resetCamera();
       this.uiManager.updateScore(0);
@@ -23385,14 +27220,20 @@
       if (this.currentMode === "casual") {
         this.createCasualBots();
         this.refreshLeaderboard();
+        if (!startImmediately) this.uiManager.showRaceCountdown?.(3);
       }
     }
     restartGame(mode) {
       this.startGame(mode || this.currentMode);
     }
     returnLobby() {
+      if (this.matchTimer) clearTimeout(this.matchTimer);
+      this.matchTimer = null;
+      this.matchState = "idle";
       this.isGameStarted = false;
       this.isGameOver = false;
+      this.clearRuntimeEffects();
+      this.pendingRespawns.clear();
       this.clearBots();
       this.uiManager.showLobby();
     }
@@ -23408,7 +27249,7 @@
       const targetPos = new Vector3(pX, 0.4, pZ);
       let progress = 0;
       const attackInterval = setInterval(() => {
-        progress += 0.04;
+        progress += 16 / (CONFIG.EAGLE.CHALLENGE_CARRY_SECONDS * 1e3);
         if (progress < 0.6) {
           this.eagleMesh.position.lerpVectors(startPos, targetPos, progress / 0.6);
         } else if (progress < 1) {
@@ -23427,12 +27268,75 @@
     }
     gameOver(reason = "\u88AB\u8ECA\u649E\u98DB\u4E86\uFF01") {
       this.isGameOver = true;
+      if (this.currentMode === "casual") {
+        this.matchState = "finished";
+        this.pendingRespawns.clear();
+        this.getActiveActors().forEach((actor) => {
+          actor.isJumping = false;
+          actor.inputBuffer = [];
+        });
+        const entries = [this.player, ...this.bots].map((actor, order) => ({
+          name: this.getActorName(actor),
+          isPlayer: actor === this.player,
+          order,
+          distance: Math.max(0, actor.gridZ),
+          maxDistance: Math.max(0, actor.maxReachedZ),
+          itemScore: actor.itemScore || 0,
+          deaths: actor.deathCount || 0
+        })).sort((a, b) => b.distance - a.distance || a.order - b.order);
+        let rank = 0;
+        let lastDistance = null;
+        entries.forEach((entry, index) => {
+          if (entry.distance !== lastDistance) rank = index + 1;
+          entry.rank = rank;
+          lastDistance = entry.distance;
+        });
+        this.uiManager.showMultiplayerResults?.({ entries, playerRank: entries.find((entry) => entry.isPlayer)?.rank, duration: this.casualDuration });
+        return;
+      }
       this.uiManager.showGameOver(this.player.score, reason);
     }
-    respawnAtCasualCheckpoint() {
-      this.player.respawnAt(this.casualCheckpoint.x, this.casualCheckpoint.z);
-      this.cameraScrollZ = Math.max(0, this.casualCheckpoint.z * CONFIG.GRID_SIZE);
-      this.mapGenerator.update(this.casualCheckpoint.z);
+    findCasualRespawnPosition(actor, checkpoint) {
+      if (!checkpoint) return null;
+      const rows = this.mapGenerator.getActiveRows();
+      const rowOrder = [checkpoint.z, checkpoint.z - 1, checkpoint.z - 2, checkpoint.z + 1, checkpoint.z - 3, checkpoint.z + 2];
+      const offsets = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6];
+      for (const z of rowOrder) {
+        if (!rows.get(z) || !this.mapGenerator.isSafeCheckpointRow({ x: checkpoint.x, z })) continue;
+        for (const offset of offsets) {
+          const candidate = { x: checkpoint.x + offset, z };
+          if (Math.abs(candidate.x) > CONFIG.MAP_BOUNDS_X) continue;
+          if (this.getActorAtGrid(candidate, [actor])) continue;
+          if (this.physics.checkTreeCollision(candidate, rows)) continue;
+          if (this.mapGenerator.isDynamicHoleUnsafe?.(candidate, 0) || this.mapGenerator.isDynamicHoleActiveAt(candidate)) continue;
+          if (this.mapGenerator.hasPartyItemAt?.(candidate)) continue;
+          return candidate;
+        }
+      }
+      return null;
+    }
+    requestCasualRespawn(actor, checkpoint) {
+      const position = this.findCasualRespawnPosition(actor, checkpoint);
+      if (!position) {
+        actor.isRespawning = true;
+        this.pendingRespawns.set(actor, checkpoint);
+        return false;
+      }
+      actor.respawnAt(position.x, position.z);
+      this.pendingRespawns.delete(actor);
+      return true;
+    }
+    retryPendingRespawns() {
+      this.pendingRespawns.forEach((checkpoint, actor) => this.requestCasualRespawn(actor, checkpoint));
+    }
+    scheduleCasualDeath(actor, reason = "impact") {
+      return this.casualRecovery.schedule(actor, reason);
+    }
+    updateCasualDeaths(deltaTime) {
+      this.casualRecovery.update(deltaTime);
+    }
+    respawnAtCasualCheckpoint(reason = "impact") {
+      return this.scheduleCasualDeath(this.player, reason);
     }
     animate() {
       requestAnimationFrame(this.animate);
@@ -23440,9 +27344,12 @@
         const rawDelta = this.clock.getDelta();
         const deltaTime = Number.isFinite(rawDelta) && rawDelta > 0 ? Math.min(rawDelta, 0.1) : 0.016;
         const activeRows = this.mapGenerator.getActiveRows();
+        if (this.isGameStarted && this.currentMode === "casual" && !this.isGameOver) this.updateCasualDeaths(deltaTime);
         const wasJumping = this.player.isJumping;
-        this.player.update(deltaTime);
-        if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
+        if (this.isGameStarted && !this.isGameOver) {
+          this.player.update(deltaTime);
+          if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
+        }
         if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
           const nextInput = this.player.inputBuffer[0];
           const inputResult = this.handlePlayerMove(nextInput.direction, nextInput.distance, true);
@@ -23461,10 +27368,11 @@
               (actor, gridPosition) => this.canActorEnter(actor, gridPosition),
               (gridPosition, landingPrediction) => this.mapGenerator.isDynamicHoleUnsafe(gridPosition, landingPrediction),
               (gridPosition) => this.mapGenerator.getDynamicHoleRepairTime(gridPosition),
+              [...this.mapGenerator.springPunchItems.values(), ...this.mapGenerator.leaderStrikeItems.values()],
               [],
-              this.leaderStrikePrototypeEnabled ? [...this.mapGenerator.leaderStrikeItems.values()] : [],
-              [],
-              this.getActiveActors()
+              this.partyItems.rockets,
+              this.getActiveActors(),
+              (gridPosition) => this.mapGenerator.isDynamicHoleActiveAt(gridPosition)
             );
             bot.update(deltaTime);
             if (wasBotJumping && !bot.isJumping) this.handleBotLanded(bot);
@@ -23483,46 +27391,53 @@
             }
           }
           if (this.currentMode === "challenge") {
-            this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
+            this.cameraScrollZ += CONFIG.CAMERA.CHALLENGE_SCROLL_SPEED * deltaTime * CONFIG.GRID_SIZE;
             if (pZ > this.cameraScrollZ) {
-              this.cameraScrollZ = MathUtils.lerp(this.cameraScrollZ, pZ, 0.18);
+              this.cameraScrollZ = MathUtils.lerp(this.cameraScrollZ, pZ, CONFIG.CAMERA.CHALLENGE_CATCHUP_LERP);
             }
+            const captureBehind = CONFIG.CAMERA.CHALLENGE_SCROLL_SPEED * CONFIG.EAGLE.CHALLENGE_TRIGGER_SECONDS * CONFIG.GRID_SIZE;
             const distanceBehind = this.cameraScrollZ - pZ;
-            if (distanceBehind >= 3.4 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
+            if (distanceBehind >= captureBehind && !this.isEagleAttacking) {
               this.triggerEagleAttack();
             }
             const playerGridZ = Math.max(this.player.gridZ, Math.floor(this.cameraScrollZ / CONFIG.GRID_SIZE));
             this.mapGenerator.update(playerGridZ);
-            this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 3.4 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
+            this.player.minAllowedZ = Math.floor((this.cameraScrollZ - captureBehind) / CONFIG.GRID_SIZE);
           } else {
-            this.cameraScrollZ = MathUtils.lerp(this.cameraScrollZ, pZ, 0.12);
+            this.cameraScrollZ = MathUtils.lerp(this.cameraScrollZ, pZ, CONFIG.CAMERA.CASUAL_FOLLOW_LERP);
             this.mapGenerator.update(this.player.gridZ);
-            this.player.minAllowedZ = this.player.gridZ - 15;
+            this.player.minAllowedZ = this.player.gridZ - CONFIG.CAMERA.CASUAL_BACK_ROWS;
           }
         }
-        this.mapGenerator.animateObstacles(deltaTime);
-        this.updateScoreRewardEffects(deltaTime);
-        this.updateLeaderStrikes(deltaTime);
-        this.updateLeaderStrikeEffects(deltaTime);
+        if (this.isGameStarted && !this.isGameOver) {
+          this.mapGenerator.animateObstacles(deltaTime);
+          this.updateScoreRewardEffects(deltaTime);
+          this.updateSpringPunches(deltaTime);
+          this.updateSpringPunchEffects(deltaTime);
+          this.updatePartyItems(deltaTime);
+          this.updateLeaderStrikes(deltaTime);
+          this.updateLeaderStrikeEffects(deltaTime);
+        }
         if (this.isGameStarted && !this.isGameOver && this.currentMode === "casual") {
-          if (!this.player.isJumping && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
-            this.respawnAtCasualCheckpoint();
+          if (!this.player.isDead && !this.player.isRespawning && !this.player.isJumping && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
+            if (!this.player.isRespawning) this.uiManager.showCombatAnnouncement("\u26A0\uFE0F \u5730\u9762\u5D29\u584C\uFF01\u6B63\u5728\u7B49\u5F85\u5B89\u5168\u91CD\u751F\u683C");
+            this.respawnAtCasualCheckpoint("fall");
             return;
           }
           this.bots.forEach((bot) => {
-            if (!bot.isJumping && this.mapGenerator.isDynamicHoleActiveAt(bot)) this.respawnBotAtCheckpoint(bot);
+            if (!bot.isDead && !bot.isRespawning && !bot.isJumping && this.mapGenerator.isDynamicHoleActiveAt(bot)) this.respawnBotAtCheckpoint(bot, "fall");
           });
         }
-        const targetCameraZ = (this.isGameStarted ? this.cameraScrollZ : pZ) + 2.2 * CONFIG.GRID_SIZE;
-        this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ });
-        if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking) {
+        const targetCameraZ = (this.isGameStarted ? this.cameraScrollZ : pZ) + CONFIG.CAMERA.TARGET_AHEAD * CONFIG.GRID_SIZE;
+        this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ, playerZ: pZ });
+        if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking && !this.player.isDead && !this.player.isRespawning) {
           const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
           if (hitObstacle && !this.player.isInvulnerable) {
             if (this.currentMode === "casual") {
               this.respawnAtCasualCheckpoint();
               return;
             }
-            const damage = hitObstacle.type === "train" ? 70 : Math.min(60, Math.round(hitObstacle.speed * 8 + 10));
+            const damage = hitObstacle.type === "train" ? CONFIG.TRAFFIC.TRAIN_DAMAGE : Math.min(CONFIG.TRAFFIC.CAR_DAMAGE_CAP, Math.round(hitObstacle.speed * CONFIG.TRAFFIC.CAR_DAMAGE_SPEED_SCALE + CONFIG.TRAFFIC.CAR_DAMAGE_BASE));
             const isFatal = this.player.takeDamage(damage);
             this.uiManager.updateHealth(this.player.hp);
             if (isFatal) {
@@ -23537,7 +27452,7 @@
               this.player.gridX = Math.round(this.player.position.x / CONFIG.GRID_SIZE);
               if (Math.abs(this.player.position.x) > (CONFIG.MAP_BOUNDS_X + 1.2) * CONFIG.GRID_SIZE) {
                 if (this.currentMode === "casual") {
-                  this.respawnAtCasualCheckpoint();
+                  this.respawnAtCasualCheckpoint("fall");
                   return;
                 }
                 this.player.triggerDrownAnimation();
@@ -23545,7 +27460,7 @@
               }
             } else {
               if (this.currentMode === "casual") {
-                this.respawnAtCasualCheckpoint();
+                this.respawnAtCasualCheckpoint("fall");
                 return;
               }
               this.player.triggerDrownAnimation();
@@ -23559,9 +27474,22 @@
       this.sceneSetup.render();
     }
   };
-  window.addEventListener("DOMContentLoaded", () => {
+  async function bootstrapGame() {
+    const status = await loadGameConfig("./docs/game-config.yaml");
+    window.gameConfig = CONFIG;
+    window.gameConfigStatus = status;
+    document.documentElement.dataset.gameConfigSource = status.source;
+    document.documentElement.dataset.gameConfigOk = String(status.ok);
+    document.documentElement.dataset.gameConfigErrors = status.errors.join(" | ");
     window.game = new Game();
-  });
+  }
+  if (typeof window !== "undefined") {
+    if (document.readyState === "loading") {
+      window.addEventListener("DOMContentLoaded", bootstrapGame, { once: true });
+    } else {
+      bootstrapGame();
+    }
+  }
 })();
 /*! Bundled license information:
 

@@ -12,26 +12,26 @@ export class SceneSetup {
 
     // 2. 正交相機 (Isometric Camera d = 4.2)
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 4.2;
+    const d = CONFIG.CAMERA.ORTHO_SIZE;
     this.camera = new THREE.OrthographicCamera(
       -d * aspect,
       d * aspect,
       d,
       -d,
-      1,
-      1000
+      CONFIG.CAMERA.NEAR,
+      CONFIG.CAMERA.FAR
     );
 
     // 經典 45度俯瞰視角偏移 (Camera Offset)
-    this.cameraOffset = new THREE.Vector3(-10, 14, -10);
-    this.cameraTarget = new THREE.Vector3(0, 0, 2.2 * CONFIG.GRID_SIZE);
+    this.cameraOffset = new THREE.Vector3(CONFIG.CAMERA.OFFSET_X, CONFIG.CAMERA.OFFSET_Y, CONFIG.CAMERA.OFFSET_Z);
+    this.cameraTarget = new THREE.Vector3(0, 0, CONFIG.CAMERA.TARGET_AHEAD * CONFIG.GRID_SIZE);
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
     this.camera.lookAt(this.cameraTarget);
 
     // 3. WebGL 渲染器
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, CONFIG.CAMERA.PIXEL_RATIO_MAX));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -74,7 +74,7 @@ export class SceneSetup {
   }
 
   resetCamera() {
-    this.cameraTarget.set(0, 0, 2.2 * CONFIG.GRID_SIZE);
+    this.cameraTarget.set(0, 0, CONFIG.CAMERA.TARGET_AHEAD * CONFIG.GRID_SIZE);
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
     this.camera.lookAt(this.cameraTarget);
   }
@@ -84,9 +84,12 @@ export class SceneSetup {
 
     const x = Number.isFinite(targetPosition.x) ? targetPosition.x : 0;
     const z = Number.isFinite(targetPosition.z) ? targetPosition.z : 1.2 * CONFIG.GRID_SIZE;
+    const playerZ = Number.isFinite(targetPosition.playerZ) ? targetPosition.playerZ : z;
+    const aspect = (this.camera.right - this.camera.left) / (this.camera.top - this.camera.bottom);
 
-    // 🔥 無延遲直連跟追，鎖定主角於視野黃金中央區域
-    this.cameraTarget.set(x * 0.4, 0, z);
+    // 直式等角投影的前方鏡頭偏移會把 x=0 玩家推往畫面左側；抵銷 Z 偏移以維持中央安全區。
+    const targetX = aspect < 1 ? x + (z - playerZ) : x * 0.4;
+    this.cameraTarget.set(targetX, 0, z);
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
 
     if (this.dirLight) {
@@ -104,7 +107,7 @@ export class SceneSetup {
 
   onWindowResize() {
     const aspect = window.innerWidth / window.innerHeight;
-    const d = 4.2;
+    const d = CONFIG.CAMERA.ORTHO_SIZE;
     this.camera.left = -d * aspect;
     this.camera.right = d * aspect;
     this.camera.top = d;

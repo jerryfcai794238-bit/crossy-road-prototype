@@ -27,9 +27,11 @@ export class Player {
 
     this.isDead = false;
     this.isRespawning = false;
+    this.respawnRemaining = 0;
+    this.deathCount = 0;
 
-    this.hp = 100;
-    this.maxHp = 100;
+    this.hp = CONFIG.PLAYER.MAX_HP;
+    this.maxHp = CONFIG.PLAYER.MAX_HP;
     this.isInvulnerable = false;
     this.invulnerableTimer = 0;
     this.stunTimer = 0;
@@ -52,7 +54,9 @@ export class Player {
     this.jumpProgress = 0;
     this.isDead = false;
     this.isRespawning = false;
-    this.hp = 100;
+    this.respawnRemaining = 0;
+    this.deathCount = 0;
+    this.hp = CONFIG.PLAYER.MAX_HP;
     this.isInvulnerable = false;
     this.invulnerableTimer = 0;
     this.stunTimer = 0;
@@ -167,6 +171,9 @@ export class Player {
 
   update(deltaTime) {
     const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
+    // Casual 死亡倒數期間角色已由 schedule 隱藏；不得被無敵閃爍重新顯示。
+    // Challenge 的扁平／淹水死亡姿態也會原樣停留。
+    if (this.isDead) return;
 
     if (this.mesh) {
       this.mesh.rotation.y = THREE.MathUtils.lerp(
@@ -233,7 +240,7 @@ export class Player {
       return true;
     }
     this.isInvulnerable = true;
-    this.invulnerableTimer = 2.0;
+    this.invulnerableTimer = CONFIG.PLAYER.DAMAGE_INVULNERABILITY;
     return false;
   }
 
@@ -259,6 +266,7 @@ export class Player {
     this.isJumping = false;
     this.isDead = false;
     this.isRespawning = false;
+    this.respawnRemaining = 0;
     this.inputBuffer = [];
     this.isInvulnerable = true;
     this.invulnerableTimer = invulnerableDuration;

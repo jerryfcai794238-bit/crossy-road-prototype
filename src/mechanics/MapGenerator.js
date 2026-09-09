@@ -18,6 +18,9 @@ export class MapGenerator {
     // remains exactly Math.random by default.
     this.random = typeof random === 'function' ? random : Math.random;
     this.activeRows = new Map();
+    this.destroyedTreeCells = new Set();
+    // Casual mode can supply all living actors/checkpoints so generation remains fair to a leader.
+    this.actorBoundsGetter = null;
 
     this.highestZGenerated = -CONFIG.DESPAWN_BEHIND;
     this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
@@ -44,6 +47,7 @@ export class MapGenerator {
     this.springPunchItems = new Map();
     this.springPunchItemsEnabled = false;
     this.springPunchCellBlocked = null;
+    this.springPunchReferenceX = null;
     this.leaderStrikeItems = new Map();
     this.leaderStrikeItemsEnabled = false;
     this.leaderStrikeCellBlocked = null;
@@ -55,7 +59,8 @@ export class MapGenerator {
     this.dynamicHoleCells = new Map();
     this.dynamicHoleCellBlocked = null;
     this.dynamicHolePlayerZ = 0;
-    this.dynamicHoleWaveCooldown = 1.5;
+    this.dynamicHoleWaveCooldown = CONFIG.HOLES.WAVE_COOLDOWN;
+    this.partyItemRegenTimer = 0;
     this.dynamicHoleWaveId = 0;
     this.reachableXs = new Set();
     this.reachabilityInitialized = false;
@@ -63,11 +68,11 @@ export class MapGenerator {
     this.carrierHorizon = 12;
     this.carrierStep = 0.08;
     this.dynamicHoleConfig = {
-      warningDuration: 1.2,
-      holeDuration: 2.2,
-      repairDuration: 0.6,
-      waveCooldown: 0.8,
-      warningSafetyBuffer: 0.15
+      warningDuration: CONFIG.HOLES.WARNING_DURATION,
+      holeDuration: CONFIG.HOLES.HOLE_DURATION,
+      repairDuration: CONFIG.HOLES.REPAIR_DURATION,
+      waveCooldown: CONFIG.HOLES.WAVE_COOLDOWN,
+      warningSafetyBuffer: CONFIG.HOLES.WARNING_SAFETY_BUFFER
     };
 
     this.initGeometriesAndMaterials();
@@ -99,17 +104,18 @@ export class MapGenerator {
   initMap() {
     this.reset();
 
-    for (let z = -CONFIG.DESPAWN_BEHIND; z <= 7; z++) {
+    for (let z = -CONFIG.DESPAWN_BEHIND; z <= CONFIG.BOXES.SAFE_END_Z; z++) {
       this.generateRow(z, CONFIG.ROW_TYPES.GRASS, true);
     }
 
-    this.highestZGenerated = 7;
+    this.highestZGenerated = CONFIG.BOXES.SAFE_END_Z;
     this.lowestZGenerated = -CONFIG.DESPAWN_BEHIND;
 
     this.update(0);
   }
 
   reset() {
+    this.destroyedTreeCells.clear();
     this.clearDynamicHoles();
     for (const [z, row] of this.activeRows.entries()) {
       this.removeRow(z, row);
@@ -139,7 +145,8 @@ export class MapGenerator {
     this.leaderStrikePendingBlockIndex = null;
     this.leaderStrikeSpawnHistory = [];
     this.dynamicHolePlayerZ = 0;
-    this.dynamicHoleWaveCooldown = 1.5;
+    this.dynamicHoleWaveCooldown = CONFIG.HOLES.WAVE_COOLDOWN;
+    this.partyItemRegenTimer = 0;
     this.dynamicHoleWaveId = 0;
     this.reachableXs.clear();
     this.reachabilityInitialized = false;
@@ -148,16 +155,26 @@ export class MapGenerator {
 
   update(playerZ) {
     this.dynamicHolePlayerZ = playerZ;
-    const targetAheadZ = playerZ + CONFIG.GENERATION_AHEAD;
+    const actorBounds = this.actorBoundsGetter?.() || null;
+    const highestActorZ = Number.isFinite(actorBounds?.highestZ) ? actorBounds.highestZ : playerZ;
+    const targetAheadZ = Math.max(playerZ, highestActorZ) + CONFIG.GENERATION_AHEAD;
 
     while (this.highestZGenerated < targetAheadZ) {
       this.highestZGenerated++;
       const nextType = this.getNextRowType(this.highestZGenerated);
       this.generateRow(this.highestZGenerated, nextType);
     }
+    if (this.partyItemRegenTimer <= 0) {
+      const before = this.springPunchItems.size;
+      this.ensureSpringPunchItem(playerZ, this.springPunchReferenceX?.() ?? 0);
+      if (highestActorZ > playerZ + 6) this.ensureSpringPunchItem(highestActorZ, 0);
+      if (this.springPunchItems.size > before) this.partyItemRegenTimer = CONFIG.BOXES.REGEN_SECONDS;
+    }
 
     // 身後 25 格以上才安全銷毀，絕不銷毀腳下與退路
-    const minKeepZ = playerZ - CONFIG.DESPAWN_BEHIND;
+    const lowestActorZ = Number.isFinite(actorBounds?.lowestZ) ? actorBounds.lowestZ : playerZ;
+    const checkpointZs = Array.isArray(actorBounds?.checkpointZs) ? actorBounds.checkpointZs.filter(Number.isFinite) : [];
+    const minKeepZ = Math.min(playerZ, lowestActorZ, ...checkpointZs) - CONFIG.DESPAWN_BEHIND;
     for (const [z, row] of this.activeRows.entries()) {
       if (z < minKeepZ) {
         this.removeRow(z, row);
@@ -578,36 +595,41 @@ export class MapGenerator {
   }
 
   ensureSpringPunchItem(referenceZ = 0, referenceX = 0) {
-    if (!this.springPunchItemsEnabled || this.springPunchItems.size) return;
+    if (!this.springPunchItemsEnabled || this.springPunchItems.size >= 8) return;
+    const batchSize = Math.min(CONFIG.BOXES.BATCH_MAX, 8 - this.springPunchItems.size);
+    if (batchSize < 2) return;
+    if ([...this.springPunchItems.values()].some(item => item.z >= referenceZ + 1 && item.z <= referenceZ + 8)) return;
     const rows = [...this.activeRows.values()].filter((row) => (
-      row.z >= referenceZ + 2 && row.z <= referenceZ + 8 && row.type === CONFIG.ROW_TYPES.GRASS && !row.scoreItem
+      row.z >= Math.max(CONFIG.BOXES.SAFE_END_Z + 1, referenceZ + 2) && row.z <= Math.max(this.highestZGenerated, referenceZ + 8) && row.type === CONFIG.ROW_TYPES.GRASS && !row.dynamicHoleCluster && !row.scoreItem && !(row.springPunchItems?.length)
     ));
     for (const row of rows) {
+      const candidates = [];
       for (let offset = 0; offset <= CONFIG.MAP_BOUNDS_X * 2; offset++) {
         const signedOffset = offset === 0 ? 0 : (offset % 2 ? Math.ceil(offset / 2) : -offset / 2);
         const x = Math.round(referenceX) + signedOffset;
+        if (Math.abs(x) >= CONFIG.MAP_BOUNDS_X || !this.canPlacePartyItemAt({ x, z: row.z }) || row.trees.some((tree) => tree.gridX === x) || this.springPunchCellBlocked?.({ x, z: row.z })) continue;
+        candidates.push(x);
+        if (candidates.length === batchSize) break;
+      }
+      // 普通問號箱只作同列橫排；空間不足時換一列，絕不退化成縱向單箱。
+      if (candidates.length < CONFIG.BOXES.BATCH_MIN) continue;
+      row.springPunchItems = [];
+      for (const x of candidates) {
         const key = `${x},${row.z}`;
-        if (Math.abs(x) >= CONFIG.MAP_BOUNDS_X || this.springPunchItems.has(key) || row.trees.some((tree) => tree.gridX === x) || this.springPunchCellBlocked?.({ x, z: row.z })) continue;
         const mesh = this.createSpringPunchItemMesh();
         mesh.position.set(x * CONFIG.GRID_SIZE, 0.46, 0);
         row.mesh.add(mesh);
         const item = { id: `spring-${row.z}-${x}`, x, z: row.z, type: 'springPunch', mesh, row };
-        row.springPunchItem = item;
+        row.springPunchItems.push(item);
         this.springPunchItems.set(key, item);
-        return;
       }
+      row.springPunchItem = row.springPunchItems[0] || null; // 舊呼叫端相容用代表項。
+      return;
     }
   }
 
   createSpringPunchItemMesh() {
-    const group = new THREE.Group();
-    const glove = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), new THREE.MeshLambertMaterial({ color: 0xffcf2f, emissive: 0x594000 }));
-    glove.scale.set(1.15, 0.8, 0.9);
-    const spring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 6, 10), new THREE.MeshBasicMaterial({ color: 0xfff4a8 }));
-    spring.rotation.x = Math.PI / 2;
-    spring.position.y = -0.17;
-    group.add(glove, spring);
-    return group;
+    return this.createPartyBoxMesh(0xffb72c);
   }
 
   collectSpringPunchItemAt(gridPosition) {
@@ -615,7 +637,8 @@ export class MapGenerator {
     const item = this.springPunchItems.get(key);
     if (!item) return null;
     this.springPunchItems.delete(key);
-    item.row.springPunchItem = null;
+    item.row.springPunchItems = (item.row.springPunchItems || []).filter((candidate) => candidate !== item);
+    item.row.springPunchItem = item.row.springPunchItems[0] || null;
     item.row.mesh.remove(item.mesh);
     item.mesh.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
     return item;
@@ -628,7 +651,7 @@ export class MapGenerator {
       this.leaderStrikePendingBlockIndex = null;
       return;
     }
-    if (this.leaderStrikeBlockIndex % 3 !== 0) return;
+    if (this.leaderStrikeBlockIndex % CONFIG.BOXES.ROW_SPACING !== 0) return;
     this.leaderStrikePendingBlockIndex = this.leaderStrikeBlockIndex;
     if (!row.dynamicHoleCluster) this.placePendingLeaderStrike(row);
   }
@@ -640,14 +663,14 @@ export class MapGenerator {
       return false;
     }
     // 動態破洞區的 entry/floor/exit 都不是穩定落點；下一列一般草地才可放置。
-    if (row.type !== CONFIG.ROW_TYPES.GRASS || row.dynamicHoleCluster || row.scoreItem || row.springPunchItem) return false;
+    if (row.z <= CONFIG.BOXES.SAFE_END_Z || row.type !== CONFIG.ROW_TYPES.GRASS || row.dynamicHoleCluster || row.scoreItem) return false;
     const rawReferenceX = this.leaderStrikeReferenceX ? this.leaderStrikeReferenceX() : 0;
     const referenceX = Math.round(Number.isFinite(rawReferenceX) ? rawReferenceX : 0);
     const candidates = [...(row.reachableXs || [])]
       .sort((a, b) => Math.abs(a - referenceX) - Math.abs(b - referenceX) || a - b);
     for (const x of candidates) {
       const key = `${x},${row.z}`;
-      if (row.trees.some((tree) => tree.gridX === x) || this.leaderStrikeItems.has(key) || this.leaderStrikeCellBlocked?.({ x, z: row.z })) continue;
+      if (row.trees.some((tree) => tree.gridX === x) || !this.canPlacePartyItemAt({ x, z: row.z }) || this.leaderStrikeCellBlocked?.({ x, z: row.z })) continue;
       const mesh = this.createLeaderStrikeItemMesh();
       mesh.position.set(x * CONFIG.GRID_SIZE, 0.48, 0);
       row.mesh.add(mesh);
@@ -661,6 +684,7 @@ export class MapGenerator {
         row
       };
       row.leaderStrikeItem = item;
+      row.leaderStrikeItems = [...(row.leaderStrikeItems || []), item];
       this.leaderStrikeItems.set(key, item);
       this.leaderStrikeSpawnHistory.push({ blockIndex: item.blockIndex, x, z: row.z, dynamicHole: false });
       this.leaderStrikePendingBlockIndex = null;
@@ -670,21 +694,24 @@ export class MapGenerator {
   }
 
   createLeaderStrikeItemMesh() {
+    return this.createPartyBoxMesh(0x53c8ff);
+  }
+
+  createPartyBoxMesh(color) {
     const group = new THREE.Group();
-    // 高分追擊落雷必須在前方草地上一眼可辨；以直立信標避免和分數晶體／彈簧拳混淆。
-    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshLambertMaterial({ color: 0x88dfff, emissive: 0x2a9cff }));
-    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.1, 0.88, 6), new THREE.MeshBasicMaterial({ color: 0x7de8ff, transparent: true, opacity: 0.82 }));
-    beacon.position.y = 0.36;
-    const bolt = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.72, 4), new THREE.MeshBasicMaterial({ color: 0xf1fbff }));
-    bolt.rotation.z = Math.PI;
-    bolt.position.y = 0.62;
-    const innerRing = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.04, 6, 12), new THREE.MeshBasicMaterial({ color: 0xf5fdff }));
-    innerRing.rotation.x = Math.PI / 2;
-    innerRing.position.y = -0.12;
-    const outerRing = new THREE.Mesh(new THREE.TorusGeometry(0.54, 0.035, 6, 12), new THREE.MeshBasicMaterial({ color: 0x4dcfff, transparent: true, opacity: 0.9 }));
-    outerRing.rotation.x = Math.PI / 2;
-    outerRing.position.y = -0.15;
-    group.add(core, beacon, bolt, innerRing, outerRing);
+    const geometry = new THREE.BoxGeometry(.62, .62, .62);
+    const box = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: 0x766bff, emissive: 0x192952, transparent: true, opacity: .92 }));
+    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: 0xa3f2ff, transparent: true, opacity: .8 }));
+    group.add(box, edge);
+    for (let side = 0; side < 4; side++) {
+      const face = new THREE.Group();
+      const points = [[-.12,.10],[-.09,.18],[.01,.20],[.12,.15],[.11,.05],[.01,-.01],[0,-.08]].map(([x,y]) => new THREE.Vector3(x,y,.326));
+      const mark = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 18, .033, 6, false), new THREE.MeshBasicMaterial({ color: 0xfff6bc }));
+      const dot = new THREE.Mesh(new THREE.BoxGeometry(.065,.065,.018), new THREE.MeshBasicMaterial({ color: 0xffffff })); dot.position.set(0,-.19,.33);
+      face.add(mark, dot); face.rotation.y = side * Math.PI / 2; group.add(face);
+    }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.44,.025,6,20), new THREE.MeshBasicMaterial({ color: 0x9beaff, transparent: true, opacity: .65 }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = -.38; group.add(ring);
     return group;
   }
 
@@ -696,11 +723,28 @@ export class MapGenerator {
     return item;
   }
 
+  hasPartyItemAt(gridPosition) {
+    const { x, z } = this.normalizeGridPosition(gridPosition);
+    const key = `${x},${z}`;
+    return this.springPunchItems.has(key) || this.leaderStrikeItems.has(key);
+  }
+
+  hasPartyItemOnAdjacentRow(z) {
+    return [...this.springPunchItems.values(), ...this.leaderStrikeItems.values()]
+      .some((item) => Math.abs(item.z - z) > 0 && Math.abs(item.z - z) < CONFIG.BOXES.ROW_SPACING);
+  }
+
+  canPlacePartyItemAt(gridPosition) {
+    const { x, z } = this.normalizeGridPosition(gridPosition);
+    return z > CONFIG.BOXES.SAFE_END_Z && !this.hasPartyItemAt({ x, z }) && !this.hasPartyItemOnAdjacentRow(z);
+  }
+
   removeLeaderStrikeItem(item) {
     if (!item) return;
     const key = `${item.x},${item.z}`;
     this.leaderStrikeItems.delete(key);
-    item.row.leaderStrikeItem = null;
+    item.row.leaderStrikeItems = (item.row.leaderStrikeItems || []).filter((candidate) => candidate !== item);
+    item.row.leaderStrikeItem = item.row.leaderStrikeItems[0] || null;
     item.row.mesh.remove(item.mesh);
     item.mesh.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
   }
@@ -736,7 +780,7 @@ export class MapGenerator {
         placeTree = false;
       }
 
-      if (placeTree) {
+      if (placeTree && !this.destroyedTreeCells.has(`${x},${rowData.z}`)) {
         const treeType = Math.floor(this.random() * 3);
         const treeMesh = createTreeMesh(treeType);
         treeMesh.position.set(x * CONFIG.GRID_SIZE, 0.2, 0);
@@ -768,8 +812,8 @@ export class MapGenerator {
     const zProgress = Math.min(1.0, Math.max(0, (rowData.z || 0) / 220.0));
 
     // 車速：開局極緩 (2.0 ~ 3.2)，Z = 70 步保持平緩 (3.0 ~ 4.2)，極高分 (4.2 ~ 6.5)
-    const minSpeed = THREE.MathUtils.lerp(2.0, 4.2, zProgress);
-    const speedRange = THREE.MathUtils.lerp(1.2, 2.3, zProgress);
+    const minSpeed = THREE.MathUtils.lerp(CONFIG.MAP.ROAD_SPEED_MIN, CONFIG.MAP.ROAD_SPEED_MAX, zProgress);
+    const speedRange = THREE.MathUtils.lerp(CONFIG.MAP.ROAD_SPEED_RANGE_MIN, CONFIG.MAP.ROAD_SPEED_RANGE_MAX, zProgress);
     rowData.speed = minSpeed + this.random() * speedRange;
 
     // 鄰接河道與車道防同步卡死演算法 (River-Road Anti-Locking Algorithm)
@@ -940,7 +984,7 @@ export class MapGenerator {
       }
       this.lastRiverDirection = rowData.direction;
 
-      let speed = THREE.MathUtils.lerp(1.5, 3.2, zProgress) + this.random() * 1.0;
+      let speed = THREE.MathUtils.lerp(CONFIG.MAP.RIVER_SPEED_MIN, CONFIG.MAP.RIVER_SPEED_MAX, zProgress) + this.random() * CONFIG.MAP.RIVER_SPEED_JITTER;
       if (this.lastRiverSpeed && Math.abs(speed - this.lastRiverSpeed) < 1.0) {
         speed += 1.2;
       }
@@ -1028,6 +1072,7 @@ export class MapGenerator {
 
   animateObstacles(deltaTime) {
     const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
+    this.partyItemRegenTimer = Math.max(0, this.partyItemRegenTimer - safeDelta);
     const boundX = (CONFIG.MAP_BOUNDS_X + 5) * CONFIG.GRID_SIZE;
 
     this.updateDynamicHoles(safeDelta);
@@ -1037,14 +1082,14 @@ export class MapGenerator {
         row.scoreItem.mesh.rotation.y += safeDelta * 3.5;
         row.scoreItem.mesh.position.y = 0.5 + Math.sin(performance.now() * 0.004 + z) * 0.08;
       }
-      if (row.springPunchItem?.mesh) {
-        row.springPunchItem.mesh.rotation.y += safeDelta * 4;
-        row.springPunchItem.mesh.position.y = 0.48 + Math.sin(performance.now() * 0.005 + z) * 0.07;
-      }
-      if (row.leaderStrikeItem?.mesh) {
-        row.leaderStrikeItem.mesh.rotation.y -= safeDelta * 3.2;
-        row.leaderStrikeItem.mesh.position.y = 0.48 + Math.sin(performance.now() * 0.0045 + z) * 0.08;
-      }
+      (row.springPunchItems || (row.springPunchItem ? [row.springPunchItem] : [])).forEach((item, index) => {
+        item.mesh.rotation.y += safeDelta * 4;
+        item.mesh.position.y = 0.48 + Math.sin(performance.now() * 0.005 + z + index) * 0.07;
+      });
+      (row.leaderStrikeItems || (row.leaderStrikeItem ? [row.leaderStrikeItem] : [])).forEach((item, index) => {
+        item.mesh.rotation.y -= safeDelta * 3.2;
+        item.mesh.position.y = 0.48 + Math.sin(performance.now() * 0.0045 + z + index) * 0.08;
+      });
       if (row.type === CONFIG.ROW_TYPES.ROAD && row.vehicles) {
         row.vehicles.forEach((veh) => {
           veh.mesh.position.x += row.direction * row.speed * safeDelta;
@@ -1079,7 +1124,7 @@ export class MapGenerator {
           }
           if (row.idleTimer <= 0) {
             row.trainState = 'SIGNAL_FLASHING';
-            row.warningTimer = 2.0;
+            row.warningTimer = CONFIG.MAP.TRAIN_WARNING_SECONDS;
             row.flashTick = 0;
           }
         } else if (row.trainState === 'SIGNAL_FLASHING') {
@@ -1121,7 +1166,7 @@ export class MapGenerator {
             });
           }
 
-          const trainSpeed = 38.0;
+          const trainSpeed = CONFIG.MAP.TRAIN_SPEED;
           row.train.position.x += row.direction * trainSpeed * safeDelta;
           if (Math.abs(row.train.position.x) > boundX * 2.0) {
             row.mesh.remove(row.train);
@@ -1143,7 +1188,7 @@ export class MapGenerator {
   setDynamicHolesEnabled(enabled) {
     this.dynamicHolesEnabled = Boolean(enabled);
     if (!this.dynamicHolesEnabled) this.clearDynamicHoles();
-    this.dynamicHoleWaveCooldown = 1.5;
+    this.dynamicHoleWaveCooldown = CONFIG.HOLES.WAVE_COOLDOWN;
   }
 
   getDynamicHoleState(gridPosition) {
@@ -1213,6 +1258,7 @@ export class MapGenerator {
 
     for (const hole of [...this.dynamicHoleCells.values()]) {
       hole.timer -= deltaTime;
+      hole.visualElapsed = (hole.visualElapsed || 0) + deltaTime;
       if (hole.state === 'WARNING' && hole.timer <= 0) {
         this.setDynamicHoleState(hole, 'HOLE', this.dynamicHoleConfig.holeDuration);
       } else if (hole.state === 'HOLE' && hole.timer <= 0) {
@@ -1340,7 +1386,8 @@ export class MapGenerator {
       z: row.z,
       visual,
       state: 'WARNING',
-      timer: this.dynamicHoleConfig.warningDuration
+      timer: this.dynamicHoleConfig.warningDuration,
+      visualElapsed: 0
     };
     this.dynamicHoleCells.set(hole.key, hole);
     this.applyDynamicHoleVisual(hole);
@@ -1351,9 +1398,26 @@ export class MapGenerator {
     const size = CONFIG.GRID_SIZE * 0.78;
     const warning = new THREE.Mesh(
       new THREE.PlaneGeometry(size, size),
-      new THREE.MeshBasicMaterial({ color: 0xffa52f, transparent: true, opacity: 0.7, depthWrite: false })
+      new THREE.MeshBasicMaterial({ color: 0xff283d, transparent: true, opacity: 0.58, depthWrite: false })
     );
     warning.rotation.x = -Math.PI / 2;
+    const warningRing = new THREE.Mesh(
+      new THREE.RingGeometry(size * 0.37, size * 0.49, 12),
+      new THREE.MeshBasicMaterial({ color: 0xff5264, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false })
+    );
+    warningRing.rotation.x = -Math.PI / 2;
+    warningRing.position.y = 0.028;
+    const fireball = new THREE.Group();
+    const fireCore = new THREE.Mesh(new THREE.SphereGeometry(.19, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe07a, transparent: true, opacity: 1 }));
+    const fireTail = new THREE.Mesh(new THREE.ConeGeometry(.16, .62, 8), new THREE.MeshBasicMaterial({ color: 0xff5c31, transparent: true, opacity: .9 }));
+    fireTail.position.y = .35;
+    fireball.add(fireCore, fireTail);
+    for (let index = 0; index < 4; index++) {
+      const ember = new THREE.Mesh(new THREE.SphereGeometry(.045, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffa23d, transparent: true, opacity: .8 }));
+      ember.position.set((index - 1.5) * .07, .55 + index * .12, 0);
+      fireball.add(ember);
+    }
+    fireball.position.y = CONFIG.HOLES.FIREBALL_HEIGHT;
     const crackA = new THREE.Mesh(
       new THREE.BoxGeometry(size * 0.08, 0.025, size * 0.78),
       new THREE.MeshBasicMaterial({ color: 0x6d2500 })
@@ -1368,7 +1432,7 @@ export class MapGenerator {
       new THREE.MeshLambertMaterial({ color: 0x101018, emissive: 0x030306 })
     );
     // lane 頂面在 world Y=0；黑洞面與碎裂邊緣刻意高於它，避免被草地方塊遮住。
-    hole.position.y = 0.05;
+    hole.position.y = -0.08;
     const brokenEdge = new THREE.Group();
     const edgeMaterial = new THREE.MeshLambertMaterial({ color: 0x6d3416, emissive: 0x260d02 });
     const edgeLength = size * 0.9;
@@ -1385,36 +1449,81 @@ export class MapGenerator {
       new THREE.MeshBasicMaterial({ color: 0x38f1dc, transparent: true, opacity: 0.55, depthWrite: false })
     );
     repair.rotation.x = -Math.PI / 2;
-    group.add(warning, crackA, crackB, hole, brokenEdge, repair);
-    group.userData = { warning, crackA, crackB, hole, brokenEdge, repair };
+    const fragments = new THREE.Group();
+    for (let index = 0; index < 6; index++) {
+      const fragment = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.07, 0.13), edgeMaterial.clone());
+      const angle = (Math.PI * 2 * index) / 6;
+      fragment.position.set(Math.cos(angle) * size * 0.42, 0.12, Math.sin(angle) * size * 0.42);
+      fragment.rotation.y = angle;
+      fragments.add(fragment);
+    }
+    const impact = new THREE.Group();
+    const impactFlash = new THREE.Mesh(new THREE.SphereGeometry(.32, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe9ac, transparent: true, opacity: 1 }));
+    const impactRing = new THREE.Mesh(new THREE.RingGeometry(.12, .42, 16), new THREE.MeshBasicMaterial({ color: 0xff7b45, transparent: true, opacity: .9, side: THREE.DoubleSide }));
+    impactRing.rotation.x = -Math.PI / 2;
+    impact.add(impactFlash, impactRing);
+    for (let index = 0; index < 8; index++) {
+      const ember = new THREE.Mesh(new THREE.BoxGeometry(.07, .07, .07), new THREE.MeshBasicMaterial({ color: 0xffb454, transparent: true, opacity: .9 }));
+      const angle = index * Math.PI * 2 / 8;
+      ember.userData.velocity = new THREE.Vector3(Math.cos(angle) * 1.4, .8 + (index % 3) * .25, Math.sin(angle) * 1.4);
+      impact.add(ember);
+    }
+    group.add(warning, warningRing, fireball, crackA, crackB, hole, brokenEdge, repair, fragments, impact);
+    group.userData = { warning, warningRing, fireball, crackA, crackB, hole, brokenEdge, repair, fragments, impact, impactFlash, impactRing };
     return group;
   }
 
   setDynamicHoleState(hole, state, duration) {
     hole.state = state;
     hole.timer = duration;
+    hole.visualElapsed = 0;
     this.applyDynamicHoleVisual(hole);
   }
 
   applyDynamicHoleVisual(hole) {
-    const { warning, crackA, crackB, hole: holeMesh, brokenEdge, repair } = hole.visual.userData;
+    const { warning, warningRing, fireball, crackA, crackB, hole: holeMesh, brokenEdge, repair, fragments, impact } = hole.visual.userData;
     warning.visible = hole.state === 'WARNING';
+    warningRing.visible = hole.state === 'WARNING';
+    fireball.visible = hole.state === 'WARNING';
     crackA.visible = hole.state === 'WARNING';
     crackB.visible = hole.state === 'WARNING';
     holeMesh.visible = hole.state === 'HOLE' || hole.state === 'REPAIR_WARNING';
     brokenEdge.visible = hole.state === 'HOLE' || hole.state === 'REPAIR_WARNING';
     repair.visible = hole.state === 'REPAIR_WARNING';
+    fragments.visible = hole.state === 'HOLE' || hole.state === 'REPAIR_WARNING';
+    impact.visible = hole.state === 'HOLE';
     this.animateDynamicHoleVisual(hole);
   }
 
   animateDynamicHoleVisual(hole) {
-    const { warning, repair } = hole.visual.userData;
+    const { warning, warningRing, fireball, repair, hole: holeMesh, brokenEdge, fragments, impact, impactFlash, impactRing } = hole.visual.userData;
     if (hole.state === 'WARNING') {
       const pulse = 0.72 + Math.sin(performance.now() * 0.018) * 0.22;
       warning.material.opacity = pulse;
       warning.scale.setScalar(0.9 + pulse * 0.12);
+      warningRing.material.opacity = 0.35 + pulse * 0.5;
+      warningRing.scale.setScalar(0.92 + pulse * 0.16);
+      const descend = Math.max(0, Math.min(1, hole.timer / this.dynamicHoleConfig.warningDuration));
+      fireball.position.y = .2 + descend * Math.max(0, CONFIG.HOLES.FIREBALL_HEIGHT - .2);
+      fireball.rotation.y += .12;
+    } else if (hole.state === 'HOLE') {
+      holeMesh.position.y = -0.1 - Math.sin(performance.now() * 0.012) * 0.025;
+      brokenEdge.rotation.y += 0.003;
+      fragments.children.forEach((fragment, index) => { fragment.position.y = 0.1 + Math.sin(performance.now() * 0.014 + index) * 0.035; });
+      const impactProgress = Math.min(1, hole.visualElapsed / .72);
+      impactFlash.scale.setScalar(1 + impactProgress * 2.5);
+      impactFlash.material.opacity = Math.max(0, 1 - impactProgress * 1.3);
+      impactRing.scale.setScalar(1 + impactProgress * 3.6);
+      impactRing.material.opacity = Math.max(0, .9 - impactProgress);
+      impact.children.forEach((child) => {
+        if (!child.userData.velocity) return;
+        child.position.addScaledVector(child.userData.velocity, .016);
+        child.material.opacity = Math.max(0, 1 - impactProgress);
+      });
     } else if (hole.state === 'REPAIR_WARNING') {
       repair.material.opacity = 0.45 + Math.sin(performance.now() * 0.02) * 0.2;
+      holeMesh.position.y = -0.08 + (1 - hole.timer / this.dynamicHoleConfig.repairDuration) * 0.12;
+      fragments.children.forEach((fragment) => { fragment.position.y = Math.max(0.08, fragment.position.y - 0.01); });
     }
   }
 
@@ -1427,12 +1536,16 @@ export class MapGenerator {
   }
 
   removeRow(z, row) {
-    if (row?.leaderStrikeItem) this.removeLeaderStrikeItem(row.leaderStrikeItem);
+    (row?.leaderStrikeItems || (row?.leaderStrikeItem ? [row.leaderStrikeItem] : [])).slice().forEach((item) => this.removeLeaderStrikeItem(item));
     if (row && row.mesh) {
       this.scene.remove(row.mesh);
     }
     if (row?.scoreItem) this.scoreItems.delete(`${row.scoreItem.x},${row.scoreItem.z}`);
-    if (row?.springPunchItem) this.springPunchItems.delete(`${row.springPunchItem.x},${row.springPunchItem.z}`);
+    (row?.springPunchItems || (row?.springPunchItem ? [row.springPunchItem] : [])).slice().forEach((item) => {
+      this.springPunchItems.delete(`${item.x},${item.z}`);
+      row.mesh?.remove(item.mesh);
+      item.mesh?.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
+    });
     this.activeRows.delete(z);
   }
 

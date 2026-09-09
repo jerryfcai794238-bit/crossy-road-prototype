@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import { MapGenerator } from '../src/mechanics/MapGenerator.js';
+
+const generator = new MapGenerator(new THREE.Scene());
+generator.springPunchItems.set('0,10', { x: 0, z: 10 });
+assert.equal(generator.canPlacePartyItemAt({ x: 0, z: 10 }), false, 'a party box cannot overlap another box on the same cell');
+assert.equal(generator.canPlacePartyItemAt({ x: 1, z: 10 }), true, 'multiple party boxes may share a row when their X cells differ');
+assert.equal(generator.canPlacePartyItemAt({ x: 0, z: 9 }), false, 'a party box cannot use the preceding Z row');
+assert.equal(generator.canPlacePartyItemAt({ x: 0, z: 11 }), false, 'a party box cannot use the following Z row');
+generator.leaderStrikeItems.set('-2,13', { x: -2, z: 13 });
+assert.equal(generator.canPlacePartyItemAt({ x: 2, z: 12 }), false, 'spring and leader boxes share the same adjacent-row guard');
+assert.equal(generator.canPlacePartyItemAt({ x: 2, z: 14 }), false, 'cross-type box rows cannot become vertically consecutive');
+assert.equal(generator.canPlacePartyItemAt({ x: 2, z: 11 }), false, 'party box rows must remain at least three Z cells apart');
+assert.equal(generator.canPlacePartyItemAt({ x: 2, z: 16 }), true, 'a party box may use a row three or more cells away');
+assert.equal(generator.canPlacePartyItemAt({ x: 2, z: 7 }), false, 'initial safety rows never accept party boxes');
+
+const row = { z: 20, mesh: new THREE.Group() };
+generator.dynamicHolesEnabled = true;
+generator.createDynamicHole(row, 0);
+const hole = generator.dynamicHoleCells.get('0,20');
+const visual = hole.visual.userData;
+assert.equal(hole.state, 'WARNING', 'hole begins as a warning while the fireball descends');
+assert.equal(visual.hole.visible, false, 'warning terrain is not yet an active hole');
+assert.equal(visual.fireball.visible, true, 'warning displays a descending fireball');
+assert.equal(visual.warning.material.color.getHex(), 0xff283d, 'warning ground uses MMO-style red danger coloring');
+const startY = visual.fireball.position.y;
+generator.updateDynamicHoles(generator.dynamicHoleConfig.warningDuration - .05);
+assert.equal(hole.state, 'WARNING', 'hole remains non-lethal before fireball impact');
+assert.ok(visual.fireball.position.y < startY, 'fireball visibly descends during the warning');
+generator.updateDynamicHoles(.06);
+assert.equal(hole.state, 'HOLE', 'fireball landing switches the warning into a hole');
+assert.equal(visual.fireball.visible, false, 'fireball disappears only after impact');
+assert.equal(visual.impact.visible, true, 'impact flash and debris appear on landing');
+generator.updateDynamicHoles(generator.dynamicHoleConfig.holeDuration + .01);
+assert.equal(hole.state, 'REPAIR_WARNING', 'active hole transitions to repair after its duration');
+generator.updateDynamicHoles(generator.dynamicHoleConfig.repairDuration + .01);
+assert.equal(generator.dynamicHoleCells.has('0,20'), false, 'completed fireball and hole VFX are removed with the cell');
+assert.equal(hole.visual.parent, null, 'removed hole visual detaches from its row mesh');
+
+console.log('party map spacing and fireball regression: passed');

@@ -49,11 +49,17 @@
       </div>
     </div>
 
+    <aside id="item-hud" class="item-hud" aria-label="持有道具" hidden>
+      <div class="item-hud-heading"><span>道具</span><span>自動發動</span></div>
+      <div id="item-slots" class="item-slots" role="status" aria-live="polite"></div>
+      <p id="item-hud-hint">碰問號箱，抽取道具</p>
+    </aside>
+
     <!-- 右上角即時競速排行榜面板 (Live Leaderboard with 👑 Crown) -->
     <div id="leaderboard">
-      <div class="leaderboard-header">🏆 4人同起點競速榜</div>
+      <div class="leaderboard-header">🏆 5人同起點競速榜</div>
       <div id="leaderboard-list">
-        <!-- 4 位選手動態名次列表與 👑 皇冠 -->
+        <!-- 5 位選手動態名次列表與 👑 皇冠 -->
       </div>
     </div>
 
@@ -70,8 +76,8 @@
             <div class="mode-badge casual">推薦</div>
             <div class="mode-icon">🍃</div>
             <h3 class="mode-title">休閒模式</h3>
-            <p class="mode-desc">無相機推進、無發呆老鷹死！可隨意停留觀察車道與浮木節奏，無壓力體驗！</p>
-            <div class="mode-cost">輕鬆體驗</div>
+            <p class="mode-desc">5 人搶問號箱！隨機抽到火箭、泡泡盾、落雷或召喚老鷹，道具會自動發動。失誤後先回安全點，再倒數 3 秒出發。</p>
+            <div class="mode-cost">120 秒派對競速</div>
           </div>
 
           <!-- 卡片 2: 挑戰模式 (第二順位) -->
@@ -95,6 +101,29 @@
         <button id="btn-start" class="btn-primary">進入遊戲</button>
       </div>
     </div>
+
+    <div id="matching-overlay" class="overlay matching-overlay hidden" role="dialog" aria-modal="true" aria-live="polite">
+      <div class="modal-card matching-card">
+        <span class="matching-kicker">休閒模式 · 本機配對</span>
+        <h2>正在組成 5 人對局</h2>
+        <p id="matching-status">正在以本機 BOT 補位配對…</p>
+        <div id="matching-seats" class="matching-seats" aria-label="配對席位"></div>
+        <p class="matching-note">本局由你與 4 位 BOT 同步開跑；進行中的對局無法加入。</p>
+        <button id="btn-cancel-matching" class="btn-secondary" type="button">取消配對</button>
+      </div>
+    </div>
+
+    <div id="race-countdown" class="race-countdown" role="status" aria-live="assertive" hidden>
+      <span class="race-countdown-kicker">5 人到齊 · 準備開跑</span>
+      <strong id="race-countdown-value">3</strong>
+      <span class="race-countdown-hint">倒數結束後開放移動</span>
+    </div>
+    <div id="respawn-countdown" class="respawn-countdown" role="status" aria-live="polite" hidden>
+      <span id="respawn-countdown-title">回到安全點 · 準備再出發</span>
+      <strong id="respawn-countdown-value">3</strong>
+      <span id="respawn-countdown-note">倒數結束後恢復移動</span>
+    </div>
+    <div id="global-strike-flash" aria-hidden="true"></div>
 
     <!-- 僅限休閒模式：依序閱讀的三張玩法圖卡 -->
     <div id="casual-guide-overlay" class="overlay guide-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="guide-title" aria-hidden="true">
@@ -134,7 +163,7 @@
               <span class="tutorial-scene-label">↙ 回安全區 · ↗ 再前進</span>
             </div>
             <h3>失誤後怎麼辦</h3>
-            <p>失誤時，回到上一個安全區，再繼續移動。</p>
+            <p>失誤時先播放死亡演出，再回到上一個安全點。抵達後倒數 <strong>3 秒</strong>，就能繼續移動。</p>
           </article>
         </div>
 
@@ -153,6 +182,7 @@
     <!-- Game Over 彈窗 -->
     <div id="gameover-overlay" class="overlay hidden">
       <div class="modal-card gameover-card">
+        <section id="solo-results">
         <h2 class="gameover-title">GAME OVER</h2>
         <p id="death-reason" class="death-reason">被車撞飛了！</p>
         <div class="final-score-box">
@@ -165,6 +195,23 @@
             <strong id="final-best">0</strong>
           </div>
         </div>
+        </section>
+        <section id="multiplayer-results" hidden>
+          <div class="results-heading">
+            <span class="results-kicker">5 人派對競速 · 本局結束</span>
+            <h2 id="results-title">對局結算</h2>
+            <p id="results-subtitle">120 秒，全力衝線！</p>
+          </div>
+          <div id="results-podium" class="results-podium" aria-label="本局前三名"></div>
+          <div id="results-personal" class="results-personal"></div>
+          <div class="results-table-wrap">
+            <table class="results-table">
+              <caption>全部選手 · 依結束時到達格數排名，同距離並列</caption>
+              <thead><tr><th scope="col">名次</th><th scope="col">選手</th><th scope="col">到達格數</th><th scope="col">道具分</th><th scope="col">失誤</th></tr></thead>
+              <tbody id="results-rows"></tbody>
+            </table>
+          </div>
+        </section>
         <div class="btn-group">
           <button id="btn-restart" class="btn-primary">再試一次</button>
           <button id="btn-lobby" class="btn-secondary">返回大廳</button>

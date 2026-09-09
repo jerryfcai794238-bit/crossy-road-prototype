@@ -1,0 +1,121 @@
+# 遊戲 Runtime 集中設定表
+# 修改後重新整理瀏覽器即可套用。時間單位若未特別標示皆為秒。
+# 未知欄位、重複欄位、格式錯誤或超出限制時，整份設定會安全回退為程式預設值。
+
+# 休閒模式與配對（人、秒、毫秒）
+casual.playerCount: 5 # 休閒對局總人數，包含玩家與 BOT
+casual.durationSeconds: 120 # 休閒單局結算時間
+casual.countdownStart: 3 # 開跑倒數的起始數字
+casual.matchFillMs: 230 # 每位 BOT 補入配對席位的間隔
+casual.initialFillMs: 180 # 開始配對後，第一位 BOT 補位前的等待時間
+casual.countdownMs: 1000 # 開跑倒數每一拍的間隔
+casual.goDisplayMs: 550 # 「衝啊！」開跑提示的顯示時間
+
+# 角色移動（世界單位、格、秒）
+movement.gridSize: 1.2 # 地圖一格在世界座標中的尺寸
+movement.boundsX: 6 # 地圖左右可移動邊界，單位為格
+movement.jumpDuration: 0.16 # 單次跳格的移動演出時間
+movement.jumpHeight: 0.5 # 跳格時角色抬升的最高高度
+
+# 死亡與重生（秒）
+respawn.deathAnimationSeconds: 0.65 # 死亡後返回安全點前的演出時間
+respawn.penaltySeconds: 3 # 抵達安全點後的重生倒數懲罰時間
+respawn.finishInvulnerabilitySeconds: 1 # 重生完成後免疫傷害的時間
+
+# 攝影機（格、世界座標、插值比例）
+camera.startZ: -3 # 遊戲開局時鏡頭捲動的 Z 起點，單位為格
+camera.targetAhead: 2.2 # 鏡頭視線在玩家前方預留的距離，單位為格
+camera.orthoSize: 4.2 # 正交攝影機可視範圍大小
+camera.near: 1 # 攝影機近裁切面距離
+camera.far: 1000 # 攝影機遠裁切面距離
+camera.offsetX: -10 # 攝影機相對目標的 X 偏移
+camera.offsetY: 14 # 攝影機相對目標的 Y 高度偏移
+camera.offsetZ: -10 # 攝影機相對目標的 Z 偏移
+camera.pixelRatioMax: 2 # 渲染解析度倍率上限，影響畫質與效能
+camera.challengeScrollSpeed: 0.45 # 挑戰模式鏡頭自動向前推進速度，單位為格／秒
+camera.challengeCatchupLerp: 0.18 # 挑戰模式玩家超前時，鏡頭追上的平滑比例
+camera.casualFollowLerp: 0.12 # 休閒模式鏡頭跟隨玩家的平滑比例
+camera.casualBackRows: 15 # 休閒模式可退後的最大格數
+
+# 角色血量與交通傷害（HP、秒）
+player.maxHp: 100 # 挑戰模式玩家最大生命值
+player.damageInvulnerabilitySeconds: 2 # 被車撞後的傷害免疫時間
+traffic.carDamageBase: 10 # 車輛撞擊的基礎傷害
+traffic.carDamageSpeedScale: 8 # 車速轉換為額外撞擊傷害的倍率
+traffic.carDamageCap: 60 # 單次車輛撞擊傷害上限
+traffic.trainDamage: 70 # 火車撞擊傷害
+
+# BOT 決策（比例、秒、格、搜尋深度）
+bot.decisionMin: 0.1 # BOT 再次思考下一步的最短間隔
+bot.decisionMax: 0.22 # BOT 再次思考下一步的最長間隔
+bot.decisionJitter: 0.03 # BOT 思考間隔的隨機浮動幅度
+bot.actionRateBase: 0.93 # BOT 基礎出手／移動成功機率
+bot.actionRateAggression: 0.08 # 攻擊性對出手／移動機率的加成倍率
+bot.aggressionScale: 1 # 全體 BOT 攻擊性總倍率
+bot.interferenceThreshold: 0.46 # BOT 會主動干擾其他玩家所需的最低攻擊性
+bot.pressureChanceScale: 0.18 # BOT 冒險逼近或施壓的機率倍率
+bot.itemSearchDepth: 5 # BOT 尋找問號箱時的最大搜尋深度
+bot.pathSearchDepth: 10 # BOT 尋找安全前進路線時的最大搜尋深度
+bot.repairWaitSeconds: 0.7 # 坑洞即將修復時，BOT 願意等待的最長時間
+bot.vehicleSafetyDistance: 2.2 # BOT 判斷車輛危險時保留的安全距離
+
+# 地圖生成、道路、河流與火車（格、速度、秒）
+map.generationAhead: 35 # 玩家前方預先生成的地圖格數
+map.despawnBehind: 25 # 玩家後方保留後再移除的地圖格數
+map.roadSpeedMin: 2 # 道路車輛的最低基礎速度
+map.roadSpeedMax: 4.2 # 道路車輛的最高基礎速度
+map.roadSpeedRangeMin: 1.2 # 道路車速隨機浮動的最小範圍
+map.roadSpeedRangeMax: 2.3 # 道路車速隨機浮動的最大範圍
+map.riverSpeedMin: 1.5 # 河流浮木的最低移動速度
+map.riverSpeedMax: 3.2 # 河流浮木的最高移動速度
+map.riverSpeedJitter: 1 # 河流浮木速度的隨機額外浮動
+map.trainSpeed: 38 # 火車通過鐵道時的移動速度
+map.trainWarningSeconds: 2 # 火車到來前紅燈與警告的持續時間
+
+# 道具槽與骰取（秒；pool 僅可使用 rocket、shield、eagle、lightning）
+items.pool: rocket, shield, eagle, lightning # 問號箱可骰出的道具清單
+items.slotCount: 2 # 每位角色可同時持有的道具槽數
+items.rouletteSeconds: 1.1 # 問號箱骰出道具的輪盤時間
+items.roulettePreviewRate: 15 # 輪盤每秒切換預覽圖示的次數
+items.triggerInterval: 0.75 # 同一角色連續自動觸發兩個道具的最短間隔
+
+# 火箭（速度、秒、世界半徑）
+rocket.speed: 10 # 火箭追蹤目標時的飛行速度
+rocket.hitRadius: 0.24 # 火箭判定命中的碰撞半徑
+rocket.stunSeconds: 1.5 # 被火箭命中後的暈眩時間
+rocket.impactSeconds: 0.72 # 火箭命中特效的顯示時間
+
+# 全圖落雷（秒）
+lightning.warningSeconds: 0.8 # 落雷命中前的預警時間
+lightning.stunSeconds: 1.5 # 被落雷命中後的暈眩時間
+
+# 泡泡盾（秒、次數、每秒閃爍頻率）
+shield.durationSeconds: 10 # 泡泡盾啟用後的持續時間
+shield.blocks: 1 # 泡泡盾有效期間可抵擋攻擊的次數
+shield.finalFlashSeconds: 2 # 泡泡盾結束前開始閃爍的剩餘時間
+shield.flashRate: 8 # 泡泡盾倒數閃爍的頻率
+
+# 老鷹（休閒道具與挑戰模式，秒）
+eagle.warningSeconds: 1.25 # 道具老鷹飛抵目標前的預警／接近時間
+eagle.partyRespawnPenaltySeconds: 0 # 道具老鷹送回安全點後的額外重生倒數，0 代表不額外倒數
+eagle.challengeTriggerSeconds: 7.5 # 挑戰模式鏡頭追過玩家約多久後觸發老鷹抓走
+eagle.challengeCarrySeconds: 0.4 # 挑戰模式老鷹抓起玩家並飛離的演出時間
+
+# 坑洞與火球（秒、世界高度）
+holes.warningSeconds: 1.2 # 坑洞生成前紅色危險預警的時間
+holes.activeSeconds: 2.2 # 坑洞可讓角色掉落的持續時間
+holes.repairSeconds: 0.6 # 坑洞開始復原至可安全通行的時間
+holes.intervalSeconds: 0.8 # 兩波坑洞事件之間的最短間隔
+holes.safetyBufferSeconds: 0.15 # BOT 對即將塌陷地格額外保留的安全緩衝時間
+holes.fireballHeight: 5 # 火球從天而降時的起始高度
+
+# 問號箱生成（格、個、秒）
+boxes.safeEndZ: 7 # 初始出生安全區結束列，該區域不生成問號箱
+boxes.batchMin: 2 # 一次橫向問號箱投放的最少箱數
+boxes.batchMax: 3 # 一次橫向問號箱投放的最多箱數
+boxes.rowSpacing: 3 # 兩排問號箱在前進方向上至少相隔的格數
+boxes.regenSeconds: 2 # 問號箱被取得後再次生成前的最短間隔
+
+# 主要回饋特效（秒、世界半徑）
+vfx.feedbackSeconds: 0.75 # 角色頭上獲得／發動／受擊道具圖示的顯示時間
+vfx.stunStarRadius: 0.35 # 暈眩星星繞角色頭頂旋轉的半徑

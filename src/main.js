@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG } from './config.js';
+import { CASUAL_PLAYER_COUNT, CONFIG, loadGameConfig } from './config.js';
 import { SceneSetup } from './graphics/SceneSetup.js';
 import { AI_CHARACTER_VARIANTS, createChicken, createEagle } from './graphics/VoxelModels.js';
 import { Player } from './mechanics/Player.js';
@@ -8,14 +8,17 @@ import { getHighestOtherLeaderStrikeTarget } from './mechanics/LeaderStrikeTarge
 import { MapGenerator } from './mechanics/MapGenerator.js';
 import { Physics } from './mechanics/Physics.js';
 import { UIManager } from './ui/UIManager.js';
+import { PartyItemSystem } from './mechanics/PartyItemSystem.js';
+import { CasualRecovery } from './mechanics/CasualRecovery.js';
 
 // 開發驗證開關：只啟用道具生成、獨立道具分與回饋；正式前進分／排行榜不納入道具分。
 const SCORE_ITEM_PROTOTYPE_ENABLED = true;
 const DYNAMIC_HOLES_PROTOTYPE_ENABLED = true;
-const SPRING_PUNCH_PROTOTYPE_ENABLED = false;
+const SPRING_PUNCH_PROTOTYPE_ENABLED = true;
 const LEADER_STRIKE_PROTOTYPE_ENABLED = true;
+export const CASUAL_START_SLOTS = [0, -2, -1, 1, 2];
 
-class Game {
+export class Game {
   constructor() {
     this.container = document.getElementById('canvas-container');
     this.uiManager = new UIManager();
@@ -26,11 +29,23 @@ class Game {
 
     // 2. 地圖與物理
     this.mapGenerator = new MapGenerator(this.scene);
+    this.mapGenerator.actorBoundsGetter = () => {
+      if (this.currentMode !== 'casual') return null;
+      const actors = this.getActiveActors();
+      const positions = actors.flatMap((actor) => [actor.gridZ, actor.targetGridZ]).filter(Number.isFinite);
+      const checkpointZs = [this.casualCheckpoint?.z, ...this.bots.map((bot) => bot.checkpoint?.z)].filter(Number.isFinite);
+      return {
+        highestZ: positions.length ? Math.max(...positions) : 0,
+        lowestZ: positions.length ? Math.min(...positions) : 0,
+        checkpointZs
+      };
+    };
     this.scoreItemsPrototypeEnabled = SCORE_ITEM_PROTOTYPE_ENABLED;
     this.dynamicHolesPrototypeEnabled = DYNAMIC_HOLES_PROTOTYPE_ENABLED;
     this.mapGenerator.scoreItemsEnabled = this.scoreItemsPrototypeEnabled;
     this.springPunchPrototypeEnabled = SPRING_PUNCH_PROTOTYPE_ENABLED;
     this.mapGenerator.springPunchItemsEnabled = this.springPunchPrototypeEnabled;
+    this.mapGenerator.springPunchReferenceX = () => this.player?.gridX ?? 0;
     this.leaderStrikePrototypeEnabled = LEADER_STRIKE_PROTOTYPE_ENABLED;
     this.mapGenerator.leaderStrikeItemsEnabled = this.leaderStrikePrototypeEnabled;
     this.mapGenerator.leaderStrikeReferenceX = () => this.player?.gridX ?? 0;
@@ -39,15 +54,18 @@ class Game {
     // 3. 狀態
     this.isGameStarted = false;
     this.isGameOver = false;
+    this.matchState = 'idle';
+    this.matchTimer = null;
+    this.pendingRespawns = new Map();
 
     // 身後老鷹底邊界推進 (0.35格/秒)
-    this.cameraAutoScrollZ = -3.0 * CONFIG.GRID_SIZE;
+    this.cameraAutoScrollZ = CONFIG.CAMERA.START_Z * CONFIG.GRID_SIZE;
 
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
     this.eagleMesh = null;
     this.isEagleAttacking = false;
-    this.casualDuration = 120;
+    this.casualDuration = CONFIG.MATCH.CASUAL_DURATION;
     this.casualTimeRemaining = this.casualDuration;
     this.casualCheckpoint = { x: 0, z: 0 };
     this.lastLandedZ = 0;
@@ -56,12 +74,16 @@ class Game {
     this.springPunchEffects = [];
     this.leaderStrikes = [];
     this.leaderStrikeEffects = [];
+    this.partyItemStates = new Map();
 
     // 4. 小雞主角
     this.chickenMesh = createChicken();
     this.scene.add(this.chickenMesh);
     this.player = new Player(this.chickenMesh);
     this.bots = [];
+    this.partyItems = new PartyItemSystem(this);
+    this.partyItemStates = this.partyItems.states;
+    this.casualRecovery = new CasualRecovery(this);
     this.mapGenerator.scoreItemCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition));
     this.mapGenerator.scoreItemReferenceX = () => this.player?.gridX ?? 0;
     this.mapGenerator.springPunchCellBlocked = (gridPosition) => Boolean(this.getActorAtGrid(gridPosition)) || this.mapGenerator.scoreItems.has(`${gridPosition.x},${gridPosition.z}`) || this.mapGenerator.leaderStrikeItems.has(`${gridPosition.x},${gridPosition.z}`);
@@ -81,7 +103,8 @@ class Game {
     this.uiManager.init(
       (mode) => this.startGame(mode),
       (mode) => this.restartGame(mode),
-      () => this.returnLobby()
+      () => this.returnLobby(),
+      () => this.cancelCasualMatching()
     );
 
     this.mapGenerator.initMap();
@@ -186,7 +209,8 @@ class Game {
       if (!occupant) break;
       // 目的格已被跳躍預約（包含同向離開）時不能穿插；玩家意圖會在落地後重判。
       if (occupant.isJumping) return { canMove: false, waitForActor: occupant };
-      if (chain.length >= 4) return { canMove: false };
+      // 休閒賽可整列推進；仍限制於目前活躍名單，避免循環占位。
+      if (chain.length >= this.getActiveActors().length) return { canMove: false };
       chain.push(occupant);
       target = occupant.getTargetGridPosition(direction);
     }
@@ -233,22 +257,27 @@ class Game {
 
   createCasualBots() {
     const botSpawns = [
-      { x: -1, z: 0, aggression: 0.42 },
-      { x: 1, z: 0, aggression: 0.48 },
-      { x: 3, z: 0, aggression: 0.54 }
+      { x: -2, z: 0, aggression: 0.48, name: '青蛙・滑步', color: 0x4ade80 },
+      { x: -1, z: 0, aggression: 0.58, name: '柴犬・搶分', color: 0xfb923c },
+      { x: 1, z: 0, aggression: 0.69, name: '青蛙・埋伏', color: 0xc084fc },
+      { x: 2, z: 0, aggression: 0.78, name: '刺客・壞壞', color: 0xf87171 }
     ];
     const shuffledVariants = [...AI_CHARACTER_VARIANTS];
     for (let index = shuffledVariants.length - 1; index > 0; index--) {
       const randomIndex = Math.floor(Math.random() * (index + 1));
       [shuffledVariants[index], shuffledVariants[randomIndex]] = [shuffledVariants[randomIndex], shuffledVariants[index]];
     }
-    const selectedVariants = shuffledVariants.slice(0, botSpawns.length);
+    const activeSpawns = botSpawns.slice(0, Math.max(0, CASUAL_PLAYER_COUNT - 1));
+    const selectedVariants = activeSpawns.map((_, index) => shuffledVariants[index % shuffledVariants.length]);
 
-    this.bots = botSpawns.map((spawn, index) => {
+    this.bots = activeSpawns.map((spawn, index) => {
       const variant = selectedVariants[index];
       const mesh = variant.createMesh();
+      const marker = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.07, 0.5), new THREE.MeshBasicMaterial({ color: spawn.color }));
+      marker.position.y = 0.08;
+      mesh.add(marker);
       this.scene.add(mesh);
-      return new AIBot(mesh, variant.name, spawn.x, spawn.z, spawn.aggression);
+      return new AIBot(mesh, spawn.name, spawn.x, spawn.z, spawn.aggression);
     });
   }
 
@@ -269,7 +298,8 @@ class Game {
   handlePlayerLanded() {
     if (!this.isGameStarted || this.isGameOver) return;
     if (this.currentMode === 'casual' && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
-      this.respawnAtCasualCheckpoint();
+      if (!this.player.isRespawning) this.uiManager.showCombatAnnouncement('⚠️ 地面崩塌！正在等待安全重生格');
+      this.respawnAtCasualCheckpoint('fall');
       return;
     }
     this.mapGenerator.update(this.player.gridZ);
@@ -286,7 +316,7 @@ class Game {
 
   handleBotLanded(bot) {
     if (this.currentMode === 'casual' && this.mapGenerator.isDynamicHoleActiveAt(bot)) {
-      this.respawnBotAtCheckpoint(bot);
+      this.respawnBotAtCheckpoint(bot, 'fall');
       return;
     }
     this.collectScoreItem(bot);
@@ -307,20 +337,10 @@ class Game {
 
   collectSpringPunchItem(actor) {
     if (!this.springPunchPrototypeEnabled) return false;
+    if (this.currentMode !== 'casual' || !this.partyItems.canReceive(actor)) return false;
     const item = this.mapGenerator.collectSpringPunchItemAt({ x: actor.gridX, z: actor.gridZ });
     if (!item) return false;
-    this.showSpringPunchEffect(actor, '預警：開路彈簧拳！', 0xffdf3f);
-    this.springPunches.push({
-      id: `punch-${performance.now()}-${Math.random()}`,
-      owner: actor,
-      windup: CONFIG.SPRING_PUNCH.WINDUP,
-      distance: 0,
-      position: actor.position.clone(),
-      direction: this.directionVectorFromActor(actor),
-      mesh: null,
-      trail: null,
-      windupVisual: this.createSpringPunchWindup(actor)
-    });
+    this.beginPartyRoulette(actor);
     return true;
   }
 
@@ -334,43 +354,70 @@ class Game {
 
   collectLeaderStrikeItem(actor) {
     if (!this.leaderStrikePrototypeEnabled) return false;
+    if (this.currentMode !== 'casual' || !this.partyItems.canReceive(actor)) return false;
     const item = this.mapGenerator.collectLeaderStrikeItemAt({ x: actor.gridX, z: actor.gridZ });
     if (!item) return false;
-    const target = this.getLeaderStrikeTarget(actor);
-    if (!target) {
-      this.uiManager.showCombatAnnouncement(`${this.getActorName(actor)} 發動「高分追擊落雷」但沒有可攻擊目標`);
-      this.showSpringPunchEffect(actor, '高分追擊落雷：無可攻擊目標', 0x9bdcff);
+    this.beginPartyRoulette(actor);
+    return true;
+  }
+
+  startGlobalLightning(actor) {
+    const targets = this.getActiveActors().filter((target) => target !== actor && !target.isRespawning && !target.isDead);
+    if (!targets.length) {
+      this.uiManager.showCombatAnnouncement(`${this.getActorName(actor)} 發動「全圖落雷」但沒有可攻擊目標`);
+      this.showSpringPunchEffect(actor, '全圖落雷：無可攻擊目標', 0x9bdcff);
       return true;
     }
-    this.uiManager.showCombatAnnouncement(`⚡ ${this.getActorName(actor)} 發動「高分追擊落雷」攻擊 ${this.getActorName(target)}！`);
-    const warning = this.createLeaderStrikeWarning(target);
-    this.leaderStrikes.push({ owner: actor, target, timer: CONFIG.LEADER_STRIKE.WARNING_DURATION, warning });
+    this.uiManager.showCombatAnnouncement(`⚡ ${this.getActorName(actor)} 發動「全圖落雷」：所有對手暈眩 1.5 秒！`);
+    this.uiManager.flashGlobalStrike?.();
+    targets.forEach((target) => {
+      const warning = this.createLeaderStrikeWarning(target);
+      this.leaderStrikes.push({ owner: actor, target, timer: CONFIG.LEADER_STRIKE.WARNING_DURATION, warning });
+    });
     return true;
+  }
+
+  beginPartyRoulette(actor) {
+    return this.partyItems.beginRoulette(actor);
+  }
+
+  updatePartyItems(deltaTime) {
+    if (this.currentMode === 'casual') this.partyItems.update(deltaTime);
+  }
+
+  showItemFeedback(actor, type) {
+    this.partyItems.showFeedback(actor, type);
   }
 
   createLeaderStrikeWarning(target) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.055, 8, 16), new THREE.MeshBasicMaterial({ color: 0xbcefff, transparent: true, opacity: 0.9 }));
     ring.rotation.x = Math.PI / 2;
-    const label = this.createEffectLabel('高分追擊落雷！', '#eafaff', '#12528a');
-    this.scene.add(ring, label.sprite);
-    return { ring, ...label };
+    const lockRing = new THREE.Mesh(new THREE.TorusGeometry(0.74, 0.025, 6, 18), new THREE.MeshBasicMaterial({ color: 0x4dcfff, transparent: true, opacity: 0.65 }));
+    lockRing.rotation.x = Math.PI / 2;
+    const label = this.createEffectLabel('全圖落雷！', '#eafaff', '#12528a');
+    this.scene.add(ring, lockRing, label.sprite);
+    return { ring, lockRing, ...label };
   }
 
   createEffectLabel(label, fillStyle, strokeStyle) {
     const canvas = document.createElement('canvas');
-    canvas.width = 220;
+    const isCountdownDigit = /^\d$/.test(label);
+    const measureContext = canvas.getContext('2d');
+    measureContext.font = 'bold 24px sans-serif';
+    canvas.width = isCountdownDigit ? 56 : Math.max(220, Math.ceil(measureContext.measureText(label).width + 36));
     canvas.height = 56;
     const context = canvas.getContext('2d');
-    context.font = 'bold 24px sans-serif';
+    context.font = isCountdownDigit ? 'bold 42px sans-serif' : 'bold 24px sans-serif';
     context.textAlign = 'center';
     context.fillStyle = fillStyle;
     context.strokeStyle = strokeStyle;
     context.lineWidth = 5;
-    context.strokeText(label, 110, 36);
-    context.fillText(label, 110, 36);
+    const center = canvas.width / 2;
+    context.strokeText(label, center, isCountdownDigit ? 43 : 36);
+    context.fillText(label, center, isCountdownDigit ? 43 : 36);
     const texture = new THREE.CanvasTexture(canvas);
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
-    sprite.scale.set(1.7, 0.44, 1);
+    sprite.scale.set(Math.max(1.7, canvas.width / 128), 0.44, 1);
     return { sprite, texture };
   }
 
@@ -383,9 +430,12 @@ class Game {
       }
       strike.timer -= deltaTime;
       warning.ring.position.copy(target.position).add(new THREE.Vector3(0, 0.08, 0));
+      warning.lockRing.position.copy(warning.ring.position);
       warning.sprite.position.copy(target.position).add(new THREE.Vector3(0, 1.32, 0));
       const pulse = 0.86 + Math.sin(performance.now() * 0.024) * 0.14;
       warning.ring.scale.setScalar(pulse);
+      warning.lockRing.scale.setScalar(1.1 - (pulse - 0.86) * 0.55);
+      warning.lockRing.material.opacity = 0.38 + pulse * 0.32;
       if (strike.timer > 0) return true;
       this.disposeLeaderStrikeWarning(warning);
       this.resolveLeaderStrike(target);
@@ -394,17 +444,19 @@ class Game {
   }
 
   disposeLeaderStrikeWarning(warning) {
-    this.scene.remove(warning.ring, warning.sprite);
+    this.scene.remove(warning.ring, warning.lockRing, warning.sprite);
     warning.ring.geometry.dispose();
     warning.ring.material.dispose();
+    warning.lockRing.geometry.dispose();
+    warning.lockRing.material.dispose();
     warning.sprite.material.dispose();
     warning.texture.dispose();
   }
 
   resolveLeaderStrike(target) {
-    const applied = target.applyStun(CONFIG.LEADER_STRIKE.STUN_DURATION);
+    const applied = this.partyItems ? this.partyItems.hit(target, 'lightning', CONFIG.LEADER_STRIKE.STUN_DURATION) : target.applyStun(CONFIG.LEADER_STRIKE.STUN_DURATION);
     this.createLeaderStrikeBolt(target.position);
-    this.showSpringPunchEffect(target, applied ? '落雷暈眩 3 秒！' : '落雷被抵抗！', applied ? 0x9ce7ff : 0xaeeaff);
+    this.showSpringPunchEffect(target, applied ? '落雷暈眩 1.5 秒！' : '落雷被抵抗！', applied ? 0x9ce7ff : 0xaeeaff);
   }
 
   createLeaderStrikeBolt(position) {
@@ -415,7 +467,24 @@ class Game {
     const impact = new THREE.Mesh(new THREE.CircleGeometry(0.56, 16), new THREE.MeshBasicMaterial({ color: 0x75d7ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
     impact.rotation.x = -Math.PI / 2;
     impact.position.y = 0.03;
-    group.add(bolt, impact);
+    const shock = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.62, 16), new THREE.MeshBasicMaterial({ color: 0xc5f5ff, transparent: true, opacity: 0.78, side: THREE.DoubleSide }));
+    shock.rotation.x = -Math.PI / 2;
+    shock.position.y = 0.05;
+    group.add(bolt, impact, shock);
+    // 體素式分叉閃電與少量碎屑，數量固定避免 VFX 堆積。
+    [-0.26, 0.26].forEach((x, index) => {
+      const branch = new THREE.Mesh(new THREE.BoxGeometry(0.055, 1.2, 0.055), material.clone());
+      branch.position.set(x, 1.12 + index * 0.14, 0.04);
+      branch.rotation.z = index ? -0.42 : 0.42;
+      group.add(branch);
+    });
+    for (let index = 0; index < 8; index++) {
+      const debris = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.08), new THREE.MeshBasicMaterial({ color: index % 2 ? 0x8ce8ff : 0xffffff, transparent: true, opacity: 0.9 }));
+      const angle = (Math.PI * 2 * index) / 8;
+      debris.position.set(Math.cos(angle) * 0.35, 0.12 + (index % 2) * 0.12, Math.sin(angle) * 0.35);
+      debris.userData.velocity = new THREE.Vector3(Math.cos(angle) * 1.6, 1 + (index % 3) * 0.25, Math.sin(angle) * 1.6);
+      group.add(debris);
+    }
     group.position.copy(position);
     this.scene.add(group);
     this.leaderStrikeEffects.push({ group, age: 0 });
@@ -426,6 +495,7 @@ class Game {
       effect.age += deltaTime;
       effect.group.children.forEach((child) => {
         if (child.material) child.material.opacity = Math.max(0, 1 - effect.age / 0.32);
+        if (child.userData.velocity) child.position.addScaledVector(child.userData.velocity, deltaTime);
       });
       effect.group.scale.setScalar(1 + effect.age * 0.65);
       if (effect.age < 0.32) return true;
@@ -444,8 +514,21 @@ class Game {
   }
 
   createSpringPunchProjectile(punch) {
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffdc39 }));
-    mesh.scale.set(1.25, 0.78, 0.9);
+    const mesh = new THREE.Group();
+    const gloveMaterial = new THREE.MeshBasicMaterial({ color: 0xffc92f });
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.3, 0.38), gloveMaterial);
+    palm.position.y = 0;
+    mesh.add(palm);
+    [-0.12, 0, 0.12].forEach((x) => { const finger = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.11, 0.18), gloveMaterial); finger.position.set(x, 0.03, 0.27); mesh.add(finger); });
+    // 拳套後方是清楚可辨的伸展彈簧線圈，與黃色拖尾分開呈現方向與射程。
+    const coils = [];
+    for (let index = 0; index < 5; index++) {
+      const coil = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 6, 10), new THREE.MeshBasicMaterial({ color: 0xfff4a8 }));
+      coil.position.set(0, 0, -0.12 - index * 0.12);
+      mesh.add(coil);
+      coils.push(coil);
+    }
+    mesh.userData.coils = coils;
     const trail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.6), new THREE.MeshBasicMaterial({ color: 0xfff1a0, transparent: true, opacity: 0.7 }));
     this.scene.add(mesh, trail);
     punch.mesh = mesh;
@@ -490,11 +573,13 @@ class Game {
         return false;
       }
       punch.mesh.position.copy(punch.position).add(new THREE.Vector3(0, 0.55, 0));
-      punch.trail.position.copy(punch.position).addScaledVector(punch.direction, -0.3).add(new THREE.Vector3(0, 0.48, 0));
-      punch.trail.rotation.y = Math.atan2(punch.direction.x, punch.direction.z);
+      punch.mesh.rotation.y = Math.atan2(punch.direction.x, punch.direction.z);
+      const stretch = 0.12 + Math.min(0.12, punch.distance / CONFIG.SPRING_PUNCH.RANGE * 0.12);
+      punch.mesh.userData.coils?.forEach((coil, index) => { coil.position.z = -0.12 - index * stretch; });
+      punch.trail.position.copy(punch.position).addScaledVector(punch.direction, -0.3).add(new THREE.Vector3(0, 0.55, 0));
+      punch.trail.rotation.y = punch.mesh.rotation.y;
       return true;
     });
-    this.updateSpringPunchEffects(deltaTime);
   }
 
   getFirstSpringPunchHit(punch, start) {
@@ -517,6 +602,7 @@ class Game {
     for (const mesh of [punch.mesh, punch.trail]) {
       if (!mesh) continue;
       this.scene.remove(mesh);
+      mesh.traverse?.((node) => { node.geometry?.dispose(); node.material?.dispose(); });
       mesh.geometry?.dispose();
       mesh.material?.dispose();
     }
@@ -533,20 +619,7 @@ class Game {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.045, 6, 12), new THREE.MeshBasicMaterial({ color, transparent: true }));
     ring.rotation.x = Math.PI / 2;
     ring.position.copy(actor.position).add(new THREE.Vector3(0, 0.8, 0));
-    const canvas = document.createElement('canvas');
-    canvas.width = 160;
-    canvas.height = 56;
-    const context = canvas.getContext('2d');
-    context.font = 'bold 26px sans-serif';
-    context.textAlign = 'center';
-    context.fillStyle = '#fff7b0';
-    context.strokeStyle = '#533300';
-    context.lineWidth = 5;
-    context.strokeText(label, 80, 36);
-    context.fillText(label, 80, 36);
-    const texture = new THREE.CanvasTexture(canvas);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
-    sprite.scale.set(1.25, 0.44, 1);
+    const { sprite, texture } = this.createEffectLabel(label, '#fff7b0', '#533300');
     this.scene.add(ring, sprite);
     this.springPunchEffects.push({ actor, ring, sprite, texture, age: 0 });
   }
@@ -602,15 +675,15 @@ class Game {
     });
   }
 
-  respawnBotAtCheckpoint(bot) {
-    bot.respawnAt(bot.checkpoint.x, bot.checkpoint.z);
+  respawnBotAtCheckpoint(bot, reason = 'impact') {
+    return this.scheduleCasualDeath(bot, reason);
   }
 
   updateCasualBotHazards(bot, activeRows, deltaTime) {
-    if (bot.isJumping || bot.isDead) return;
+    if (bot.isJumping || bot.isDead || bot.isRespawning) return;
 
     if (this.mapGenerator.isDynamicHoleActiveAt(bot)) {
-      this.respawnBotAtCheckpoint(bot);
+      this.respawnBotAtCheckpoint(bot, 'fall');
       return;
     }
 
@@ -623,18 +696,28 @@ class Game {
     const riverStatus = this.physics.checkRiverStatus(bot, activeRows);
     if (!riverStatus.inRiver) return;
     if (!riverStatus.onLog) {
-      this.respawnBotAtCheckpoint(bot);
+      this.respawnBotAtCheckpoint(bot, 'fall');
       return;
     }
 
     bot.position.x += riverStatus.logSpeed * deltaTime;
     bot.gridX = Math.round(bot.position.x / CONFIG.GRID_SIZE);
     if (Math.abs(bot.position.x) > (CONFIG.MAP_BOUNDS_X + 1.2) * CONFIG.GRID_SIZE) {
-      this.respawnBotAtCheckpoint(bot);
+      this.respawnBotAtCheckpoint(bot, 'fall');
     }
   }
 
-  startGame(mode = 'casual') {
+  clearRuntimeEffects() {
+    this.partyItems?.clear();
+    this.casualRecovery?.clear();
+    this.partyItemStates?.clear();
+    this.uiManager.updateItemHUD?.([], null);
+    this.scoreRewardEffects.forEach((effect) => {
+      this.scene.remove(effect.sprite);
+      effect.sprite.material.dispose();
+      effect.texture.dispose();
+    });
+    this.scoreRewardEffects = [];
     this.uiManager.hideOverlays();
     this.springPunches.forEach((punch) => this.disposeSpringPunch(punch));
     this.springPunches = [];
@@ -653,13 +736,88 @@ class Game {
       effect.group.traverse((node) => { node.geometry?.dispose(); node.material?.dispose(); });
     });
     this.leaderStrikeEffects = [];
+  }
+
+  startGame(mode = 'casual') {
+    if (mode === 'casual') {
+      this.beginCasualMatching();
+      return;
+    }
+    this.launchGame(mode);
+  }
+
+  beginCasualMatching() {
+    if (this.matchState === 'matching' || this.matchState === 'countdown' || this.matchState === 'started') return;
+    this.matchState = 'matching';
+    this.isGameStarted = false;
+    this.isGameOver = false;
+    this.clearRuntimeEffects();
+    this.pendingRespawns.clear();
+    this.clearBots();
+    this.player.reset();
+    this.casualTimeRemaining = this.casualDuration;
+    this.uiManager.setMode('casual');
+    this.uiManager.updateScore(0);
+    this.uiManager.updateTimer(this.casualTimeRemaining);
+    this.uiManager.updateLeaderboard([]);
+    this.uiManager.hideOverlays();
+    this.uiManager.showMatching(1, '正在以本機 BOT 補位配對…');
+    let seats = 1;
+    const fillSeat = () => {
+      if (this.matchState !== 'matching') return;
+      seats += 1;
+      this.uiManager.showMatching(seats, seats < CASUAL_PLAYER_COUNT ? `已找到 ${seats}/${CASUAL_PLAYER_COUNT} 位選手，BOT 正在補位…` : '配對完成，準備同步開跑');
+      if (seats < CASUAL_PLAYER_COUNT) {
+        this.matchTimer = setTimeout(fillSeat, CONFIG.MATCH.FILL_MS);
+        return;
+      }
+      this.uiManager.hideMatching();
+      this.launchGame('casual', false);
+      this.matchState = 'countdown';
+      let count = CONFIG.MATCH.COUNTDOWN_START;
+      const countdown = () => {
+        if (this.matchState !== 'countdown') return;
+        this.uiManager.showRaceCountdown?.(count);
+        if (count-- > 0) {
+          this.matchTimer = setTimeout(countdown, CONFIG.MATCH.COUNTDOWN_MS);
+          return;
+        }
+        this.matchState = 'started';
+        this.isGameStarted = true;
+        this.uiManager.showRaceCountdown?.('GO');
+        setTimeout(() => this.uiManager.hideRaceCountdown?.(), CONFIG.MATCH.GO_DISPLAY_MS);
+      };
+      countdown();
+    };
+    this.matchTimer = setTimeout(fillSeat, CONFIG.MATCH.INITIAL_FILL_MS);
+  }
+
+  cancelCasualMatching() {
+    if (this.matchTimer) clearTimeout(this.matchTimer);
+    this.matchTimer = null;
+    this.matchState = 'idle';
+    this.isGameStarted = false;
+    this.pendingRespawns.clear();
+    this.clearBots();
+    this.uiManager.hideMatching();
+    this.uiManager.showLobby();
+  }
+
+  launchGame(mode = 'casual', startImmediately = true) {
+    if (this.matchTimer) clearTimeout(this.matchTimer);
+    this.matchTimer = null;
+    this.matchState = mode === 'casual' ? (startImmediately ? 'started' : 'countdown') : 'idle';
+    this.clearRuntimeEffects();
+    this.pendingRespawns.clear();
 
     this.currentMode = mode || 'casual';
+    this.mapGenerator.springPunchItemsEnabled = this.currentMode === 'casual';
+    this.mapGenerator.leaderStrikeItemsEnabled = this.currentMode === 'casual';
     this.uiManager.selectedMode = this.currentMode;
-    this.isGameStarted = true;
+    this.isGameStarted = startImmediately;
     this.isGameOver = false;
 
-    this.cameraScrollZ = 0;
+    this.cameraScrollZ = CONFIG.CAMERA.START_Z * CONFIG.GRID_SIZE;
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
     this.isEagleAttacking = false;
@@ -679,9 +837,9 @@ class Game {
     this.mapGenerator.setDynamicHolesEnabled(this.currentMode === 'casual' && this.dynamicHolesPrototypeEnabled);
     this.mapGenerator.initMap();
     if (this.currentMode === 'casual') {
-      // 四個角色在同一條起跑線排列，避免開局出現前後錯位。
-      this.player.respawnAt(-3, 0, 0.1);
-      this.casualCheckpoint = { x: -3, z: 0 };
+      // 五位選手固定同列起跑，全部佔用不同格，避免推擠與重生重疊。
+      this.player.respawnAt(CASUAL_START_SLOTS[0], 0, 0.1);
+      this.casualCheckpoint = { x: CASUAL_START_SLOTS[0], z: 0 };
     }
     this.sceneSetup.resetCamera();
     this.uiManager.updateScore(0);
@@ -689,6 +847,7 @@ class Game {
     if (this.currentMode === 'casual') {
       this.createCasualBots();
       this.refreshLeaderboard();
+      if (!startImmediately) this.uiManager.showRaceCountdown?.(3);
     }
   }
 
@@ -697,8 +856,13 @@ class Game {
   }
 
   returnLobby() {
+    if (this.matchTimer) clearTimeout(this.matchTimer);
+    this.matchTimer = null;
+    this.matchState = 'idle';
     this.isGameStarted = false;
     this.isGameOver = false;
+    this.clearRuntimeEffects();
+    this.pendingRespawns.clear();
     this.clearBots();
     this.uiManager.showLobby();
   }
@@ -718,7 +882,7 @@ class Game {
 
     let progress = 0;
     const attackInterval = setInterval(() => {
-      progress += 0.04;
+      progress += 16 / (CONFIG.EAGLE.CHALLENGE_CARRY_SECONDS * 1000);
       if (progress < 0.6) {
         this.eagleMesh.position.lerpVectors(startPos, targetPos, progress / 0.6);
       } else if (progress < 1.0) {
@@ -738,13 +902,70 @@ class Game {
 
   gameOver(reason = '被車撞飛了！') {
     this.isGameOver = true;
+    if (this.currentMode === 'casual') {
+      this.matchState = 'finished';
+      this.pendingRespawns.clear();
+      this.getActiveActors().forEach((actor) => { actor.isJumping = false; actor.inputBuffer = []; });
+      const entries = [this.player, ...this.bots].map((actor, order) => ({
+        name: this.getActorName(actor), isPlayer: actor === this.player, order,
+        distance: Math.max(0, actor.gridZ), maxDistance: Math.max(0, actor.maxReachedZ),
+        itemScore: actor.itemScore || 0, deaths: actor.deathCount || 0
+      })).sort((a, b) => b.distance - a.distance || a.order - b.order);
+      let rank = 0; let lastDistance = null;
+      entries.forEach((entry, index) => { if (entry.distance !== lastDistance) rank = index + 1; entry.rank = rank; lastDistance = entry.distance; });
+      this.uiManager.showMultiplayerResults?.({ entries, playerRank: entries.find((entry) => entry.isPlayer)?.rank, duration: this.casualDuration });
+      return;
+    }
     this.uiManager.showGameOver(this.player.score, reason);
   }
 
-  respawnAtCasualCheckpoint() {
-    this.player.respawnAt(this.casualCheckpoint.x, this.casualCheckpoint.z);
-    this.cameraScrollZ = Math.max(0, this.casualCheckpoint.z * CONFIG.GRID_SIZE);
-    this.mapGenerator.update(this.casualCheckpoint.z);
+  findCasualRespawnPosition(actor, checkpoint) {
+    if (!checkpoint) return null;
+    const rows = this.mapGenerator.getActiveRows();
+    const rowOrder = [checkpoint.z, checkpoint.z - 1, checkpoint.z - 2, checkpoint.z + 1, checkpoint.z - 3, checkpoint.z + 2];
+    const offsets = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6];
+    for (const z of rowOrder) {
+      // 只用當前已生成、被確認為安全 checkpoint 的草地列；不存在的 row 絕不當安全格。
+      if (!rows.get(z) || !this.mapGenerator.isSafeCheckpointRow({ x: checkpoint.x, z })) continue;
+      for (const offset of offsets) {
+        const candidate = { x: checkpoint.x + offset, z };
+        if (Math.abs(candidate.x) > CONFIG.MAP_BOUNDS_X) continue;
+        if (this.getActorAtGrid(candidate, [actor])) continue;
+        if (this.physics.checkTreeCollision(candidate, rows)) continue;
+        if (this.mapGenerator.isDynamicHoleUnsafe?.(candidate, 0) || this.mapGenerator.isDynamicHoleActiveAt(candidate)) continue;
+        if (this.mapGenerator.hasPartyItemAt?.(candidate)) continue;
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  requestCasualRespawn(actor, checkpoint) {
+    const position = this.findCasualRespawnPosition(actor, checkpoint);
+    if (!position) {
+      actor.isRespawning = true;
+      this.pendingRespawns.set(actor, checkpoint);
+      return false;
+    }
+    actor.respawnAt(position.x, position.z);
+    this.pendingRespawns.delete(actor);
+    return true;
+  }
+
+  retryPendingRespawns() {
+    this.pendingRespawns.forEach((checkpoint, actor) => this.requestCasualRespawn(actor, checkpoint));
+  }
+
+  scheduleCasualDeath(actor, reason = 'impact') {
+    return this.casualRecovery.schedule(actor, reason);
+  }
+
+  updateCasualDeaths(deltaTime) {
+    this.casualRecovery.update(deltaTime);
+  }
+
+  respawnAtCasualCheckpoint(reason = 'impact') {
+    return this.scheduleCasualDeath(this.player, reason);
   }
 
   animate() {
@@ -754,11 +975,14 @@ class Game {
       const rawDelta = this.clock.getDelta();
       const deltaTime = Number.isFinite(rawDelta) && rawDelta > 0 ? Math.min(rawDelta, 0.1) : 0.016;
       const activeRows = this.mapGenerator.getActiveRows();
+      if (this.isGameStarted && this.currentMode === 'casual' && !this.isGameOver) this.updateCasualDeaths(deltaTime);
 
       // 1. 主角動態更新
       const wasJumping = this.player.isJumping;
-      this.player.update(deltaTime);
-      if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
+      if (this.isGameStarted && !this.isGameOver) {
+        this.player.update(deltaTime);
+        if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
+      }
 
       // 玩家暫存的推擠意圖先於 BOT 決策重判：BOT 落地後不會在同一 tick 搶回空格。
       if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
@@ -780,10 +1004,11 @@ class Game {
             (actor, gridPosition) => this.canActorEnter(actor, gridPosition),
             (gridPosition, landingPrediction) => this.mapGenerator.isDynamicHoleUnsafe(gridPosition, landingPrediction),
             (gridPosition) => this.mapGenerator.getDynamicHoleRepairTime(gridPosition),
+            [...this.mapGenerator.springPunchItems.values(), ...this.mapGenerator.leaderStrikeItems.values()],
             [],
-            this.leaderStrikePrototypeEnabled ? [...this.mapGenerator.leaderStrikeItems.values()] : [],
-            [],
-            this.getActiveActors()
+            this.partyItems.rockets,
+            this.getActiveActors(),
+            (gridPosition) => this.mapGenerator.isDynamicHoleActiveAt(gridPosition)
           );
           bot.update(deltaTime);
           if (wasBotJumping && !bot.isJumping) this.handleBotLanded(bot);
@@ -806,60 +1031,67 @@ class Game {
         }
         if (this.currentMode === 'challenge') {
           // 🏆 挑戰模式：相機無間斷自主向前推進 (0.45格/秒) 與 7.5 秒發呆老鷹抓走淘汰
-          this.cameraScrollZ += 0.45 * deltaTime * CONFIG.GRID_SIZE;
+          this.cameraScrollZ += CONFIG.CAMERA.CHALLENGE_SCROLL_SPEED * deltaTime * CONFIG.GRID_SIZE;
 
           // 主角跳躍超越相機時，相機順暢跟進
           if (pZ > this.cameraScrollZ) {
-            this.cameraScrollZ = THREE.MathUtils.lerp(this.cameraScrollZ, pZ, 0.18);
+            this.cameraScrollZ = THREE.MathUtils.lerp(this.cameraScrollZ, pZ, CONFIG.CAMERA.CHALLENGE_CATCHUP_LERP);
           }
 
           // 當主角發呆 7.5 秒滑出螢幕底邊界 -> 觸發老鷹俯衝抓走淘汰
+          const captureBehind = CONFIG.CAMERA.CHALLENGE_SCROLL_SPEED * CONFIG.EAGLE.CHALLENGE_TRIGGER_SECONDS * CONFIG.GRID_SIZE;
           const distanceBehind = this.cameraScrollZ - pZ;
-          if (distanceBehind >= 3.4 * CONFIG.GRID_SIZE && !this.isEagleAttacking) {
+          if (distanceBehind >= captureBehind && !this.isEagleAttacking) {
             this.triggerEagleAttack();
           }
 
           const playerGridZ = Math.max(this.player.gridZ, Math.floor(this.cameraScrollZ / CONFIG.GRID_SIZE));
           this.mapGenerator.update(playerGridZ);
-          this.player.minAllowedZ = Math.floor((this.cameraScrollZ - 3.4 * CONFIG.GRID_SIZE) / CONFIG.GRID_SIZE);
+          this.player.minAllowedZ = Math.floor((this.cameraScrollZ - captureBehind) / CONFIG.GRID_SIZE);
         } else {
           // 🍃 休閒模式：相機平滑跟隨主角 (剔除後方邊界推進，剔除發呆老鷹抓走)
-          this.cameraScrollZ = THREE.MathUtils.lerp(this.cameraScrollZ, pZ, 0.12);
+          this.cameraScrollZ = THREE.MathUtils.lerp(this.cameraScrollZ, pZ, CONFIG.CAMERA.CASUAL_FOLLOW_LERP);
           this.mapGenerator.update(this.player.gridZ);
-          this.player.minAllowedZ = this.player.gridZ - 15;
+          this.player.minAllowedZ = this.player.gridZ - CONFIG.CAMERA.CASUAL_BACK_ROWS;
         }
       }
 
       // 5. 馬路車輛 / 河流浮木 / 鐵道火車動態
-      this.mapGenerator.animateObstacles(deltaTime);
-      this.updateScoreRewardEffects(deltaTime);
-      this.updateLeaderStrikes(deltaTime);
-      this.updateLeaderStrikeEffects(deltaTime);
+      if (this.isGameStarted && !this.isGameOver) {
+        this.mapGenerator.animateObstacles(deltaTime);
+        this.updateScoreRewardEffects(deltaTime);
+        this.updateSpringPunches(deltaTime);
+        this.updateSpringPunchEffects(deltaTime);
+        this.updatePartyItems(deltaTime);
+        this.updateLeaderStrikes(deltaTime);
+        this.updateLeaderStrikeEffects(deltaTime);
+      }
 
       // 推擠與跳躍完成後才判定地形，讓被推入洞與主動落洞走同一條休閒復活流程。
       if (this.isGameStarted && !this.isGameOver && this.currentMode === 'casual') {
-        if (!this.player.isJumping && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
-          this.respawnAtCasualCheckpoint();
+        if (!this.player.isDead && !this.player.isRespawning && !this.player.isJumping && this.mapGenerator.isDynamicHoleActiveAt(this.player)) {
+          if (!this.player.isRespawning) this.uiManager.showCombatAnnouncement('⚠️ 地面崩塌！正在等待安全重生格');
+          this.respawnAtCasualCheckpoint('fall');
           return;
         }
         this.bots.forEach((bot) => {
-          if (!bot.isJumping && this.mapGenerator.isDynamicHoleActiveAt(bot)) this.respawnBotAtCheckpoint(bot);
+          if (!bot.isDead && !bot.isRespawning && !bot.isJumping && this.mapGenerator.isDynamicHoleActiveAt(bot)) this.respawnBotAtCheckpoint(bot, 'fall');
         });
       }
 
       // 6. 即時更新相機 3D 視角位置 (主角保持於螢幕下半部偏後區域，視角與競品 100% 對齊)
-      const targetCameraZ = (this.isGameStarted ? this.cameraScrollZ : pZ) + 2.2 * CONFIG.GRID_SIZE;
-      this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ });
+      const targetCameraZ = (this.isGameStarted ? this.cameraScrollZ : pZ) + CONFIG.CAMERA.TARGET_AHEAD * CONFIG.GRID_SIZE;
+      this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ, playerZ: pZ });
 
       // 5. 碰撞判定 (車輛 / 火車 / 落水)
-      if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking) {
+      if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking && !this.player.isDead && !this.player.isRespawning) {
         const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
         if (hitObstacle && !this.player.isInvulnerable) {
           if (this.currentMode === 'casual') {
             this.respawnAtCasualCheckpoint();
             return;
           }
-          const damage = hitObstacle.type === 'train' ? 70 : Math.min(60, Math.round(hitObstacle.speed * 8 + 10));
+          const damage = hitObstacle.type === 'train' ? CONFIG.TRAFFIC.TRAIN_DAMAGE : Math.min(CONFIG.TRAFFIC.CAR_DAMAGE_CAP, Math.round(hitObstacle.speed * CONFIG.TRAFFIC.CAR_DAMAGE_SPEED_SCALE + CONFIG.TRAFFIC.CAR_DAMAGE_BASE));
           const isFatal = this.player.takeDamage(damage);
           this.uiManager.updateHealth(this.player.hp);
 
@@ -877,7 +1109,7 @@ class Game {
 
             if (Math.abs(this.player.position.x) > (CONFIG.MAP_BOUNDS_X + 1.2) * CONFIG.GRID_SIZE) {
               if (this.currentMode === 'casual') {
-                this.respawnAtCasualCheckpoint();
+                this.respawnAtCasualCheckpoint('fall');
                 return;
               }
               this.player.triggerDrownAnimation();
@@ -885,7 +1117,7 @@ class Game {
             }
           } else {
             if (this.currentMode === 'casual') {
-              this.respawnAtCasualCheckpoint();
+              this.respawnAtCasualCheckpoint('fall');
               return;
             }
             this.player.triggerDrownAnimation();
@@ -902,7 +1134,21 @@ class Game {
   }
 }
 
-// 啟動遊戲
-window.addEventListener('DOMContentLoaded', () => {
+// 啟動前先載入 YAML，確保所有建構階段都使用同一份設定。
+async function bootstrapGame() {
+  const status = await loadGameConfig('./docs/game-config.yaml');
+  window.gameConfig = CONFIG;
+  window.gameConfigStatus = status;
+  document.documentElement.dataset.gameConfigSource = status.source;
+  document.documentElement.dataset.gameConfigOk = String(status.ok);
+  document.documentElement.dataset.gameConfigErrors = status.errors.join(' | ');
   window.game = new Game();
-});
+}
+
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', bootstrapGame, { once: true });
+  } else {
+    bootstrapGame();
+  }
+}

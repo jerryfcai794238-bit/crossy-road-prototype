@@ -36,6 +36,7 @@ for (let z = generator.highestZGenerated + 1; z <= 180; z++) {
 assert.ok(spawned.length >= 3, 'expected multiple scheduled leader-strike spawns');
 assert.equal(spawned[0].blockIndex, 3, 'first item must use block 3');
 assert.ok(spawned.every((item) => item.blockIndex % 3 === 0), 'spawns must be at 3/6/9 cadence');
+assert.ok(spawned.every((item) => item.z > 7), 'leader-strike boxes must stay beyond the initial z0-7 safety area');
 
 const missed = new MapGenerator(makeScene(), makeLcg(91));
 missed.leaderStrikeItemsEnabled = true;
