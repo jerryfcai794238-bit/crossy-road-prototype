@@ -255,6 +255,50 @@ body, html {
   gap: 6px;
 }
 
+.game-settings-button {
+  position: absolute;
+  top: 248px;
+  right: 24px;
+  z-index: 20;
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.78);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+  color: #ffffff;
+  cursor: pointer;
+  font: 900 24px/1 var(--font-family);
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.game-settings-button[hidden] { display: none; }
+
+.game-settings-button:hover,
+.game-settings-button:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--primary-color);
+  background: rgba(41, 57, 79, 0.96);
+  outline: none;
+}
+
+.settings-card { max-width: 410px; }
+.settings-kicker {
+  display: block;
+  margin-bottom: 8px;
+  color: #facc15;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+.settings-card h2 { color: #ffffff; font-size: 28px; }
+.settings-message { margin: 12px auto 24px; color: #cbd5e1; line-height: 1.55; }
+.settings-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.settings-actions button { width: 100%; }
+.settings-leave { border-color: rgba(255, 113, 113, 0.72); color: #ffd1d1; }
+
 .lb-row {
   display: flex;
   align-items: center;
@@ -1221,6 +1265,9 @@ body, html {
 }
 
 @media (max-width: 600px) {
+  .game-settings-button { top: 194px; right: 14px; width: 46px; height: 46px; border-radius: 14px; }
+  .settings-card { width: calc(100% - 32px); padding: 26px 20px; }
+  .settings-card h2 { font-size: 25px; }
   #hud {
     top: 12px;
     left: 12px;

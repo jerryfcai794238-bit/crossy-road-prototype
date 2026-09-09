@@ -25364,6 +25364,11 @@
       this.matchingStatus = document.getElementById("matching-status");
       this.matchingSeats = document.getElementById("matching-seats");
       this.btnCancelMatching = document.getElementById("btn-cancel-matching");
+      this.btnGameSettings = document.getElementById("btn-game-settings");
+      this.gameSettingsOverlay = document.getElementById("game-settings-overlay");
+      this.settingsModeLabel = document.getElementById("settings-mode-label");
+      this.btnResumeGame = document.getElementById("btn-resume-game");
+      this.btnLeaveGame = document.getElementById("btn-leave-game");
       this.raceCountdown = document.getElementById("race-countdown");
       this.raceCountdownValue = document.getElementById("race-countdown-value");
       this.respawnCountdown = document.getElementById("respawn-countdown");
@@ -25417,7 +25422,7 @@
         });
       });
     }
-    init(onStart, onRestart, onReturnLobby, onCancelMatching = null) {
+    init(onStart, onRestart, onReturnLobby, onCancelMatching = null, onOpenSettings = null, onResumeGame = null, onLeaveGame = null) {
       if (this.btnStart) {
         this.btnStart.addEventListener("click", () => {
           if (this.isCasualGuideOpen()) return;
@@ -25431,6 +25436,9 @@
       if (this.btnRestart) this.btnRestart.addEventListener("click", () => onRestart(this.selectedMode));
       if (this.btnLobby) this.btnLobby.addEventListener("click", () => onReturnLobby());
       if (this.btnCancelMatching && onCancelMatching) this.btnCancelMatching.addEventListener("click", onCancelMatching);
+      if (this.btnGameSettings && onOpenSettings) this.btnGameSettings.addEventListener("click", onOpenSettings);
+      if (this.btnResumeGame && onResumeGame) this.btnResumeGame.addEventListener("click", onResumeGame);
+      if (this.btnLeaveGame && onLeaveGame) this.btnLeaveGame.addEventListener("click", onLeaveGame);
       this.setupCasualGuide(onStart);
       this.updateCasualGuideAvailability(true);
     }
@@ -25694,7 +25702,27 @@
       this.combatAnnouncement.classList.add("combat-announcement-hidden");
       this.combatAnnouncement.textContent = "";
     }
+    setGameSettingsAvailable(isAvailable) {
+      if (this.btnGameSettings) this.btnGameSettings.hidden = !isAvailable;
+    }
+    showGameSettings(mode) {
+      if (!this.gameSettingsOverlay) return;
+      const isChallenge = mode === "challenge";
+      if (this.settingsModeLabel) this.settingsModeLabel.textContent = isChallenge ? "\u6311\u6230\u6A21\u5F0F \xB7 \u5DF2\u66AB\u505C" : "\u4F11\u9592\u6A21\u5F0F \xB7 \u5C0D\u5C40\u6301\u7E8C\u4E2D";
+      this.gameSettingsOverlay.classList.remove("hidden");
+      this.gameSettingsOverlay.style.display = "flex";
+      this.gameSettingsOverlay.setAttribute("aria-hidden", "false");
+      this.btnResumeGame?.focus();
+    }
+    hideGameSettings() {
+      if (!this.gameSettingsOverlay) return;
+      this.gameSettingsOverlay.classList.add("hidden");
+      this.gameSettingsOverlay.style.display = "none";
+      this.gameSettingsOverlay.setAttribute("aria-hidden", "true");
+    }
     showLobby() {
+      this.hideGameSettings();
+      this.setGameSettingsAvailable(false);
       if (this.itemHud) this.itemHud.hidden = true;
       this.clearMatchFeedback();
       this.hideMatching();
@@ -25710,6 +25738,8 @@
       }
     }
     hideOverlays() {
+      this.hideGameSettings();
+      this.setGameSettingsAvailable(false);
       this.clearMatchFeedback();
       this.hideMatching();
       this.clearCombatAnnouncement();
@@ -25751,6 +25781,8 @@
       }
     }
     showGameOver(score, reason = "\u88AB\u8ECA\u649E\u98DB\u4E86\uFF01") {
+      this.hideGameSettings();
+      this.setGameSettingsAvailable(false);
       if (this.itemHud) this.itemHud.hidden = true;
       this.clearMatchFeedback();
       if (this.soloResults) this.soloResults.hidden = false;
@@ -25767,6 +25799,8 @@
       }
     }
     showMultiplayerResults({ entries = [], playerRank, duration = 120 } = {}) {
+      this.hideGameSettings();
+      this.setGameSettingsAvailable(false);
       if (this.itemHud) this.itemHud.hidden = true;
       if (!this.multiplayerResults || !this.gameoverOverlay) return;
       this.clearCombatAnnouncement();
@@ -26519,6 +26553,7 @@
       this.physics = new Physics();
       this.isGameStarted = false;
       this.isGameOver = false;
+      this.isPaused = false;
       this.matchState = "idle";
       this.matchTimer = null;
       this.pendingRespawns = /* @__PURE__ */ new Map();
@@ -26527,6 +26562,7 @@
       this.lastPlayerZ = 0;
       this.eagleMesh = null;
       this.isEagleAttacking = false;
+      this.eagleAttackTimer = null;
       this.casualDuration = CONFIG.MATCH.CASUAL_DURATION;
       this.casualTimeRemaining = this.casualDuration;
       this.casualCheckpoint = { x: 0, z: 0 };
@@ -26559,7 +26595,10 @@
         (mode) => this.startGame(mode),
         (mode) => this.restartGame(mode),
         () => this.returnLobby(),
-        () => this.cancelCasualMatching()
+        () => this.cancelCasualMatching(),
+        () => this.openGameSettings(),
+        () => this.resumeGame(),
+        () => this.leaveGame()
       );
       this.mapGenerator.initMap();
       this.animate = this.animate.bind(this);
@@ -26567,7 +26606,7 @@
     }
     setupInputListeners() {
       window.addEventListener("keydown", (e) => {
-        if (!this.isGameStarted || this.isGameOver) return;
+        if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
         const key = e.key.toLowerCase();
         if (key === "w" || key === "arrowup") this.handlePlayerInput("UP");
         else if (key === "s" || key === "arrowdown") this.handlePlayerInput("DOWN");
@@ -26580,12 +26619,12 @@
       document.getElementById("btn-right")?.addEventListener("click", () => this.handlePlayerInput("RIGHT"));
       this.container?.addEventListener("pointerdown", (e) => {
         if (e.target.closest("#hud") || e.target.closest("#leaderboard") || e.target.closest("#mobile-controls") || e.target.closest(".overlay")) return;
-        if (!this.isGameStarted || this.isGameOver) return;
+        if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
         this.handlePlayerInput("UP");
       });
     }
     handlePlayerInput(direction, distance = 1) {
-      if (!this.isGameStarted || this.isGameOver) return;
+      if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
       if (this.player.stunTimer > 0) return;
       if (this.player.isJumping) {
         this.player.queueInput(direction, distance);
@@ -27164,6 +27203,7 @@
           }
           this.matchState = "started";
           this.isGameStarted = true;
+          this.uiManager.setGameSettingsAvailable(true);
           this.uiManager.showRaceCountdown?.("GO");
           setTimeout(() => this.uiManager.hideRaceCountdown?.(), CONFIG.MATCH.GO_DISPLAY_MS);
         };
@@ -27176,6 +27216,7 @@
       this.matchTimer = null;
       this.matchState = "idle";
       this.isGameStarted = false;
+      this.isPaused = false;
       this.pendingRespawns.clear();
       this.clearBots();
       this.uiManager.hideMatching();
@@ -27193,10 +27234,13 @@
       this.uiManager.selectedMode = this.currentMode;
       this.isGameStarted = startImmediately;
       this.isGameOver = false;
+      this.isPaused = false;
+      this.uiManager.hideGameSettings();
+      this.uiManager.setGameSettingsAvailable(startImmediately);
       this.cameraScrollZ = CONFIG.CAMERA.START_Z * CONFIG.GRID_SIZE;
       this.idleTimer = 0;
       this.lastPlayerZ = 0;
-      this.isEagleAttacking = false;
+      this.cancelEagleAttack();
       this.casualTimeRemaining = this.casualDuration;
       this.casualCheckpoint = { x: 0, z: 0 };
       this.lastLandedZ = 0;
@@ -27229,13 +27273,40 @@
     returnLobby() {
       if (this.matchTimer) clearTimeout(this.matchTimer);
       this.matchTimer = null;
+      this.cancelEagleAttack();
       this.matchState = "idle";
       this.isGameStarted = false;
       this.isGameOver = false;
+      this.isPaused = false;
       this.clearRuntimeEffects();
       this.pendingRespawns.clear();
       this.clearBots();
       this.uiManager.showLobby();
+    }
+    openGameSettings() {
+      if (!this.isGameStarted || this.isGameOver) return;
+      this.isPaused = this.currentMode === "challenge";
+      this.uiManager.showGameSettings(this.currentMode);
+    }
+    resumeGame() {
+      this.isPaused = false;
+      this.uiManager.hideGameSettings();
+      this.uiManager.btnGameSettings?.focus();
+    }
+    leaveGame() {
+      this.isPaused = false;
+      this.uiManager.hideGameSettings();
+      this.returnLobby();
+    }
+    cancelEagleAttack() {
+      if (this.eagleAttackTimer) clearInterval(this.eagleAttackTimer);
+      this.eagleAttackTimer = null;
+      this.isEagleAttacking = false;
+      if (this.eagleMesh) {
+        this.scene.remove(this.eagleMesh);
+        this.eagleMesh = null;
+      }
+      if (this.player?.mesh) this.player.mesh.visible = true;
     }
     triggerEagleAttack() {
       if (this.isEagleAttacking || this.isGameOver) return;
@@ -27249,6 +27320,7 @@
       const targetPos = new Vector3(pX, 0.4, pZ);
       let progress = 0;
       const attackInterval = setInterval(() => {
+        if (this.eagleAttackTimer !== attackInterval || this.isPaused || !this.isGameStarted || this.isGameOver) return;
         progress += 16 / (CONFIG.EAGLE.CHALLENGE_CARRY_SECONDS * 1e3);
         if (progress < 0.6) {
           this.eagleMesh.position.lerpVectors(startPos, targetPos, progress / 0.6);
@@ -27258,6 +27330,7 @@
           this.eagleMesh.position.lerpVectors(targetPos, exitPos, (progress - 0.6) / 0.4);
         } else {
           clearInterval(attackInterval);
+          this.eagleAttackTimer = null;
           if (this.eagleMesh) {
             this.scene.remove(this.eagleMesh);
             this.eagleMesh = null;
@@ -27265,6 +27338,7 @@
           this.gameOver("\u767C\u5446\u6642\u9593\u904E\u9577\uFF0C\u88AB\u7A7A\u4E2D\u8001\u9DF9\u6355\u6349\u6293\u8D70\uFF01");
         }
       }, 16);
+      this.eagleAttackTimer = attackInterval;
     }
     gameOver(reason = "\u88AB\u8ECA\u649E\u98DB\u4E86\uFF01") {
       this.isGameOver = true;
@@ -27343,6 +27417,10 @@
       try {
         const rawDelta = this.clock.getDelta();
         const deltaTime = Number.isFinite(rawDelta) && rawDelta > 0 ? Math.min(rawDelta, 0.1) : 0.016;
+        if (this.isPaused) {
+          this.sceneSetup.render();
+          return;
+        }
         const activeRows = this.mapGenerator.getActiveRows();
         if (this.isGameStarted && this.currentMode === "casual" && !this.isGameOver) this.updateCasualDeaths(deltaTime);
         const wasJumping = this.player.isJumping;

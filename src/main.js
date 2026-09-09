@@ -54,6 +54,7 @@ export class Game {
     // 3. 狀態
     this.isGameStarted = false;
     this.isGameOver = false;
+    this.isPaused = false;
     this.matchState = 'idle';
     this.matchTimer = null;
     this.pendingRespawns = new Map();
@@ -65,6 +66,7 @@ export class Game {
     this.lastPlayerZ = 0;
     this.eagleMesh = null;
     this.isEagleAttacking = false;
+    this.eagleAttackTimer = null;
     this.casualDuration = CONFIG.MATCH.CASUAL_DURATION;
     this.casualTimeRemaining = this.casualDuration;
     this.casualCheckpoint = { x: 0, z: 0 };
@@ -104,7 +106,10 @@ export class Game {
       (mode) => this.startGame(mode),
       (mode) => this.restartGame(mode),
       () => this.returnLobby(),
-      () => this.cancelCasualMatching()
+      () => this.cancelCasualMatching(),
+      () => this.openGameSettings(),
+      () => this.resumeGame(),
+      () => this.leaveGame()
     );
 
     this.mapGenerator.initMap();
@@ -116,7 +121,7 @@ export class Game {
 
   setupInputListeners() {
     window.addEventListener('keydown', (e) => {
-      if (!this.isGameStarted || this.isGameOver) return;
+      if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
       const key = e.key.toLowerCase();
       if (key === 'w' || key === 'arrowup') this.handlePlayerInput('UP');
       else if (key === 's' || key === 'arrowdown') this.handlePlayerInput('DOWN');
@@ -138,13 +143,13 @@ export class Game {
         e.target.closest('#mobile-controls') ||
         e.target.closest('.overlay')
       ) return;
-      if (!this.isGameStarted || this.isGameOver) return;
+      if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
       this.handlePlayerInput('UP');
     });
   }
 
   handlePlayerInput(direction, distance = 1) {
-    if (!this.isGameStarted || this.isGameOver) return;
+    if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
     if (this.player.stunTimer > 0) return;
 
     if (this.player.isJumping) {
@@ -784,6 +789,7 @@ export class Game {
         }
         this.matchState = 'started';
         this.isGameStarted = true;
+        this.uiManager.setGameSettingsAvailable(true);
         this.uiManager.showRaceCountdown?.('GO');
         setTimeout(() => this.uiManager.hideRaceCountdown?.(), CONFIG.MATCH.GO_DISPLAY_MS);
       };
@@ -797,6 +803,7 @@ export class Game {
     this.matchTimer = null;
     this.matchState = 'idle';
     this.isGameStarted = false;
+    this.isPaused = false;
     this.pendingRespawns.clear();
     this.clearBots();
     this.uiManager.hideMatching();
@@ -816,11 +823,14 @@ export class Game {
     this.uiManager.selectedMode = this.currentMode;
     this.isGameStarted = startImmediately;
     this.isGameOver = false;
+    this.isPaused = false;
+    this.uiManager.hideGameSettings();
+    this.uiManager.setGameSettingsAvailable(startImmediately);
 
     this.cameraScrollZ = CONFIG.CAMERA.START_Z * CONFIG.GRID_SIZE;
     this.idleTimer = 0;
     this.lastPlayerZ = 0;
-    this.isEagleAttacking = false;
+    this.cancelEagleAttack();
     this.casualTimeRemaining = this.casualDuration;
     this.casualCheckpoint = { x: 0, z: 0 };
     this.lastLandedZ = 0;
@@ -858,13 +868,44 @@ export class Game {
   returnLobby() {
     if (this.matchTimer) clearTimeout(this.matchTimer);
     this.matchTimer = null;
+    this.cancelEagleAttack();
     this.matchState = 'idle';
     this.isGameStarted = false;
     this.isGameOver = false;
+    this.isPaused = false;
     this.clearRuntimeEffects();
     this.pendingRespawns.clear();
     this.clearBots();
     this.uiManager.showLobby();
+  }
+
+  openGameSettings() {
+    if (!this.isGameStarted || this.isGameOver) return;
+    this.isPaused = this.currentMode === 'challenge';
+    this.uiManager.showGameSettings(this.currentMode);
+  }
+
+  resumeGame() {
+    this.isPaused = false;
+    this.uiManager.hideGameSettings();
+    this.uiManager.btnGameSettings?.focus();
+  }
+
+  leaveGame() {
+    this.isPaused = false;
+    this.uiManager.hideGameSettings();
+    this.returnLobby();
+  }
+
+  cancelEagleAttack() {
+    if (this.eagleAttackTimer) clearInterval(this.eagleAttackTimer);
+    this.eagleAttackTimer = null;
+    this.isEagleAttacking = false;
+    if (this.eagleMesh) {
+      this.scene.remove(this.eagleMesh);
+      this.eagleMesh = null;
+    }
+    if (this.player?.mesh) this.player.mesh.visible = true;
   }
 
   triggerEagleAttack() {
@@ -882,6 +923,7 @@ export class Game {
 
     let progress = 0;
     const attackInterval = setInterval(() => {
+      if (this.eagleAttackTimer !== attackInterval || this.isPaused || !this.isGameStarted || this.isGameOver) return;
       progress += 16 / (CONFIG.EAGLE.CHALLENGE_CARRY_SECONDS * 1000);
       if (progress < 0.6) {
         this.eagleMesh.position.lerpVectors(startPos, targetPos, progress / 0.6);
@@ -891,6 +933,7 @@ export class Game {
         this.eagleMesh.position.lerpVectors(targetPos, exitPos, (progress - 0.6) / 0.4);
       } else {
         clearInterval(attackInterval);
+        this.eagleAttackTimer = null;
         if (this.eagleMesh) {
           this.scene.remove(this.eagleMesh);
           this.eagleMesh = null;
@@ -898,6 +941,7 @@ export class Game {
         this.gameOver('發呆時間過長，被空中老鷹捕捉抓走！');
       }
     }, 16);
+    this.eagleAttackTimer = attackInterval;
   }
 
   gameOver(reason = '被車撞飛了！') {
@@ -974,6 +1018,10 @@ export class Game {
     try {
       const rawDelta = this.clock.getDelta();
       const deltaTime = Number.isFinite(rawDelta) && rawDelta > 0 ? Math.min(rawDelta, 0.1) : 0.016;
+      if (this.isPaused) {
+        this.sceneSetup.render();
+        return;
+      }
       const activeRows = this.mapGenerator.getActiveRows();
       if (this.isGameStarted && this.currentMode === 'casual' && !this.isGameOver) this.updateCasualDeaths(deltaTime);
 

@@ -38,6 +38,11 @@ export class UIManager {
     this.matchingStatus = document.getElementById('matching-status');
     this.matchingSeats = document.getElementById('matching-seats');
     this.btnCancelMatching = document.getElementById('btn-cancel-matching');
+    this.btnGameSettings = document.getElementById('btn-game-settings');
+    this.gameSettingsOverlay = document.getElementById('game-settings-overlay');
+    this.settingsModeLabel = document.getElementById('settings-mode-label');
+    this.btnResumeGame = document.getElementById('btn-resume-game');
+    this.btnLeaveGame = document.getElementById('btn-leave-game');
     this.raceCountdown = document.getElementById('race-countdown');
     this.raceCountdownValue = document.getElementById('race-countdown-value');
     this.respawnCountdown = document.getElementById('respawn-countdown');
@@ -100,7 +105,7 @@ export class UIManager {
     });
   }
 
-  init(onStart, onRestart, onReturnLobby, onCancelMatching = null) {
+  init(onStart, onRestart, onReturnLobby, onCancelMatching = null, onOpenSettings = null, onResumeGame = null, onLeaveGame = null) {
     if (this.btnStart) {
       this.btnStart.addEventListener('click', () => {
         if (this.isCasualGuideOpen()) return;
@@ -114,6 +119,9 @@ export class UIManager {
     if (this.btnRestart) this.btnRestart.addEventListener('click', () => onRestart(this.selectedMode));
     if (this.btnLobby) this.btnLobby.addEventListener('click', () => onReturnLobby());
     if (this.btnCancelMatching && onCancelMatching) this.btnCancelMatching.addEventListener('click', onCancelMatching);
+    if (this.btnGameSettings && onOpenSettings) this.btnGameSettings.addEventListener('click', onOpenSettings);
+    if (this.btnResumeGame && onResumeGame) this.btnResumeGame.addEventListener('click', onResumeGame);
+    if (this.btnLeaveGame && onLeaveGame) this.btnLeaveGame.addEventListener('click', onLeaveGame);
     this.setupCasualGuide(onStart);
     this.updateCasualGuideAvailability(true);
   }
@@ -397,7 +405,30 @@ export class UIManager {
     this.combatAnnouncement.textContent = '';
   }
 
+  setGameSettingsAvailable(isAvailable) {
+    if (this.btnGameSettings) this.btnGameSettings.hidden = !isAvailable;
+  }
+
+  showGameSettings(mode) {
+    if (!this.gameSettingsOverlay) return;
+    const isChallenge = mode === 'challenge';
+    if (this.settingsModeLabel) this.settingsModeLabel.textContent = isChallenge ? '挑戰模式 · 已暫停' : '休閒模式 · 對局持續中';
+    this.gameSettingsOverlay.classList.remove('hidden');
+    this.gameSettingsOverlay.style.display = 'flex';
+    this.gameSettingsOverlay.setAttribute('aria-hidden', 'false');
+    this.btnResumeGame?.focus();
+  }
+
+  hideGameSettings() {
+    if (!this.gameSettingsOverlay) return;
+    this.gameSettingsOverlay.classList.add('hidden');
+    this.gameSettingsOverlay.style.display = 'none';
+    this.gameSettingsOverlay.setAttribute('aria-hidden', 'true');
+  }
+
   showLobby() {
+    this.hideGameSettings();
+    this.setGameSettingsAvailable(false);
     if (this.itemHud) this.itemHud.hidden = true;
     this.clearMatchFeedback();
     this.hideMatching();
@@ -414,6 +445,8 @@ export class UIManager {
   }
 
   hideOverlays() {
+    this.hideGameSettings();
+    this.setGameSettingsAvailable(false);
     this.clearMatchFeedback();
     this.hideMatching();
     this.clearCombatAnnouncement();
@@ -460,6 +493,8 @@ export class UIManager {
   }
 
   showGameOver(score, reason = '被車撞飛了！') {
+    this.hideGameSettings();
+    this.setGameSettingsAvailable(false);
     if (this.itemHud) this.itemHud.hidden = true;
     this.clearMatchFeedback();
     if (this.soloResults) this.soloResults.hidden = false;
@@ -478,6 +513,8 @@ export class UIManager {
   }
 
   showMultiplayerResults({ entries = [], playerRank, duration = 120 } = {}) {
+    this.hideGameSettings();
+    this.setGameSettingsAvailable(false);
     if (this.itemHud) this.itemHud.hidden = true;
     if (!this.multiplayerResults || !this.gameoverOverlay) return;
     this.clearCombatAnnouncement();

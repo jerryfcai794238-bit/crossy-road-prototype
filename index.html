@@ -55,6 +55,10 @@
       <p id="item-hud-hint">碰問號箱，抽取道具</p>
     </aside>
 
+    <button id="btn-game-settings" class="game-settings-button" type="button" aria-label="開啟遊戲設定" aria-haspopup="dialog" hidden>
+      <span aria-hidden="true">⏸</span>
+    </button>
+
     <!-- 右上角即時競速排行榜面板 (Live Leaderboard with 👑 Crown) -->
     <div id="leaderboard">
       <div class="leaderboard-header">🏆 5人同起點競速榜</div>
@@ -175,6 +179,18 @@
         <div class="guide-actions" data-guide-actions>
           <button id="btn-guide-back" class="btn-secondary guide-back" type="button" hidden>上一步</button>
           <button id="btn-guide-next" class="btn-primary guide-start" type="button">下一步</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="game-settings-overlay" class="overlay settings-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-hidden="true">
+      <div class="modal-card settings-card">
+        <span id="settings-mode-label" class="settings-kicker">遊戲設定</span>
+        <h2 id="settings-title">要離開遊戲嗎？</h2>
+        <p class="settings-message">離開後將回到大廳，本局進度不會保留。</p>
+        <div class="btn-group settings-actions">
+          <button id="btn-leave-game" class="btn-secondary settings-leave" type="button">離開遊戲</button>
+          <button id="btn-resume-game" class="btn-primary" type="button">繼續遊戲</button>
         </div>
       </div>
     </div>
