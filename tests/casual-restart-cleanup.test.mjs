@@ -20,7 +20,7 @@ assert.deepEqual(disposed, { material: 1, texture: 1 }, 'score reward cleanup mu
 let lobbyCleanupCalls = 0;
 const lobbyGame = {
   matchTimer: null, matchState: 'finished', isGameStarted: true, isGameOver: true, pendingRespawns: new Map([[{}, {}]]),
-  clearRuntimeEffects: () => { lobbyCleanupCalls++; }, clearBots: () => {}, uiManager: { showLobby: () => {} }
+  cancelEagleAttack: () => {}, clearRuntimeEffects: () => { lobbyCleanupCalls++; }, clearBots: () => {}, uiManager: { showLobby: () => {} }
 };
 Game.prototype.returnLobby.call(lobbyGame);
 assert.equal(lobbyCleanupCalls, 1, 'returning to lobby must clear frozen combat VFX');

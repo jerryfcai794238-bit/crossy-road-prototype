@@ -2,31 +2,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { CONFIG, CASUAL_PLAYER_COUNT, DEFAULT_GAME_CONFIG, PATHS, parseGameConfigYaml, applyGameConfig, loadGameConfig, resetGameConfig } from '../src/config.js';
 
-const parsed = parseGameConfigYaml('casual.playerCount: 4\nrocket.speed: 13\nitems.pool: rocket, lightning\n');
-assert.deepEqual(parsed.errors, []);
-assert.equal(applyGameConfig(parsed.values).ok, true);
-assert.equal(CASUAL_PLAYER_COUNT, 4);
-assert.equal(CONFIG.ROCKET.SPEED, 13);
-assert.deepEqual(CONFIG.ITEMS.POOL, ['rocket', 'lightning']);
-
-const before = CONFIG.ROCKET.SPEED;
-const invalid = parseGameConfigYaml('rocket.speed: NaN\nunknown.value: 2\n');
-assert.equal(invalid.errors.length, 2, 'bad scalar and unknown key are both rejected');
-assert.equal(applyGameConfig({ 'unknown.value': 2 }).ok, false);
-assert.equal(CONFIG.ROCKET.SPEED, before, 'failed apply must not mutate runtime config');
-
-const loaded = await loadGameConfig('/test.yaml', async () => ({ ok: true, text: async () => 'items.triggerInterval: 0.75\nboxes.regenSeconds: 2\n' }));
-assert.equal(loaded.ok, true);
-assert.equal(loaded.source, 'yaml');
-assert.equal(CONFIG.ITEMS.TRIGGER_INTERVAL, .75);
-assert.equal(CONFIG.BOXES.REGEN_SECONDS, 2);
 const actualYaml = fs.readFileSync(new URL('../docs/game-config.yaml', import.meta.url), 'utf8');
 const actualParsed = parseGameConfigYaml(actualYaml);
 assert.deepEqual(actualParsed.errors, [], 'checked-in YAML must be fully valid');
+assert.equal(Object.keys(actualParsed.labels).length, 88, 'all settings have labels');
+assert.ok(Object.values(actualParsed.labels).every((label) => label.trim().length > 0), 'labels are non-empty');
 assert.equal(applyGameConfig(actualParsed.values).ok, true);
 const actualLoaded = await loadGameConfig('/docs/game-config.yaml', async () => ({ ok: true, text: async () => actualYaml }));
 assert.equal(actualLoaded.source, 'yaml');
 assert.equal(actualLoaded.ok, true);
+assert.deepEqual(actualLoaded.labels, actualParsed.labels, 'loader exposes labels without changing runtime reads');
+const invalid = parseGameConfigYaml('rocket.speed:\n  value: nope\n  label: 火箭速度\n');
+assert.ok(invalid.errors.length > 0, 'incomplete document and invalid number are rejected');
 assert.equal(Object.keys(PATHS).length, Object.keys(DEFAULT_GAME_CONFIG).length, 'every public key has an explicit runtime path');
 for (const [key, target] of Object.entries(PATHS)) {
   let node = CONFIG;

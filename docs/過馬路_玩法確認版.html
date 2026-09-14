@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>過馬路｜玩法確認版</title>
+  <style>
+    :root { --ink:#14213d; --muted:#4b5563; --paper:#fffdf7; --bg:#e8f1f5; --line:#b8c6d1; --green:#087e5b; --blue:#125bb2; --orange:#b55016; --red:#af2434; --purple:#6642a4; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; min-width:320px; background:var(--bg); color:var(--ink); font:17px/1.72 system-ui,-apple-system,BlinkMacSystemFont,"Microsoft JhengHei",sans-serif; }
+    .wrap { width:min(1060px,calc(100% - 32px)); margin:auto; }
+    header { color:#fff; background:linear-gradient(135deg,#123557,#176f75 55%,#2e9954); border-bottom:6px solid #f5c542; }
+    header .wrap { padding:42px 0 34px; }
+    .label { display:inline-block; margin:0 0 12px; padding:4px 10px; border:1px solid currentColor; border-radius:999px; color:#fce68b; font-size:.82rem; font-weight:800; letter-spacing:.04em; }
+    h1,h2,h3 { line-height:1.25; }
+    h1 { margin:0; font-size:clamp(2rem,6vw,3.7rem); letter-spacing:.02em; }
+    h2 { margin:0 0 14px; font-size:clamp(1.45rem,4vw,2.1rem); }
+    h3 { margin:0 0 8px; font-size:1.12rem; }
+    .sub { max-width:760px; margin:13px 0 0; font-size:1.12rem; }
+    .notice { margin-top:20px; padding:12px 15px; border-left:5px solid #f5c542; border-radius:5px; background:#ffffff1a; font-weight:700; }
+    main { padding:30px 0 58px; }
+    section { margin:30px 0; padding:27px; border:1px solid var(--line); border-radius:18px; background:var(--paper); box-shadow:0 3px 14px #14213d10; }
+    .intro { border:3px solid var(--green); background:#f1fff6; }
+    .one-line { margin:0; color:#064c3a; font-size:clamp(1.2rem,3vw,1.55rem); font-weight:800; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; }
+    .card { padding:18px; border:1px solid var(--line); border-radius:13px; background:#fff; }
+    .card p,.card ul { margin:0; }
+    .goal { border-top:6px solid var(--green); } .risk { border-top:6px solid var(--red); } .score { border-top:6px solid var(--blue); } .fun { border-top:6px solid var(--purple); }
+    .steps { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:9px; padding:0; list-style:none; counter-reset:step; }
+    .steps li { position:relative; min-height:112px; padding:13px 10px 10px; border:1px solid var(--line); border-radius:12px; background:#f9fcff; font-size:.93rem; font-weight:700; }
+    .steps li::before { counter-increment:step; content:counter(step); display:grid; width:25px; height:25px; place-items:center; margin-bottom:7px; border-radius:50%; color:#fff; background:var(--blue); font-size:.8rem; }
+    .callout { padding:15px 18px; border-radius:10px; background:#fff5d9; border-left:6px solid var(--orange); font-weight:700; }
+    .safe { color:var(--green); font-weight:800; } .danger { color:var(--red); font-weight:800; } .reference { color:var(--blue); font-weight:800; }
+    .hud { display:grid; grid-template-columns:auto 1fr; gap:16px; align-items:start; }
+    .hud-demo { min-width:220px; padding:12px; border-radius:12px; color:#fff; background:#172a46; box-shadow:inset 0 0 0 2px #315273; font-size:.88rem; }
+    .hud-demo strong { display:block; margin-bottom:7px; color:#fce68b; }
+    .rank { display:flex; justify-content:space-between; gap:12px; padding:4px 0; border-top:1px solid #ffffff33; }
+    .rank.me { color:#fce68b; font-weight:800; }
+    ul { padding-left:1.35em; } li+li { margin-top:5px; }
+    .items { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .item { padding:14px; border-radius:12px; background:#f4f7fb; border:1px solid var(--line); }
+    .item strong { display:block; margin-bottom:5px; color:var(--blue); }
+    .candidate { background:#f6f0ff; border-color:#c7b4e9; }
+    footer { padding:0 0 35px; color:var(--muted); font-size:.9rem; }
+    @media (max-width:720px) { body { font-size:16px; } header .wrap { padding:31px 0 27px; } section { padding:20px; border-radius:14px; } .grid,.items { grid-template-columns:1fr; } .steps { grid-template-columns:repeat(2,minmax(0,1fr)); } .steps li { min-height:94px; } .hud { grid-template-columns:1fr; } .hud-demo { min-width:0; } }
+    @media print { @page { margin:14mm; } body { background:#fff; font-size:11pt; } header { color:#000; background:#fff; border:2px solid #000; } header .wrap { padding:10mm; } .label { color:#000; } .notice { background:#fff; border-color:#000; } main { padding:0; } section { break-inside:avoid; margin:10mm 0; padding:7mm; box-shadow:none; border-color:#555; } .card,.item { break-inside:avoid; } .hud-demo { color:#000; background:#fff; border:1px solid #000; box-shadow:none; } .rank { border-color:#999; } .rank.me { color:#000; } .steps { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <p class="label">已確認玩法規格</p>
+      <h1>《過馬路》怎麼玩？</h1>
+      <p class="sub">一個 40 人同場的無盡過馬路遊戲：每個人都在自己的 120 秒內，試著走得比自己上次更遠。</p>
+      <p class="notice">本頁是已確認的玩法規格，用來對齊開發與溝通；不表示現有 prototype 已全部完成。</p>
+    </div>
+  </header>
+  <main class="wrap">
+    <section aria-labelledby="why-title">
+      <h2 id="why-title">為什麼想做《過馬路》？</h2>
+      <p class="one-line">規則簡單，卻讓每一步都想再多走一格。</p>
+      <div class="grid" style="margin-top:18px">
+        <article class="card goal"><h3>競品成功點｜《Crossy Road》</h3><p>一格一步，抓準時機，想再多走一格。</p></article>
+        <article class="card action"><h3>競品成功點｜《Disney Crossy Road》</h3><p>主題與障礙持續換新，熟悉規則也有新鮮感。</p></article>
+      </div>
+      <h3 style="margin-top:22px">本作為什麼好玩？</h3>
+      <div class="grid">
+        <article class="card fun"><h3>看地形，也看別人</h3><p>40 人同場，每一步都會改變路線。</p></article>
+        <article class="card risk"><h3>等、繞、推</h3><p>簡單動作，立即改變局勢。</p></article>
+        <article class="card action"><h3>問號方塊</h3><p>抽到立刻生效，熟路也會變局。</p></article>
+        <article class="card score"><h3>失誤可重來</h3><p>回到安全區，繼續刷新距離。</p></article>
+      </div>
+      <p class="callout">本作特色：<strong>經典逐格過馬路 × 40 人同場 × 即時變局</strong></p>
+    </section>
+
+    <section class="intro" aria-labelledby="quick-title">
+      <h2 id="quick-title">一句話玩法</h2>
+      <p class="one-line">從安全區出發，看路、看人、逐格往前走；就算失誤，也能回到最近安全區，再挑戰自己的最遠紀錄。</p>
+      <div class="grid" style="margin-top:18px">
+        <article class="card goal"><h3>我要做什麼？</h3><p>在無盡地圖上前進。從<strong>你出生的地方算起</strong>，看看最遠走了幾格。</p></article>
+        <article class="card risk"><h3>什麼會讓我失誤？</h3><p>車、火車、河流，或預警後出現的坑洞／崩落地板。<strong>只有落到危險，才算失誤。</strong></p></article>
+        <article class="card score"><h3>我和誰比？</h3><p>先和自己的最佳紀錄比。面板也會顯示同場參考，但<strong>沒有全場贏家</strong>。</p></article>
+        <article class="card fun"><h3>和別人互動為何有趣？</h3><p>其他角色與地形會一起改變安全路線；你可以等、繞，或推擠來改變落點。</p></article>
+      </div>
+    </section>
+
+    <section aria-labelledby="flow-title">
+      <h2 id="flow-title">一局 120 秒，會怎麼進行？</h2>
+      <ol class="steps">
+        <li>從<span class="safe">安全區</span>出生</li>
+        <li>觀察前方危險</li>
+        <li>逐格移動、等候、繞路或推擠</li>
+        <li>碰到問號方塊：抽取演出後，效果立刻發動</li>
+        <li>失誤：回最近安全區，最遠距離保留</li>
+        <li>自己的 120 秒結算後離場；想再挑戰就重開</li>
+      </ol>
+      <p class="callout">「無盡」是地圖可以一直往前，不是沒有時間限制。每個人都有自己的 120 秒，計時不必等別人。</p>
+    </section>
+
+    <section aria-labelledby="score-title">
+      <h2 id="score-title">成績和面板：看進度，不搶冠軍</h2>
+      <div class="hud">
+        <div class="hud-demo" aria-label="五席表現面板示意"><strong>本局最遠前進距離</strong><div class="rank"><span>1　小安</span><span>42 格</span></div><div class="rank"><span>2　BOT</span><span>38 格</span></div><div class="rank"><span>3　小樂</span><span>34 格</span></div><div class="rank"><span>4　BOT</span><span>31 格</span></div><div class="rank me"><span>35　玩家名字</span><span>26 格</span></div></div>
+        <div><p>畫面有 <strong>5 席表現面板</strong>，依每個角色<strong>本局最高相對前進距離</strong>排序。</p><ul><li>你在前五名：面板會列出前五名。</li><li>你不在前五名：顯示前四名加上你，也會顯示你自己的名次，例如第 35 名。</li><li>它只是同場的動態參考，不會選出本局冠軍，也不會決定輸贏。</li></ul><p class="reference">真正要挑戰的是：這次能不能走得比自己的個人最佳更遠。</p></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="mistake-title">
+      <h2 id="mistake-title">失誤不是結束，是再出發</h2>
+      <div class="grid">
+        <article class="card"><h3>正式危險</h3><p><span class="danger">道路、鐵路、河流</span>，以及先出現警示、之後形成的<span class="danger">坑洞／崩落地板</span>。</p></article>
+        <article class="card"><h3>失誤後怎麼辦？</h3><p>回到<strong>最近安全區</strong>，已經走到最遠的距離會保留。你可以立刻重新觀察，找下一條安全路。</p></article>
+      </div>
+      <p>推擠本身不會直接讓人失誤；它會改變其他角色的落點。落點碰到危險時，才會失誤。</p>
+    </section>
+
+    <section aria-labelledby="crowd-title">
+      <h2 id="crowd-title">40 人同場：別人會讓路線一直變</h2>
+      <div class="grid">
+        <article class="card"><h3>房間裡的人從哪來？</h3><p>房間一開始有 40 個 BOT。真人玩家從隨機、合法的安全區加入，會逐步取代 BOT；真人離開後，稍後會由 BOT 補位。</p></article>
+        <article class="card"><h3>我會看到 40 人全擠在一起嗎？</h3><p>不會。玩家只會看到並互動附近的角色，畫面會把注意力留給你眼前的路與人。</p></article>
+        <article class="card"><h3>互動的樂趣是什麼？</h3><p>地形和其他角色一起改變安全路線。有人擋在前面時，可以等待、繞開，或推擠；每一步都可能讓下一步不同。</p></article>
+        <article class="card"><h3>這是合作救援嗎？</h3><p>不是。每個人都在追自己的距離；互動是讓局勢更有變化，而不是要把別人救到終點。</p></article>
+      </div>
+    </section>
+
+    <section aria-labelledby="item-title">
+      <h2 id="item-title">問號方塊：抽到就馬上生效</h2>
+      <p>碰到問號方塊後，先看抽取演出，接著效果<strong>立即發動</strong>。它讓同一條路突然多一個要判斷的變化。</p>
+      <div class="items" style="margin-top:15px">
+        <article class="item"><strong>全局落雷</strong>讓其他所有角色動不了 2 秒。</article>
+        <article class="item"><strong>彈簧拳</strong>影響附近角色。</article>
+        <article class="item"><strong>泡泡盾</strong>提供防禦效果。</article>
+        <article class="item"><strong>方向暫時顛倒</strong>讓操控方向反過來。</article>
+        <article class="item"><strong>逆向滑行陷阱</strong>讓路線多出反方向的干擾。</article>
+      </div>
+    </section>
+
+    <section class="candidate" aria-labelledby="candidate-title">
+      <h2 id="candidate-title">後續候選，不是目前正式內容</h2>
+      <p><strong>巨浪、動物群、遊行</strong>等橫向事件，以及下列機制，都是未來可再評估加入的候選內容。本確認版不把它們當成目前已確定的正式玩法。</p>
+      <div class="items" style="margin-top:15px">
+        <article class="item"><strong>地形機制｜特殊橋</strong>特殊橋累積被踩過指定次數（n 次）後會坍塌，等數秒後復原。</article>
+        <article class="item"><strong>好友房</strong>建立好友房後，才能和朋友一起玩。</article>
+      </div>
+    </section>
+
+  </main>
+  <footer class="wrap">《過馬路》玩法確認版｜繁體中文｜僅描述玩家可見規則</footer>
+</body>
+</html>

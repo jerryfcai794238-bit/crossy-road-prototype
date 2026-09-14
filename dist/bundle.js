@@ -22589,26 +22589,48 @@
     return CONFIG;
   }
   function parseGameConfigYaml(text) {
-    const values = {}, errors = [];
-    String(text).split(/\r?\n/).forEach((raw, index) => {
-      const line = raw.trim();
-      if (!line || line.startsWith("#")) return;
-      const withoutComment = line.replace(/\s+#.*$/, "").trim();
-      const match = withoutComment.match(/^([a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*):\s*(\S(?:.*\S)?)$/i);
-      if (!match) {
+    const values = {}, labels = {}, errors = [];
+    const lines = String(text).split(/\r?\n/);
+    let index = 0;
+    while (index < lines.length) {
+      if (!lines[index].trim()) {
+        index++;
+        continue;
+      }
+      const heading = lines[index].match(/^([a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*):\s*$/i);
+      if (!heading) {
         errors.push(`\u7B2C${index + 1}\u884C\u683C\u5F0F\u932F\u8AA4`);
-        return;
+        index++;
+        continue;
       }
-      const [, key, rawValue] = match;
+      const key = heading[1];
       if (!(key in BASE)) errors.push(`\u7B2C${index + 1}\u884C\u672A\u77E5\u9375 ${key}`);
-      else if (key in values) errors.push(`\u7B2C${index + 1}\u884C\u91CD\u8907\u9375 ${key}`);
-      else {
-        const value = Array.isArray(BASE[key]) ? rawValue.split(",").map((x) => x.trim()).filter(Boolean) : Number(rawValue);
-        if (Array.isArray(BASE[key]) ? !value.length : !Number.isFinite(value)) errors.push(`\u7B2C${index + 1}\u884C\u6578\u503C\u932F\u8AA4`);
-        else values[key] = value;
+      else if (Object.hasOwn(values, key)) errors.push(`\u7B2C${index + 1}\u884C\u91CD\u8907\u9375 ${key}`);
+      const fields = {};
+      for (let fieldIndex = 0; fieldIndex < 2; fieldIndex++) {
+        index++;
+        const field = lines[index]?.match(/^  (value|label):\s*(\S(?:.*\S)?)\s*$/);
+        if (!field) {
+          errors.push(`\u7B2C${index + 1}\u884C\u7F3A\u5C11 value \u6216 label`);
+          continue;
+        }
+        if (Object.hasOwn(fields, field[1])) errors.push(`\u7B2C${index + 1}\u884C\u91CD\u8907\u6B04\u4F4D ${field[1]}`);
+        else fields[field[1]] = field[2];
       }
-    });
-    return { values, errors };
+      if (!Object.hasOwn(fields, "value") || !Object.hasOwn(fields, "label")) {
+        errors.push(`\u7B2C${index + 1}\u884C ${key} \u5FC5\u9808\u540C\u6642\u6709 value \u8207 label`);
+      } else if (key in BASE) {
+        const value = Array.isArray(BASE[key]) ? fields.value.split(",").map((item) => item.trim()).filter(Boolean) : Number(fields.value);
+        if (Array.isArray(BASE[key]) ? !value.length : !Number.isFinite(value)) errors.push(`${key} \u7684 value \u7121\u6548`);
+        else {
+          values[key] = value;
+          labels[key] = fields.label;
+        }
+      }
+      index++;
+    }
+    if (Object.keys(values).length !== Object.keys(BASE).length) errors.push("\u8A2D\u5B9A\u9375\u6578\u91CF\u4E0D\u5B8C\u6574");
+    return { values, labels, errors };
   }
   var positive = /* @__PURE__ */ new Set(["casual.durationSeconds", "casual.matchFillMs", "casual.initialFillMs", "casual.countdownMs", "movement.gridSize", "movement.boundsX", "movement.jumpHeight", "traffic.carDamageBase", "traffic.carDamageSpeedScale", "traffic.carDamageCap", "traffic.trainDamage", "bot.decisionMin", "bot.decisionMax", "bot.aggressionScale", "bot.interferenceThreshold", "bot.pressureChanceScale", "bot.itemSearchDepth", "bot.pathSearchDepth", "bot.repairWaitSeconds", "bot.vehicleSafetyDistance", "map.roadSpeedMin", "map.roadSpeedMax", "map.roadSpeedRangeMin", "map.roadSpeedRangeMax", "map.riverSpeedMin", "map.riverSpeedMax", "map.riverSpeedJitter", "holes.fireballHeight", "boxes.batchMin", "boxes.batchMax", "boxes.safeEndZ", "movement.gridSize", "movement.jumpDuration", "respawn.deathAnimationSeconds", "respawn.penaltySeconds", "respawn.finishInvulnerabilitySeconds", "camera.challengeScrollSpeed", "camera.orthoSize", "camera.near", "camera.far", "camera.pixelRatioMax", "player.maxHp", "player.damageInvulnerabilitySeconds", "map.generationAhead", "map.despawnBehind", "map.trainSpeed", "map.trainWarningSeconds", "items.rouletteSeconds", "items.roulettePreviewRate", "items.triggerInterval", "rocket.speed", "rocket.stunSeconds", "rocket.impactSeconds", "rocket.hitRadius", "lightning.warningSeconds", "lightning.stunSeconds", "shield.durationSeconds", "shield.finalFlashSeconds", "shield.flashRate", "eagle.warningSeconds", "eagle.challengeTriggerSeconds", "eagle.challengeCarrySeconds", "holes.warningSeconds", "holes.activeSeconds", "holes.repairSeconds", "holes.intervalSeconds", "boxes.rowSpacing", "boxes.regenSeconds", "vfx.feedbackSeconds", "vfx.stunStarRadius"]);
   var signed = /* @__PURE__ */ new Set(["camera.offsetX", "camera.offsetY", "camera.offsetZ", "camera.startZ", "camera.targetAhead"]);
@@ -22640,16 +22662,16 @@
   }
   async function loadGameConfig(url = "./docs/game-config.yaml", fetchImpl = globalThis.fetch) {
     resetGameConfig();
-    if (typeof fetchImpl !== "function") return { ok: false, source: "defaults", errors: ["fetch \u4E0D\u53EF\u7528"], config: CONFIG };
+    if (typeof fetchImpl !== "function") return { ok: false, source: "defaults", errors: ["fetch \u4E0D\u53EF\u7528"], labels: {}, config: CONFIG };
     try {
       const response = await fetchImpl(url);
       if (!response?.ok) throw new Error(`HTTP ${response?.status ?? "error"}`);
       const parsed = parseGameConfigYaml(await response.text());
-      if (parsed.errors.length) return { ok: false, source: "defaults", errors: parsed.errors, config: CONFIG };
+      if (parsed.errors.length) return { ok: false, source: "defaults", errors: parsed.errors, labels: {}, config: CONFIG };
       const applied = applyGameConfig(parsed.values);
-      return { ...applied, source: applied.ok ? "yaml" : "defaults" };
+      return { ...applied, source: applied.ok ? "yaml" : "defaults", labels: applied.ok ? parsed.labels : {} };
     } catch (error) {
-      return { ok: false, source: "defaults", errors: [error.message], config: CONFIG };
+      return { ok: false, source: "defaults", errors: [error.message], labels: {}, config: CONFIG };
     }
   }
 
@@ -27556,6 +27578,7 @@
     const status = await loadGameConfig("./docs/game-config.yaml");
     window.gameConfig = CONFIG;
     window.gameConfigStatus = status;
+    window.gameConfigLabels = status.labels;
     document.documentElement.dataset.gameConfigSource = status.source;
     document.documentElement.dataset.gameConfigOk = String(status.ok);
     document.documentElement.dataset.gameConfigErrors = status.errors.join(" | ");

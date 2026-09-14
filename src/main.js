@@ -1185,8 +1185,9 @@ export class Game {
 // 啟動前先載入 YAML，確保所有建構階段都使用同一份設定。
 async function bootstrapGame() {
   const status = await loadGameConfig('./docs/game-config.yaml');
-  window.gameConfig = CONFIG;
-  window.gameConfigStatus = status;
+    window.gameConfig = CONFIG;
+    window.gameConfigStatus = status;
+    window.gameConfigLabels = status.labels;
   document.documentElement.dataset.gameConfigSource = status.source;
   document.documentElement.dataset.gameConfigOk = String(status.ok);
   document.documentElement.dataset.gameConfigErrors = status.errors.join(' | ');

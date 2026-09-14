@@ -382,7 +382,37 @@ export const PATHS = {
 
 function put(key, value) { const target = PATHS[key]; if (target[0] === 'CASUAL_PLAYER_COUNT') { CASUAL_PLAYER_COUNT = value; return; } let node = CONFIG; for (let index = 0; index < target.length - 1; index++) node = node[target[index]]; node[target.at(-1)] = Array.isArray(value) ? [...value] : value; }
 export function resetGameConfig() { Object.entries(BASE).forEach(([key, value]) => put(key, value)); return CONFIG; }
-export function parseGameConfigYaml(text) { const values = {}, errors = []; String(text).split(/\r?\n/).forEach((raw, index) => { const line = raw.trim(); if (!line || line.startsWith('#')) return; const withoutComment = line.replace(/\s+#.*$/, '').trim(); const match = withoutComment.match(/^([a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*):\s*(\S(?:.*\S)?)$/i); if (!match) { errors.push(`第${index + 1}行格式錯誤`); return; } const [, key, rawValue] = match; if (!(key in BASE)) errors.push(`第${index + 1}行未知鍵 ${key}`); else if (key in values) errors.push(`第${index + 1}行重複鍵 ${key}`); else { const value = Array.isArray(BASE[key]) ? rawValue.split(',').map(x => x.trim()).filter(Boolean) : Number(rawValue); if (Array.isArray(BASE[key]) ? !value.length : !Number.isFinite(value)) errors.push(`第${index + 1}行數值錯誤`); else values[key] = value; } }); return { values, errors }; }
+export function parseGameConfigYaml(text) {
+  const values = {}, labels = {}, errors = [];
+  const lines = String(text).split(/\r?\n/);
+  let index = 0;
+  while (index < lines.length) {
+    if (!lines[index].trim()) { index++; continue; }
+    const heading = lines[index].match(/^([a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*):\s*$/i);
+    if (!heading) { errors.push(`第${index + 1}行格式錯誤`); index++; continue; }
+    const key = heading[1];
+    if (!(key in BASE)) errors.push(`第${index + 1}行未知鍵 ${key}`);
+    else if (Object.hasOwn(values, key)) errors.push(`第${index + 1}行重複鍵 ${key}`);
+    const fields = {};
+    for (let fieldIndex = 0; fieldIndex < 2; fieldIndex++) {
+      index++;
+      const field = lines[index]?.match(/^  (value|label):\s*(\S(?:.*\S)?)\s*$/);
+      if (!field) { errors.push(`第${index + 1}行缺少 value 或 label`); continue; }
+      if (Object.hasOwn(fields, field[1])) errors.push(`第${index + 1}行重複欄位 ${field[1]}`);
+      else fields[field[1]] = field[2];
+    }
+    if (!Object.hasOwn(fields, 'value') || !Object.hasOwn(fields, 'label')) {
+      errors.push(`第${index + 1}行 ${key} 必須同時有 value 與 label`);
+    } else if (key in BASE) {
+      const value = Array.isArray(BASE[key]) ? fields.value.split(',').map(item => item.trim()).filter(Boolean) : Number(fields.value);
+      if (Array.isArray(BASE[key]) ? !value.length : !Number.isFinite(value)) errors.push(`${key} 的 value 無效`);
+      else { values[key] = value; labels[key] = fields.label; }
+    }
+    index++;
+  }
+  if (Object.keys(values).length !== Object.keys(BASE).length) errors.push('設定鍵數量不完整');
+  return { values, labels, errors };
+}
 const positive = new Set(['casual.durationSeconds','casual.matchFillMs','casual.initialFillMs','casual.countdownMs','movement.gridSize','movement.boundsX','movement.jumpHeight','traffic.carDamageBase','traffic.carDamageSpeedScale','traffic.carDamageCap','traffic.trainDamage','bot.decisionMin','bot.decisionMax','bot.aggressionScale','bot.interferenceThreshold','bot.pressureChanceScale','bot.itemSearchDepth','bot.pathSearchDepth','bot.repairWaitSeconds','bot.vehicleSafetyDistance','map.roadSpeedMin','map.roadSpeedMax','map.roadSpeedRangeMin','map.roadSpeedRangeMax','map.riverSpeedMin','map.riverSpeedMax','map.riverSpeedJitter','holes.fireballHeight','boxes.batchMin','boxes.batchMax','boxes.safeEndZ','movement.gridSize','movement.jumpDuration','respawn.deathAnimationSeconds','respawn.penaltySeconds','respawn.finishInvulnerabilitySeconds','camera.challengeScrollSpeed','camera.orthoSize','camera.near','camera.far','camera.pixelRatioMax','player.maxHp','player.damageInvulnerabilitySeconds','map.generationAhead','map.despawnBehind','map.trainSpeed','map.trainWarningSeconds','items.rouletteSeconds','items.roulettePreviewRate','items.triggerInterval','rocket.speed','rocket.stunSeconds','rocket.impactSeconds','rocket.hitRadius','lightning.warningSeconds','lightning.stunSeconds','shield.durationSeconds','shield.finalFlashSeconds','shield.flashRate','eagle.warningSeconds','eagle.challengeTriggerSeconds','eagle.challengeCarrySeconds','holes.warningSeconds','holes.activeSeconds','holes.repairSeconds','holes.intervalSeconds','boxes.rowSpacing','boxes.regenSeconds','vfx.feedbackSeconds','vfx.stunStarRadius']);
 const signed = new Set(['camera.offsetX','camera.offsetY','camera.offsetZ','camera.startZ','camera.targetAhead']);
 const integers = new Set(['casual.playerCount','casual.countdownStart','casual.matchFillMs','casual.initialFillMs','casual.countdownMs','casual.goDisplayMs','items.slotCount','items.roulettePreviewRate','shield.blocks','boxes.safeEndZ','boxes.batchMin','boxes.batchMax','boxes.rowSpacing']);
@@ -397,4 +427,4 @@ export function applyGameConfig(values) { const errors = []; for (const [key, va
   if (value('map.roadSpeedMin') > value('map.roadSpeedMax') || value('map.roadSpeedRangeMin') > value('map.roadSpeedRangeMax') || value('map.riverSpeedMin') > value('map.riverSpeedMax')) errors.push('map speed 範圍無效');
   if (values?.['items.pool']) { const allowed = new Set(['rocket','shield','eagle','lightning']); if (new Set(values['items.pool']).size !== values['items.pool'].length || values['items.pool'].some(item => !allowed.has(item))) errors.push('items.pool 必須為不重複的既定道具'); }
   if (errors.length) return { ok: false, errors, config: CONFIG }; Object.entries(values).forEach(([key, value]) => put(key, value)); return { ok: true, errors: [], config: CONFIG }; }
-export async function loadGameConfig(url = './docs/game-config.yaml', fetchImpl = globalThis.fetch) { resetGameConfig(); if (typeof fetchImpl !== 'function') return { ok: false, source: 'defaults', errors: ['fetch 不可用'], config: CONFIG }; try { const response = await fetchImpl(url); if (!response?.ok) throw new Error(`HTTP ${response?.status ?? 'error'}`); const parsed = parseGameConfigYaml(await response.text()); if (parsed.errors.length) return { ok: false, source: 'defaults', errors: parsed.errors, config: CONFIG }; const applied = applyGameConfig(parsed.values); return { ...applied, source: applied.ok ? 'yaml' : 'defaults' }; } catch (error) { return { ok: false, source: 'defaults', errors: [error.message], config: CONFIG }; } }
+export async function loadGameConfig(url = './docs/game-config.yaml', fetchImpl = globalThis.fetch) { resetGameConfig(); if (typeof fetchImpl !== 'function') return { ok: false, source: 'defaults', errors: ['fetch 不可用'], labels: {}, config: CONFIG }; try { const response = await fetchImpl(url); if (!response?.ok) throw new Error(`HTTP ${response?.status ?? 'error'}`); const parsed = parseGameConfigYaml(await response.text()); if (parsed.errors.length) return { ok: false, source: 'defaults', errors: parsed.errors, labels: {}, config: CONFIG }; const applied = applyGameConfig(parsed.values); return { ...applied, source: applied.ok ? 'yaml' : 'defaults', labels: applied.ok ? parsed.labels : {} }; } catch (error) { return { ok: false, source: 'defaults', errors: [error.message], labels: {}, config: CONFIG }; } }
