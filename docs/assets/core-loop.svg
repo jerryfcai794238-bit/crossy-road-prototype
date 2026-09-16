@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
   <title id="title">休閒多人核心循環</title>
-  <desc id="desc">五個等距步驟形成閉環：觀察、決策、移動與推擠、結果判定、更新局勢；全程倒數 120 秒，結束時依目前位置排名。</desc>
+  <desc id="desc">五個等距步驟形成閉環：觀察、決策並確認體力、移動與推擠、結果判定、更新局勢；全程倒數 120 秒，結束時依目前位置排名。</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 12 12" refX="10.5" refY="6" markerWidth="10" markerHeight="10" orient="auto"><path d="M1 1L11 6L1 11Z" fill="#326b91"/></marker>
     <style>
@@ -20,9 +20,9 @@
   <circle cx="600" cy="440" r="126" fill="#f7f5f1" stroke="#c7d0c8" stroke-width="2"/>
   <circle cx="600" cy="440" r="105" fill="none" stroke="#d6d2ca" stroke-width="2" stroke-dasharray="4 9"/>
   <g aria-label="01 觀察"><circle cx="600" cy="220" r="74" fill="#f7f5f1" stroke="#326b91" stroke-width="2.5"/><circle cx="600" cy="165" r="18" fill="#326b91"/><text x="600" y="171" class="number">01</text><text x="600" y="226" class="step">觀察</text><text x="600" y="252" class="body">車流、浮木、站位</text></g>
-  <g aria-label="02 決策"><circle cx="809" cy="372" r="74" fill="#f7f5f1" stroke="#b8971c" stroke-width="2.5"/><circle cx="809" cy="317" r="18" fill="#e7c74a"/><text x="809" y="323" class="number">02</text><text x="809" y="378" class="step">決策</text><text x="809" y="404" class="body">等待、繞行、推擠</text></g>
-  <g aria-label="03 移動與推擠"><circle cx="729" cy="618" r="74" fill="#f7f5f1" stroke="#765d9d" stroke-width="2.5"/><circle cx="729" cy="563" r="18" fill="#765d9d"/><text x="729" y="569" class="number">03</text><text x="729" y="624" class="step">移動／推擠</text><text x="729" y="650" class="body">WASD 一格</text></g>
+  <g aria-label="02 決策與體力"><circle cx="809" cy="372" r="74" fill="#f7f5f1" stroke="#b8971c" stroke-width="2.5"/><circle cx="809" cy="317" r="18" fill="#e7c74a"/><text x="809" y="323" class="number">02</text><text x="809" y="378" class="step">決策／體力</text><text x="809" y="404" class="body">至少 2 點才可動</text></g>
+  <g aria-label="03 移動與推擠"><circle cx="729" cy="618" r="74" fill="#f7f5f1" stroke="#765d9d" stroke-width="2.5"/><circle cx="729" cy="563" r="18" fill="#765d9d"/><text x="729" y="569" class="number">03</text><text x="729" y="624" class="step">移動／推擠</text><text x="729" y="650" class="body">主動者消耗 2 點</text></g>
   <g aria-label="04 結果判定"><circle cx="471" cy="618" r="74" fill="#f7f5f1" stroke="#af4f57" stroke-width="2.5"/><circle cx="471" cy="563" r="18" fill="#af4f57"/><text x="471" y="569" class="number">04</text><text x="471" y="624" class="step">結果判定</text><text x="471" y="650" class="body">安全、阻擋、失誤</text></g>
   <g aria-label="05 更新局勢"><circle cx="391" cy="372" r="74" fill="#f7f5f1" stroke="#3e815d" stroke-width="2.5"/><circle cx="391" cy="317" r="18" fill="#3e815d"/><text x="391" y="323" class="number">05</text><text x="391" y="378" class="step">更新局勢</text><text x="391" y="404" class="body">檢查點、排名、新站位</text></g>
-  <text x="600" y="422" class="centerTitle">休閒多人</text><text x="600" y="452" class="centerBody">4 人同跑・120 秒</text><text x="600" y="481" class="centerBody">依目前距離即時排名</text>
+  <text x="600" y="422" class="centerTitle">休閒多人</text><text x="600" y="452" class="centerBody">5 人同跑・120 秒</text><text x="600" y="481" class="centerBody">依目前距離即時排名</text>
 </svg>
