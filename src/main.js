@@ -11,8 +11,8 @@ import { UIManager } from './ui/UIManager.js';
 import { PartyItemSystem } from './mechanics/PartyItemSystem.js';
 import { CasualRecovery } from './mechanics/CasualRecovery.js';
 
-// 開發驗證開關：只啟用道具生成、獨立道具分與回饋；正式前進分／排行榜不納入道具分。
-const SCORE_ITEM_PROTOTYPE_ENABLED = true;
+// 地圖積分道具已移除；前進分／排行榜維持既有計分規則。
+const SCORE_ITEM_PROTOTYPE_ENABLED = false;
 const DYNAMIC_HOLES_PROTOTYPE_ENABLED = true;
 const SPRING_PUNCH_PROTOTYPE_ENABLED = true;
 const LEADER_STRIKE_PROTOTYPE_ENABLED = true;
@@ -26,6 +26,8 @@ export class Game {
     // 1. 3D 場景
     this.sceneSetup = new SceneSetup(this.container);
     this.scene = this.sceneSetup.scene;
+    // SceneSetup 會清空 canvas 容器後插入 WebGL canvas；頭頂 HUD 必須在此之後建立。
+    this.uiManager.createPlayerStaminaMarker();
 
     // 2. 地圖與物理
     this.mapGenerator = new MapGenerator(this.scene);
@@ -58,6 +60,7 @@ export class Game {
     this.matchState = 'idle';
     this.matchTimer = null;
     this.pendingRespawns = new Map();
+    this.heldKeys = new Map();
 
     // 身後老鷹底邊界推進 (0.35格/秒)
     this.cameraAutoScrollZ = CONFIG.CAMERA.START_Z * CONFIG.GRID_SIZE;
@@ -123,11 +126,11 @@ export class Game {
     window.addEventListener('keydown', (e) => {
       if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
       const key = e.key.toLowerCase();
-      if (key === 'w' || key === 'arrowup') this.handlePlayerInput('UP');
-      else if (key === 's' || key === 'arrowdown') this.handlePlayerInput('DOWN');
-      else if (key === 'a' || key === 'arrowleft') this.handlePlayerInput('LEFT');
-      else if (key === 'd' || key === 'arrowright') this.handlePlayerInput('RIGHT');
+      const direction = this.getKeyboardDirection(key);
+      if (direction) this.handleHeldKeyDown(key, direction);
     });
+    window.addEventListener('keyup', (e) => this.handleHeldKeyUp(e.key.toLowerCase()));
+    window.addEventListener('blur', () => this.heldKeys.clear());
 
     // 虛擬 D-Pad 控制器
     document.getElementById('btn-up')?.addEventListener('click', () => this.handlePlayerInput('UP'));
@@ -151,6 +154,11 @@ export class Game {
   handlePlayerInput(direction, distance = 1) {
     if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
     if (this.player.stunTimer > 0) return;
+
+    if (!this.player.canSpendStamina()) {
+      this.uiManager.showCombatAnnouncement('體力不足，停留可每秒回復20點');
+      return;
+    }
 
     if (this.player.isJumping) {
       this.player.queueInput(direction, distance);
@@ -206,6 +214,7 @@ export class Game {
 
   planActorMove(actor, direction, distance = 1) {
     if (actor.isJumping || actor.isDead || actor.isRespawning || actor.stunTimer > 0) return { canMove: false };
+    if (!actor.canSpendStamina()) return { canMove: false, staminaBlocked: true };
 
     const chain = [actor];
     let target = actor.getTargetGridPosition(direction, distance);
@@ -220,7 +229,8 @@ export class Game {
       target = occupant.getTargetGridPosition(direction);
     }
 
-    // 推擠必須整鏈可主動移動；否則倒序啟動會造成前方角色先移、後方失敗的半套狀態。
+    // 推擠需保持原子性：鏈中任一角色不可移動時，不得先讓前方角色跳出。
+    // 體力是例外，因為只有發起者屬主動移動並支付體力。
     if (chain.some((chainActor) => (
       chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0
     ))) return { canMove: false };
@@ -240,13 +250,14 @@ export class Game {
 
   startActorMovePlan(plan) {
     // 先讓最前方角色預約終點，再依序啟動後方，避免同幀中被其他決策插隊。
+    const [actor] = plan.chain;
     if (plan.chain.some((chainActor) => (
       chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0
-    ))) return false;
+    )) || !actor.canSpendStamina()) return false;
     for (let index = plan.chain.length - 1; index >= 0; index--) {
       const chainActor = plan.chain[index];
       const stepDistance = index === 0 ? plan.distance : 1;
-      if (!chainActor.move(plan.direction, stepDistance)) return false;
+      if (!chainActor.move(plan.direction, stepDistance, index === 0)) return false;
     }
     return true;
   }
@@ -753,6 +764,7 @@ export class Game {
 
   beginCasualMatching() {
     if (this.matchState === 'matching' || this.matchState === 'countdown' || this.matchState === 'started') return;
+    this.clearHeldKeys?.();
     this.matchState = 'matching';
     this.isGameStarted = false;
     this.isGameOver = false;
@@ -760,6 +772,7 @@ export class Game {
     this.pendingRespawns.clear();
     this.clearBots();
     this.player.reset();
+    this.uiManager.updateStamina(this.player.stamina, this.player.maxStamina);
     this.casualTimeRemaining = this.casualDuration;
     this.uiManager.setMode('casual');
     this.uiManager.updateScore(0);
@@ -799,6 +812,7 @@ export class Game {
   }
 
   cancelCasualMatching() {
+    this.clearHeldKeys?.();
     if (this.matchTimer) clearTimeout(this.matchTimer);
     this.matchTimer = null;
     this.matchState = 'idle';
@@ -811,6 +825,7 @@ export class Game {
   }
 
   launchGame(mode = 'casual', startImmediately = true) {
+    this.clearHeldKeys?.();
     if (this.matchTimer) clearTimeout(this.matchTimer);
     this.matchTimer = null;
     this.matchState = mode === 'casual' ? (startImmediately ? 'started' : 'countdown') : 'idle';
@@ -841,6 +856,7 @@ export class Game {
     }
 
     this.player.reset();
+    this.uiManager.updateStamina(this.player.stamina, this.player.maxStamina);
     this.clearBots();
     this.uiManager.setMode(this.currentMode);
     this.uiManager.updateHealth(this.player.hp);
@@ -866,6 +882,7 @@ export class Game {
   }
 
   returnLobby() {
+    this.clearHeldKeys?.();
     if (this.matchTimer) clearTimeout(this.matchTimer);
     this.matchTimer = null;
     this.cancelEagleAttack();
@@ -879,8 +896,43 @@ export class Game {
     this.uiManager.showLobby();
   }
 
+  getKeyboardDirection(key) {
+    if (key === 'w' || key === 'arrowup') return 'UP';
+    if (key === 's' || key === 'arrowdown') return 'DOWN';
+    if (key === 'a' || key === 'arrowleft') return 'LEFT';
+    if (key === 'd' || key === 'arrowright') return 'RIGHT';
+    return null;
+  }
+
+  handleHeldKeyDown(key, direction) {
+    if (this.heldKeys.has(key)) return false;
+    this.heldKeys.set(key, direction);
+    this.handlePlayerInput(direction);
+    return true;
+  }
+
+  handleHeldKeyUp(key) {
+    return this.heldKeys.delete(key);
+  }
+
+  clearHeldKeys() {
+    this.heldKeys?.clear();
+  }
+
+  getHeldDirection() {
+    const lastKey = Array.from(this.heldKeys.keys()).at(-1);
+    return lastKey ? this.heldKeys.get(lastKey) : null;
+  }
+
+  continueHeldMovement() {
+    const direction = this.getHeldDirection();
+    if (!direction || this.player.isJumping || this.player.inputBuffer.length > 0) return false;
+    return this.handlePlayerMove(direction, 1, true) === 'moved';
+  }
+
   openGameSettings() {
     if (!this.isGameStarted || this.isGameOver) return;
+    this.clearHeldKeys?.();
     this.isPaused = this.currentMode === 'challenge';
     this.uiManager.showGameSettings(this.currentMode);
   }
@@ -892,6 +944,7 @@ export class Game {
   }
 
   leaveGame() {
+    this.clearHeldKeys?.();
     this.isPaused = false;
     this.uiManager.hideGameSettings();
     this.returnLobby();
@@ -945,6 +998,7 @@ export class Game {
   }
 
   gameOver(reason = '被車撞飛了！') {
+    this.clearHeldKeys?.();
     this.isGameOver = true;
     if (this.currentMode === 'casual') {
       this.matchState = 'finished';
@@ -1012,6 +1066,36 @@ export class Game {
     return this.scheduleCasualDeath(this.player, reason);
   }
 
+  updatePlayerStaminaMarker() {
+    const camera = this.sceneSetup?.camera;
+    const canvas = this.container;
+    if (!camera || !canvas || !this.player) return;
+    const visible = !this.isGameOver
+      && !this.player.isDead
+      && this.player.mesh?.visible !== false;
+    if (!visible) {
+      this.uiManager.updatePlayerStaminaMarker({ visible: false });
+      return;
+    }
+    this.scene.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+    // 水平位置取玩家模型腳底中心；垂直位置取模型頂端。等角鏡頭下高度
+    // 會改變畫面 X，因此不能把帶有高度的幾何中心當作水平錨點。
+    const playerBounds = new THREE.Box3().setFromObject(this.player.mesh);
+    const actorCenter = playerBounds.getCenter(new THREE.Vector3());
+    const groundAnchor = new THREE.Vector3(actorCenter.x, playerBounds.min.y, actorCenter.z).project(camera);
+    const headAnchor = actorCenter.clone();
+    headAnchor.y = playerBounds.max.y;
+    headAnchor.project(camera);
+    const rect = canvas.getBoundingClientRect();
+    this.uiManager.updatePlayerStaminaMarker({
+      x: (groundAnchor.x + 1) * rect.width * .5,
+      y: (1 - headAnchor.y) * rect.height * .5 - 8,
+      ratio: this.player.staminaBarVisual / this.player.maxStamina,
+      visible: true
+    });
+  }
+
   animate() {
     requestAnimationFrame(this.animate);
 
@@ -1029,14 +1113,20 @@ export class Game {
       const wasJumping = this.player.isJumping;
       if (this.isGameStarted && !this.isGameOver) {
         this.player.update(deltaTime);
+        this.uiManager.updateStamina(this.player.stamina, this.player.maxStamina);
+        // 即使後續地形判定提前 return，玩家仍會看見目前可見模型的頭頂體力條。
+        this.updatePlayerStaminaMarker();
         if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
       }
 
       // 玩家暫存的推擠意圖先於 BOT 決策重判：BOT 落地後不會在同一 tick 搶回空格。
-      if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
-        const nextInput = this.player.inputBuffer[0];
-        const inputResult = this.handlePlayerMove(nextInput.direction, nextInput.distance, true);
-        if (inputResult !== 'waiting') this.player.inputBuffer.shift();
+      if (this.isGameStarted && !this.isGameOver && !this.player.isJumping) {
+        if (this.player.inputBuffer.length > 0) {
+          const nextInput = this.player.inputBuffer[0];
+          const inputResult = this.handlePlayerMove(nextInput.direction, nextInput.distance, true);
+          if (inputResult !== 'waiting') this.player.inputBuffer.shift();
+        }
+        if (!this.player.isJumping && this.player.inputBuffer.length === 0) this.continueHeldMovement();
       }
 
       if (this.isGameStarted && !this.isGameOver && this.currentMode === 'casual') {
@@ -1130,6 +1220,7 @@ export class Game {
       // 6. 即時更新相機 3D 視角位置 (主角保持於螢幕下半部偏後區域，視角與競品 100% 對齊)
       const targetCameraZ = (this.isGameStarted ? this.cameraScrollZ : pZ) + CONFIG.CAMERA.TARGET_AHEAD * CONFIG.GRID_SIZE;
       this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ, playerZ: pZ });
+      this.updatePlayerStaminaMarker();
 
       // 5. 碰撞判定 (車輛 / 火車 / 落水)
       if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking && !this.player.isDead && !this.player.isRespawning) {

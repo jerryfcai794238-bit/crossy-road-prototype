@@ -54,6 +54,10 @@ export class UIManager {
     this.itemHud = document.getElementById('item-hud');
     this.itemSlots = document.getElementById('item-slots');
     this.itemHudKey = null;
+    this.staminaText = null;
+    this.playerStaminaMarker = null;
+    this.playerStaminaFill = null;
+    this.createStaminaHud();
 
     let savedHighScore = 0;
     try {
@@ -472,6 +476,65 @@ export class UIManager {
       }
     }
     if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
+  }
+
+  createStaminaHud() {
+    const hud = document.getElementById('hud');
+    if (!hud || document.getElementById('stamina-card')) return;
+    const card = document.createElement('div');
+    card.id = 'stamina-card';
+    card.className = 'score-card';
+    card.setAttribute('aria-label', '體力');
+    const label = document.createElement('span');
+    label.className = 'score-label';
+    label.textContent = '體力';
+    this.staminaText = document.createElement('span');
+    this.staminaText.id = 'stamina-value';
+    this.staminaText.style.color = '#8ff7a7';
+    this.staminaText.textContent = `${CONFIG.PLAYER.MAX_STAMINA}/${CONFIG.PLAYER.MAX_STAMINA}`;
+    card.append(label, this.staminaText);
+    hud.append(card);
+  }
+
+  updateStamina(stamina, maxStamina = CONFIG.PLAYER.MAX_STAMINA) {
+    if (!this.staminaText) return;
+    const current = Math.max(0, Math.min(maxStamina, Math.floor(stamina)));
+    this.staminaText.textContent = `${current}/${maxStamina}`;
+    this.staminaText.style.color = current < maxStamina * .2 ? '#ff8c8c' : current < maxStamina * .5 ? '#ffd166' : '#8ff7a7';
+  }
+
+  createPlayerStaminaMarker() {
+    // 掛在 app 層，而非會被 SceneSetup 清空的 canvas-container。
+    const app = document.getElementById('app');
+    if (!app) return;
+    const existingMarker = document.getElementById('player-stamina-marker');
+    if (existingMarker) {
+      this.playerStaminaMarker = existingMarker;
+      this.playerStaminaFill = existingMarker.querySelector('.player-stamina-fill');
+      return;
+    }
+    const marker = document.createElement('div');
+    marker.id = 'player-stamina-marker';
+    marker.setAttribute('aria-hidden', 'true');
+    const track = document.createElement('div');
+    track.className = 'player-stamina-track';
+    const fill = document.createElement('div');
+    fill.className = 'player-stamina-fill';
+    track.append(fill);
+    marker.append(track);
+    app.append(marker);
+    this.playerStaminaMarker = marker;
+    this.playerStaminaFill = fill;
+  }
+
+  updatePlayerStaminaMarker({ x, y, ratio, visible }) {
+    if (!this.playerStaminaMarker || !this.playerStaminaFill) return;
+    this.playerStaminaMarker.style.display = visible ? 'block' : 'none';
+    if (!visible) return;
+    const safeRatio = Math.max(0, Math.min(1, ratio));
+    this.playerStaminaMarker.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -100%)`;
+    this.playerStaminaFill.style.width = `${safeRatio * 100}%`;
+    this.playerStaminaFill.style.backgroundColor = safeRatio >= .5 ? '#42d66b' : safeRatio >= .2 ? '#f4c542' : '#ef5350';
   }
 
   pulseScoreReward() {

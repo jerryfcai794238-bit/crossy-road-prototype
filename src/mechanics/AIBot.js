@@ -4,7 +4,7 @@ import { getHighestOtherLeaderStrikeTarget } from './LeaderStrikeTargeting.js';
 
 export class AIBot extends Player {
   constructor(mesh, botName, startX = 0, startZ = 0, baseAggression = 0.38) {
-    super(mesh);
+    super(mesh, false);
     this.botName = botName;
     this.startX = startX;
     this.startZ = startZ;

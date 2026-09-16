@@ -22211,7 +22211,7 @@
     MATCH: { CASUAL_DURATION: 120, COUNTDOWN_START: 3, FILL_MS: 230, INITIAL_FILL_MS: 180, COUNTDOWN_MS: 1e3, GO_DISPLAY_MS: 550 },
     RESPAWN: { DEATH_ANIMATION: 0.65, PENALTY: 3, INVULNERABILITY: 1 },
     CAMERA: { START_Z: -3, CHALLENGE_SCROLL_SPEED: 0.45, TARGET_AHEAD: 2.2, ORTHO_SIZE: 4.2, NEAR: 1, FAR: 1e3, OFFSET_X: -10, OFFSET_Y: 14, OFFSET_Z: -10, PIXEL_RATIO_MAX: 2, CHALLENGE_CATCHUP_LERP: 0.18, CASUAL_FOLLOW_LERP: 0.12, CASUAL_BACK_ROWS: 15 },
-    PLAYER: { MAX_HP: 100, DAMAGE_INVULNERABILITY: 2 },
+    PLAYER: { MAX_HP: 100, DAMAGE_INVULNERABILITY: 2, MAX_STAMINA: 100, STAMINA_MOVE_COST: 2, STAMINA_RECOVERY_PER_SECOND: 20 },
     TRAFFIC: { CAR_DAMAGE_BASE: 10, CAR_DAMAGE_SPEED_SCALE: 8, CAR_DAMAGE_CAP: 60, TRAIN_DAMAGE: 70 },
     BOT: { DECISION_MIN: 0.1, DECISION_MAX: 0.22, DECISION_JITTER: 0.03, AGGRESSION_SCALE: 1, INTERFERENCE_THRESHOLD: 0.46, PRESSURE_CHANCE_SCALE: 0.18, ITEM_SEARCH_DEPTH: 5, PATH_SEARCH_DEPTH: 10, REPAIR_WAIT_SECONDS: 0.7, VEHICLE_SAFETY_DISTANCE: 2.2, ACTION_RATE_BASE: 0.93, ACTION_RATE_AGGRESSION: 0.08 },
     MAP: { ROAD_SPEED_MIN: 2, ROAD_SPEED_MAX: 4.2, ROAD_SPEED_RANGE_MIN: 1.2, ROAD_SPEED_RANGE_MAX: 2.3, RIVER_SPEED_MIN: 1.5, RIVER_SPEED_MAX: 3.2, RIVER_SPEED_JITTER: 1, TRAIN_SPEED: 38, TRAIN_WARNING_SECONDS: 2 },
@@ -22998,7 +22998,7 @@
 
   // src/mechanics/Player.js
   var Player = class {
-    constructor(mesh) {
+    constructor(mesh, showStaminaBar = true) {
       this.mesh = mesh;
       this.gridX = 0;
       this.gridZ = 0;
@@ -23026,6 +23026,10 @@
       this.invulnerableTimer = 0;
       this.stunTimer = 0;
       this.controlImmunityTimer = 0;
+      this.maxStamina = CONFIG.PLAYER.MAX_STAMINA;
+      this.stamina = this.maxStamina;
+      this.staminaBarVisual = this.stamina;
+      this.staminaBar = null;
       this.inputBuffer = [];
     }
     reset() {
@@ -23048,6 +23052,9 @@
       this.invulnerableTimer = 0;
       this.stunTimer = 0;
       this.controlImmunityTimer = 0;
+      this.maxStamina = CONFIG.PLAYER.MAX_STAMINA;
+      this.stamina = this.maxStamina;
+      this.staminaBarVisual = this.stamina;
       this.inputBuffer = [];
       this.position.set(0, 0, 0);
       this.startPosition.set(0, 0, 0);
@@ -23079,8 +23086,9 @@
       }
       return { x: targetX, z: targetZ };
     }
-    move(direction, distance = 1) {
+    move(direction, distance = 1, consumeStamina = true) {
       if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return false;
+      if (consumeStamina && !this.canSpendStamina()) return false;
       this.gridX = Math.round(this.position.x / CONFIG.GRID_SIZE);
       this.gridZ = Math.round(this.position.z / CONFIG.GRID_SIZE);
       let newGridX = this.gridX;
@@ -23115,11 +23123,32 @@
       );
       this.isJumping = true;
       this.jumpProgress = 0;
+      if (consumeStamina) {
+        this.stamina = Math.max(0, this.stamina - CONFIG.PLAYER.STAMINA_MOVE_COST);
+      }
       if (this.targetGridZ > this.maxReachedZ) {
         this.maxReachedZ = this.targetGridZ;
         this.score = this.maxReachedZ;
       }
       return true;
+    }
+    canSpendStamina() {
+      return this.stamina >= CONFIG.PLAYER.STAMINA_MOVE_COST;
+    }
+    updateStamina(deltaTime, wasJumping) {
+      if (wasJumping || this.isJumping || this.isDead || this.isRespawning || this.stamina >= this.maxStamina) return;
+      this.stamina = Math.min(this.maxStamina, this.stamina + CONFIG.PLAYER.STAMINA_RECOVERY_PER_SECOND * deltaTime);
+    }
+    updateStaminaBar(deltaTime) {
+      const smoothing = 1 - Math.exp(-deltaTime * 14);
+      this.staminaBarVisual = MathUtils.lerp(this.staminaBarVisual, this.stamina, smoothing);
+      if (!this.staminaBar) return;
+      const ratio = MathUtils.clamp(this.staminaBarVisual / this.maxStamina, 0, 1);
+      const fill = this.staminaBar.userData.staminaFill;
+      fill.scale.set(0.9 * ratio, 0.082, 1);
+      fill.material.color.setHex(ratio >= 0.5 ? 4380267 : ratio >= 0.2 ? 16041282 : 15684432);
+      fill.material.opacity = 1;
+      this.staminaBar.userData.staminaBackground.material.opacity = 0.82;
     }
     addItemScore(points) {
       const reward = Number.isFinite(points) ? points : 0;
@@ -23153,7 +23182,11 @@
     }
     update(deltaTime) {
       const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
-      if (this.isDead) return;
+      const wasJumping = this.isJumping;
+      if (this.isDead) {
+        this.updateStaminaBar(safeDelta);
+        return;
+      }
       if (this.mesh) {
         this.mesh.rotation.y = MathUtils.lerp(
           this.mesh.rotation.y,
@@ -23195,6 +23228,8 @@
       } else if (this.controlImmunityTimer > 0) {
         this.controlImmunityTimer = Math.max(0, this.controlImmunityTimer - safeDelta);
       }
+      this.updateStamina(safeDelta, wasJumping);
+      this.updateStaminaBar(safeDelta);
       if (!Number.isFinite(this.position.x)) this.position.x = this.gridX * CONFIG.GRID_SIZE;
       if (!Number.isFinite(this.position.y)) this.position.y = 0;
       if (!Number.isFinite(this.position.z)) this.position.z = this.gridZ * CONFIG.GRID_SIZE;
@@ -23276,7 +23311,7 @@
   // src/mechanics/AIBot.js
   var AIBot = class extends Player {
     constructor(mesh, botName, startX = 0, startZ = 0, baseAggression = 0.38) {
-      super(mesh);
+      super(mesh, false);
       this.botName = botName;
       this.startX = startX;
       this.startZ = startZ;
@@ -25402,6 +25437,10 @@
       this.itemHud = document.getElementById("item-hud");
       this.itemSlots = document.getElementById("item-slots");
       this.itemHudKey = null;
+      this.staminaText = null;
+      this.playerStaminaMarker = null;
+      this.playerStaminaFill = null;
+      this.createStaminaHud();
       let savedHighScore = 0;
       try {
         savedHighScore = parseInt(localStorage.getItem("crossy_highscore") || "0", 10);
@@ -25785,6 +25824,60 @@
         }
       }
       if (this.highScoreEl) this.highScoreEl.innerText = this.highScore;
+    }
+    createStaminaHud() {
+      const hud = document.getElementById("hud");
+      if (!hud || document.getElementById("stamina-card")) return;
+      const card = document.createElement("div");
+      card.id = "stamina-card";
+      card.className = "score-card";
+      card.setAttribute("aria-label", "\u9AD4\u529B");
+      const label = document.createElement("span");
+      label.className = "score-label";
+      label.textContent = "\u9AD4\u529B";
+      this.staminaText = document.createElement("span");
+      this.staminaText.id = "stamina-value";
+      this.staminaText.style.color = "#8ff7a7";
+      this.staminaText.textContent = `${CONFIG.PLAYER.MAX_STAMINA}/${CONFIG.PLAYER.MAX_STAMINA}`;
+      card.append(label, this.staminaText);
+      hud.append(card);
+    }
+    updateStamina(stamina, maxStamina = CONFIG.PLAYER.MAX_STAMINA) {
+      if (!this.staminaText) return;
+      const current = Math.max(0, Math.min(maxStamina, Math.floor(stamina)));
+      this.staminaText.textContent = `${current}/${maxStamina}`;
+      this.staminaText.style.color = current < maxStamina * 0.2 ? "#ff8c8c" : current < maxStamina * 0.5 ? "#ffd166" : "#8ff7a7";
+    }
+    createPlayerStaminaMarker() {
+      const app = document.getElementById("app");
+      if (!app) return;
+      const existingMarker = document.getElementById("player-stamina-marker");
+      if (existingMarker) {
+        this.playerStaminaMarker = existingMarker;
+        this.playerStaminaFill = existingMarker.querySelector(".player-stamina-fill");
+        return;
+      }
+      const marker = document.createElement("div");
+      marker.id = "player-stamina-marker";
+      marker.setAttribute("aria-hidden", "true");
+      const track = document.createElement("div");
+      track.className = "player-stamina-track";
+      const fill = document.createElement("div");
+      fill.className = "player-stamina-fill";
+      track.append(fill);
+      marker.append(track);
+      app.append(marker);
+      this.playerStaminaMarker = marker;
+      this.playerStaminaFill = fill;
+    }
+    updatePlayerStaminaMarker({ x, y, ratio, visible }) {
+      if (!this.playerStaminaMarker || !this.playerStaminaFill) return;
+      this.playerStaminaMarker.style.display = visible ? "block" : "none";
+      if (!visible) return;
+      const safeRatio = Math.max(0, Math.min(1, ratio));
+      this.playerStaminaMarker.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -100%)`;
+      this.playerStaminaFill.style.width = `${safeRatio * 100}%`;
+      this.playerStaminaFill.style.backgroundColor = safeRatio >= 0.5 ? "#42d66b" : safeRatio >= 0.2 ? "#f4c542" : "#ef5350";
     }
     pulseScoreReward() {
       if (!this.currentScoreEl) return;
@@ -26540,7 +26633,7 @@
   };
 
   // src/main.js
-  var SCORE_ITEM_PROTOTYPE_ENABLED = true;
+  var SCORE_ITEM_PROTOTYPE_ENABLED = false;
   var DYNAMIC_HOLES_PROTOTYPE_ENABLED = true;
   var SPRING_PUNCH_PROTOTYPE_ENABLED = true;
   var LEADER_STRIKE_PROTOTYPE_ENABLED = true;
@@ -26551,6 +26644,7 @@
       this.uiManager = new UIManager();
       this.sceneSetup = new SceneSetup(this.container);
       this.scene = this.sceneSetup.scene;
+      this.uiManager.createPlayerStaminaMarker();
       this.mapGenerator = new MapGenerator(this.scene);
       this.mapGenerator.actorBoundsGetter = () => {
         if (this.currentMode !== "casual") return null;
@@ -26579,6 +26673,7 @@
       this.matchState = "idle";
       this.matchTimer = null;
       this.pendingRespawns = /* @__PURE__ */ new Map();
+      this.heldKeys = /* @__PURE__ */ new Map();
       this.cameraAutoScrollZ = CONFIG.CAMERA.START_Z * CONFIG.GRID_SIZE;
       this.idleTimer = 0;
       this.lastPlayerZ = 0;
@@ -26630,11 +26725,11 @@
       window.addEventListener("keydown", (e) => {
         if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
         const key = e.key.toLowerCase();
-        if (key === "w" || key === "arrowup") this.handlePlayerInput("UP");
-        else if (key === "s" || key === "arrowdown") this.handlePlayerInput("DOWN");
-        else if (key === "a" || key === "arrowleft") this.handlePlayerInput("LEFT");
-        else if (key === "d" || key === "arrowright") this.handlePlayerInput("RIGHT");
+        const direction = this.getKeyboardDirection(key);
+        if (direction) this.handleHeldKeyDown(key, direction);
       });
+      window.addEventListener("keyup", (e) => this.handleHeldKeyUp(e.key.toLowerCase()));
+      window.addEventListener("blur", () => this.heldKeys.clear());
       document.getElementById("btn-up")?.addEventListener("click", () => this.handlePlayerInput("UP"));
       document.getElementById("btn-down")?.addEventListener("click", () => this.handlePlayerInput("DOWN"));
       document.getElementById("btn-left")?.addEventListener("click", () => this.handlePlayerInput("LEFT"));
@@ -26648,6 +26743,10 @@
     handlePlayerInput(direction, distance = 1) {
       if (!this.isGameStarted || this.isGameOver || this.isPaused) return;
       if (this.player.stunTimer > 0) return;
+      if (!this.player.canSpendStamina()) {
+        this.uiManager.showCombatAnnouncement("\u9AD4\u529B\u4E0D\u8DB3\uFF0C\u505C\u7559\u53EF\u6BCF\u79D2\u56DE\u5FA920\u9EDE");
+        return;
+      }
       if (this.player.isJumping) {
         this.player.queueInput(direction, distance);
         return;
@@ -26691,6 +26790,7 @@
     }
     planActorMove(actor, direction, distance = 1) {
       if (actor.isJumping || actor.isDead || actor.isRespawning || actor.stunTimer > 0) return { canMove: false };
+      if (!actor.canSpendStamina()) return { canMove: false, staminaBlocked: true };
       const chain = [actor];
       let target = actor.getTargetGridPosition(direction, distance);
       while (true) {
@@ -26709,11 +26809,12 @@
       return { canMove: true, chain, direction, distance };
     }
     startActorMovePlan(plan) {
-      if (plan.chain.some((chainActor) => chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0)) return false;
+      const [actor] = plan.chain;
+      if (plan.chain.some((chainActor) => chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0) || !actor.canSpendStamina()) return false;
       for (let index = plan.chain.length - 1; index >= 0; index--) {
         const chainActor = plan.chain[index];
         const stepDistance = index === 0 ? plan.distance : 1;
-        if (!chainActor.move(plan.direction, stepDistance)) return false;
+        if (!chainActor.move(plan.direction, stepDistance, index === 0)) return false;
       }
       return true;
     }
@@ -27189,6 +27290,7 @@
     }
     beginCasualMatching() {
       if (this.matchState === "matching" || this.matchState === "countdown" || this.matchState === "started") return;
+      this.clearHeldKeys?.();
       this.matchState = "matching";
       this.isGameStarted = false;
       this.isGameOver = false;
@@ -27196,6 +27298,7 @@
       this.pendingRespawns.clear();
       this.clearBots();
       this.player.reset();
+      this.uiManager.updateStamina(this.player.stamina, this.player.maxStamina);
       this.casualTimeRemaining = this.casualDuration;
       this.uiManager.setMode("casual");
       this.uiManager.updateScore(0);
@@ -27234,6 +27337,7 @@
       this.matchTimer = setTimeout(fillSeat, CONFIG.MATCH.INITIAL_FILL_MS);
     }
     cancelCasualMatching() {
+      this.clearHeldKeys?.();
       if (this.matchTimer) clearTimeout(this.matchTimer);
       this.matchTimer = null;
       this.matchState = "idle";
@@ -27245,6 +27349,7 @@
       this.uiManager.showLobby();
     }
     launchGame(mode = "casual", startImmediately = true) {
+      this.clearHeldKeys?.();
       if (this.matchTimer) clearTimeout(this.matchTimer);
       this.matchTimer = null;
       this.matchState = mode === "casual" ? startImmediately ? "started" : "countdown" : "idle";
@@ -27271,6 +27376,7 @@
         this.eagleMesh = null;
       }
       this.player.reset();
+      this.uiManager.updateStamina(this.player.stamina, this.player.maxStamina);
       this.clearBots();
       this.uiManager.setMode(this.currentMode);
       this.uiManager.updateHealth(this.player.hp);
@@ -27293,6 +27399,7 @@
       this.startGame(mode || this.currentMode);
     }
     returnLobby() {
+      this.clearHeldKeys?.();
       if (this.matchTimer) clearTimeout(this.matchTimer);
       this.matchTimer = null;
       this.cancelEagleAttack();
@@ -27305,8 +27412,37 @@
       this.clearBots();
       this.uiManager.showLobby();
     }
+    getKeyboardDirection(key) {
+      if (key === "w" || key === "arrowup") return "UP";
+      if (key === "s" || key === "arrowdown") return "DOWN";
+      if (key === "a" || key === "arrowleft") return "LEFT";
+      if (key === "d" || key === "arrowright") return "RIGHT";
+      return null;
+    }
+    handleHeldKeyDown(key, direction) {
+      if (this.heldKeys.has(key)) return false;
+      this.heldKeys.set(key, direction);
+      this.handlePlayerInput(direction);
+      return true;
+    }
+    handleHeldKeyUp(key) {
+      return this.heldKeys.delete(key);
+    }
+    clearHeldKeys() {
+      this.heldKeys?.clear();
+    }
+    getHeldDirection() {
+      const lastKey = Array.from(this.heldKeys.keys()).at(-1);
+      return lastKey ? this.heldKeys.get(lastKey) : null;
+    }
+    continueHeldMovement() {
+      const direction = this.getHeldDirection();
+      if (!direction || this.player.isJumping || this.player.inputBuffer.length > 0) return false;
+      return this.handlePlayerMove(direction, 1, true) === "moved";
+    }
     openGameSettings() {
       if (!this.isGameStarted || this.isGameOver) return;
+      this.clearHeldKeys?.();
       this.isPaused = this.currentMode === "challenge";
       this.uiManager.showGameSettings(this.currentMode);
     }
@@ -27316,6 +27452,7 @@
       this.uiManager.btnGameSettings?.focus();
     }
     leaveGame() {
+      this.clearHeldKeys?.();
       this.isPaused = false;
       this.uiManager.hideGameSettings();
       this.returnLobby();
@@ -27363,6 +27500,7 @@
       this.eagleAttackTimer = attackInterval;
     }
     gameOver(reason = "\u88AB\u8ECA\u649E\u98DB\u4E86\uFF01") {
+      this.clearHeldKeys?.();
       this.isGameOver = true;
       if (this.currentMode === "casual") {
         this.matchState = "finished";
@@ -27434,6 +27572,31 @@
     respawnAtCasualCheckpoint(reason = "impact") {
       return this.scheduleCasualDeath(this.player, reason);
     }
+    updatePlayerStaminaMarker() {
+      const camera = this.sceneSetup?.camera;
+      const canvas = this.container;
+      if (!camera || !canvas || !this.player) return;
+      const visible = !this.isGameOver && !this.player.isDead && this.player.mesh?.visible !== false;
+      if (!visible) {
+        this.uiManager.updatePlayerStaminaMarker({ visible: false });
+        return;
+      }
+      this.scene.updateMatrixWorld(true);
+      camera.updateMatrixWorld(true);
+      const playerBounds = new Box3().setFromObject(this.player.mesh);
+      const actorCenter = playerBounds.getCenter(new Vector3());
+      const groundAnchor = new Vector3(actorCenter.x, playerBounds.min.y, actorCenter.z).project(camera);
+      const headAnchor = actorCenter.clone();
+      headAnchor.y = playerBounds.max.y;
+      headAnchor.project(camera);
+      const rect = canvas.getBoundingClientRect();
+      this.uiManager.updatePlayerStaminaMarker({
+        x: (groundAnchor.x + 1) * rect.width * 0.5,
+        y: (1 - headAnchor.y) * rect.height * 0.5 - 8,
+        ratio: this.player.staminaBarVisual / this.player.maxStamina,
+        visible: true
+      });
+    }
     animate() {
       requestAnimationFrame(this.animate);
       try {
@@ -27448,12 +27611,17 @@
         const wasJumping = this.player.isJumping;
         if (this.isGameStarted && !this.isGameOver) {
           this.player.update(deltaTime);
+          this.uiManager.updateStamina(this.player.stamina, this.player.maxStamina);
+          this.updatePlayerStaminaMarker();
           if (wasJumping && !this.player.isJumping) this.handlePlayerLanded();
         }
-        if (!this.player.isJumping && this.player.inputBuffer.length > 0) {
-          const nextInput = this.player.inputBuffer[0];
-          const inputResult = this.handlePlayerMove(nextInput.direction, nextInput.distance, true);
-          if (inputResult !== "waiting") this.player.inputBuffer.shift();
+        if (this.isGameStarted && !this.isGameOver && !this.player.isJumping) {
+          if (this.player.inputBuffer.length > 0) {
+            const nextInput = this.player.inputBuffer[0];
+            const inputResult = this.handlePlayerMove(nextInput.direction, nextInput.distance, true);
+            if (inputResult !== "waiting") this.player.inputBuffer.shift();
+          }
+          if (!this.player.isJumping && this.player.inputBuffer.length === 0) this.continueHeldMovement();
         }
         if (this.isGameStarted && !this.isGameOver && this.currentMode === "casual") {
           this.bots.forEach((bot) => {
@@ -27530,6 +27698,7 @@
         }
         const targetCameraZ = (this.isGameStarted ? this.cameraScrollZ : pZ) + CONFIG.CAMERA.TARGET_AHEAD * CONFIG.GRID_SIZE;
         this.sceneSetup.updateCamera({ x: pX, z: targetCameraZ, playerZ: pZ });
+        this.updatePlayerStaminaMarker();
         if (this.isGameStarted && !this.isGameOver && !this.isEagleAttacking && !this.player.isDead && !this.player.isRespawning) {
           const hitObstacle = this.physics.checkObstacleCollision(this.player, activeRows);
           if (hitObstacle && !this.player.isInvulnerable) {

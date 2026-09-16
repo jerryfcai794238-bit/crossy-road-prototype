@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
 export class Player {
-  constructor(mesh) {
+  constructor(mesh, showStaminaBar = true) {
     this.mesh = mesh;
     this.gridX = 0;
     this.gridZ = 0;
@@ -37,6 +37,12 @@ export class Player {
     this.stunTimer = 0;
     this.controlImmunityTimer = 0;
 
+    this.maxStamina = CONFIG.PLAYER.MAX_STAMINA;
+    this.stamina = this.maxStamina;
+    this.staminaBarVisual = this.stamina;
+    // 玩家可見體力條由 Game 投影為螢幕 HUD；不再建立會被等角鏡頭扭曲的 3D Sprite。
+    this.staminaBar = null;
+
     this.inputBuffer = [];
   }
 
@@ -61,6 +67,9 @@ export class Player {
     this.invulnerableTimer = 0;
     this.stunTimer = 0;
     this.controlImmunityTimer = 0;
+    this.maxStamina = CONFIG.PLAYER.MAX_STAMINA;
+    this.stamina = this.maxStamina;
+    this.staminaBarVisual = this.stamina;
     this.inputBuffer = [];
 
     this.position.set(0, 0, 0);
@@ -90,8 +99,9 @@ export class Player {
     return { x: targetX, z: targetZ };
   }
 
-  move(direction, distance = 1) {
+  move(direction, distance = 1, consumeStamina = true) {
     if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return false;
+    if (consumeStamina && !this.canSpendStamina()) return false;
 
     this.gridX = Math.round(this.position.x / CONFIG.GRID_SIZE);
     this.gridZ = Math.round(this.position.z / CONFIG.GRID_SIZE);
@@ -133,6 +143,9 @@ export class Player {
 
     this.isJumping = true;
     this.jumpProgress = 0;
+    if (consumeStamina) {
+      this.stamina = Math.max(0, this.stamina - CONFIG.PLAYER.STAMINA_MOVE_COST);
+    }
 
     if (this.targetGridZ > this.maxReachedZ) {
       this.maxReachedZ = this.targetGridZ;
@@ -142,6 +155,27 @@ export class Player {
     }
 
     return true;
+  }
+
+  canSpendStamina() {
+    return this.stamina >= CONFIG.PLAYER.STAMINA_MOVE_COST;
+  }
+
+  updateStamina(deltaTime, wasJumping) {
+    if (wasJumping || this.isJumping || this.isDead || this.isRespawning || this.stamina >= this.maxStamina) return;
+    this.stamina = Math.min(this.maxStamina, this.stamina + CONFIG.PLAYER.STAMINA_RECOVERY_PER_SECOND * deltaTime);
+  }
+
+  updateStaminaBar(deltaTime) {
+    const smoothing = 1 - Math.exp(-deltaTime * 14);
+    this.staminaBarVisual = THREE.MathUtils.lerp(this.staminaBarVisual, this.stamina, smoothing);
+    if (!this.staminaBar) return;
+    const ratio = THREE.MathUtils.clamp(this.staminaBarVisual / this.maxStamina, 0, 1);
+    const fill = this.staminaBar.userData.staminaFill;
+    fill.scale.set(0.9 * ratio, 0.082, 1);
+    fill.material.color.setHex(ratio >= 0.5 ? 0x42d66b : ratio >= 0.2 ? 0xf4c542 : 0xef5350);
+    fill.material.opacity = 1;
+    this.staminaBar.userData.staminaBackground.material.opacity = 0.82;
   }
 
   addItemScore(points) {
@@ -171,9 +205,13 @@ export class Player {
 
   update(deltaTime) {
     const safeDelta = Number.isFinite(deltaTime) && deltaTime > 0 ? Math.min(deltaTime, 0.1) : 0.016;
+    const wasJumping = this.isJumping;
     // Casual 死亡倒數期間角色已由 schedule 隱藏；不得被無敵閃爍重新顯示。
     // Challenge 的扁平／淹水死亡姿態也會原樣停留。
-    if (this.isDead) return;
+    if (this.isDead) {
+      this.updateStaminaBar(safeDelta);
+      return;
+    }
 
     if (this.mesh) {
       this.mesh.rotation.y = THREE.MathUtils.lerp(
@@ -222,6 +260,9 @@ export class Player {
     } else if (this.controlImmunityTimer > 0) {
       this.controlImmunityTimer = Math.max(0, this.controlImmunityTimer - safeDelta);
     }
+
+    this.updateStamina(safeDelta, wasJumping);
+    this.updateStaminaBar(safeDelta);
 
     // 座標 NaN 安全對齊
     if (!Number.isFinite(this.position.x)) this.position.x = this.gridX * CONFIG.GRID_SIZE;

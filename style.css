@@ -38,6 +38,32 @@ body, html {
   z-index: 1;
 }
 
+#player-stamina-marker {
+  position: absolute;
+  z-index: 3;
+  display: none;
+  pointer-events: none;
+  width: 76px;
+  height: 10px;
+}
+
+.player-stamina-track {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: rgba(23, 32, 51, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.player-stamina-fill {
+  width: 100%;
+  height: 100%;
+  background: #42d66b;
+  transition: width 80ms linear, background-color 120ms linear;
+}
+
 /* 🟥 100 HP 紅色長血條 (Red Health Bar) */
 #health-bar-container {
   position: absolute;
