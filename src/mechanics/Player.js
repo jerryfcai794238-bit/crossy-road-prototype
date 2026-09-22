@@ -161,6 +161,10 @@ export class Player {
     return this.stamina >= CONFIG.PLAYER.STAMINA_MOVE_COST;
   }
 
+  requiresStaminaForActiveMove() {
+    return true;
+  }
+
   updateStamina(deltaTime, wasJumping) {
     if (wasJumping || this.isJumping || this.isDead || this.isRespawning || this.stamina >= this.maxStamina) return;
     this.stamina = Math.min(this.maxStamina, this.stamina + CONFIG.PLAYER.STAMINA_RECOVERY_PER_SECOND * deltaTime);

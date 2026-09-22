@@ -11,7 +11,7 @@ export class AIBot extends Player {
     this.baseAggression = baseAggression;
     this.decisionTimer = 0;
     // 個別節奏避免七隻 BOT 同拍跳躍；速度仍限制在人類可追蹤的範圍。
-    this.decisionInterval = CONFIG.BOT.DECISION_MIN + ((botName.length + Math.round(baseAggression * 10)) % 4) * 0.02;
+    this.decisionInterval = this.getDecisionInterval(CONFIG.BOT.DECISION_MIN + ((botName.length + Math.round(baseAggression * 10)) % 4) * 0.02);
     this.routeBias = (botName.length + Math.round(baseAggression * 100)) % 2 === 0 ? 'LEFT' : 'RIGHT';
     this.lastDirection = null;
     this.lateralCooldown = 0;
@@ -31,6 +31,7 @@ export class AIBot extends Player {
 
   resetAt(startX, startZ) {
     this.reset();
+    this.decisionTimer = 0;
     this.gridX = startX;
     this.gridZ = startZ;
     this.targetGridX = startX;
@@ -62,20 +63,35 @@ export class AIBot extends Player {
     }
   }
 
-  updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null, springPunchItems = [], leaderStrikeItems = [], springPunches = [], actors = [], isActiveHazard = null) {
-    if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return;
+  requiresStaminaForActiveMove() {
+    return false;
+  }
 
-    this.decisionTimer += deltaTime;
+  getDecisionRate() {
+    return Math.min(1, Math.max(0.1, CONFIG.BOT.ACTION_RATE_BASE + this.baseAggression * CONFIG.BOT.AGGRESSION_SCALE * CONFIG.BOT.ACTION_RATE_AGGRESSION));
+  }
+
+  getDecisionInterval(baseInterval) {
+    const decisionRate = this.getDecisionRate();
+    return Math.max(CONFIG.BOT.DECISION_MIN, Math.min(CONFIG.BOT.DECISION_MAX, baseInterval / decisionRate));
+  }
+
+  updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null, springPunchItems = [], leaderStrikeItems = [], springPunches = [], actors = [], isActiveHazard = null) {
+    // 跳躍期間仍累積下一次判斷時間；落地時若已到門檻可立刻接續移動，
+    // 但不在空中重新規劃或略過既有落點/reservation 的合法性檢查。
+    // 只保留一次待處理決策，長時間跳躍、死亡或暈眩不會累積多步債務。
+    this.decisionTimer = Math.min(this.decisionInterval, this.decisionTimer + deltaTime);
     this.lateralCooldown = Math.max(0, this.lateralCooldown - deltaTime);
     this.retreatCooldown = Math.max(0, this.retreatCooldown - deltaTime);
     this.scoreItemRetryCooldown = Math.max(0, this.scoreItemRetryCooldown - deltaTime);
     this.springPunchDodgeCooldown = Math.max(0, this.springPunchDodgeCooldown - deltaTime);
     this.interferenceCooldown = Math.max(0, this.interferenceCooldown - deltaTime);
     if (this.scoreItemRetryCooldown === 0) this.scoreItemIgnoredId = null;
+    if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return;
     if (this.decisionTimer < this.decisionInterval) return;
-    this.decisionTimer = 0;
+    this.decisionTimer -= this.decisionInterval;
     // 有界反應抖動：各 BOT 不會同步，但絕不慢到停止前進。
-    this.decisionInterval = Math.max(CONFIG.BOT.DECISION_MIN, Math.min(CONFIG.BOT.DECISION_MAX, this.decisionInterval + (Math.random() - 0.5) * CONFIG.BOT.DECISION_JITTER));
+    this.decisionInterval = this.getDecisionInterval(this.decisionInterval * this.getDecisionRate() + (Math.random() - 0.5) * CONFIG.BOT.DECISION_JITTER);
 
     const dodgeDirection = this.findSpringPunchDodgeDirection(springPunches, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
     const itemDirection = dodgeDirection || this.findLeaderStrikeItemDirection(leaderStrikeItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findSpringPunchItemDirection(springPunchItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
@@ -100,9 +116,9 @@ export class AIBot extends Player {
     }
     this.waitedForPath = false;
 
-    const actionRate = Math.min(0.995, CONFIG.BOT.ACTION_RATE_BASE + this.baseAggression * CONFIG.BOT.AGGRESSION_SCALE * CONFIG.BOT.ACTION_RATE_AGGRESSION);
-    if (Math.random() >= actionRate) return;
-    const moved = tryMove ? tryMove(this, direction) : this.move(direction);
+    // 方向已經過完整安全、佔格與 reservation 判斷；不再用隨機 no-op
+    // 額外插入無理由停頓，失敗仍交給既有退避與重規劃流程處理。
+    const moved = tryMove ? tryMove(this, direction) : this.move(direction, 1, this.requiresStaminaForActiveMove());
     if (!moved) {
       if (itemDirection && ++this.scoreItemBlockedAttempts >= 3) {
         this.scoreItemIgnoredId = this.scoreItemTarget;
@@ -339,7 +355,7 @@ export class AIBot extends Player {
     if (!this.isCellSafe(targetPos, activeRows, physics, CONFIG.JUMP_DURATION || 0.16, isDynamicHoleUnsafe)) return false;
     if (canMove && !canMove(this, 'DOWN')) return false;
 
-    const moved = tryMove ? tryMove(this, 'DOWN') : this.move('DOWN');
+    const moved = tryMove ? tryMove(this, 'DOWN') : this.move('DOWN', 1, this.requiresStaminaForActiveMove());
     if (moved) {
       this.lastDirection = 'DOWN';
       this.retreatCooldown = 0.7;

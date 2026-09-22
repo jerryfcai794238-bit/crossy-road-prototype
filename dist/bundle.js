@@ -23135,6 +23135,9 @@
     canSpendStamina() {
       return this.stamina >= CONFIG.PLAYER.STAMINA_MOVE_COST;
     }
+    requiresStaminaForActiveMove() {
+      return true;
+    }
     updateStamina(deltaTime, wasJumping) {
       if (wasJumping || this.isJumping || this.isDead || this.isRespawning || this.stamina >= this.maxStamina) return;
       this.stamina = Math.min(this.maxStamina, this.stamina + CONFIG.PLAYER.STAMINA_RECOVERY_PER_SECOND * deltaTime);
@@ -23317,7 +23320,7 @@
       this.startZ = startZ;
       this.baseAggression = baseAggression;
       this.decisionTimer = 0;
-      this.decisionInterval = CONFIG.BOT.DECISION_MIN + (botName.length + Math.round(baseAggression * 10)) % 4 * 0.02;
+      this.decisionInterval = this.getDecisionInterval(CONFIG.BOT.DECISION_MIN + (botName.length + Math.round(baseAggression * 10)) % 4 * 0.02);
       this.routeBias = (botName.length + Math.round(baseAggression * 100)) % 2 === 0 ? "LEFT" : "RIGHT";
       this.lastDirection = null;
       this.lateralCooldown = 0;
@@ -23336,6 +23339,7 @@
     }
     resetAt(startX, startZ) {
       this.reset();
+      this.decisionTimer = 0;
       this.gridX = startX;
       this.gridZ = startZ;
       this.targetGridX = startX;
@@ -23365,18 +23369,28 @@
         this.checkpoint = { x: this.gridX, z: this.gridZ };
       }
     }
+    requiresStaminaForActiveMove() {
+      return false;
+    }
+    getDecisionRate() {
+      return Math.min(1, Math.max(0.1, CONFIG.BOT.ACTION_RATE_BASE + this.baseAggression * CONFIG.BOT.AGGRESSION_SCALE * CONFIG.BOT.ACTION_RATE_AGGRESSION));
+    }
+    getDecisionInterval(baseInterval) {
+      const decisionRate = this.getDecisionRate();
+      return Math.max(CONFIG.BOT.DECISION_MIN, Math.min(CONFIG.BOT.DECISION_MAX, baseInterval / decisionRate));
+    }
     updateAI(deltaTime, activeRows, physics, tryMove = null, canMove = null, scoreItems = [], canEnterCell = null, isDynamicHoleUnsafe = null, getDynamicHoleRepairTime = null, springPunchItems = [], leaderStrikeItems = [], springPunches = [], actors = [], isActiveHazard = null) {
-      if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return;
-      this.decisionTimer += deltaTime;
+      this.decisionTimer = Math.min(this.decisionInterval, this.decisionTimer + deltaTime);
       this.lateralCooldown = Math.max(0, this.lateralCooldown - deltaTime);
       this.retreatCooldown = Math.max(0, this.retreatCooldown - deltaTime);
       this.scoreItemRetryCooldown = Math.max(0, this.scoreItemRetryCooldown - deltaTime);
       this.springPunchDodgeCooldown = Math.max(0, this.springPunchDodgeCooldown - deltaTime);
       this.interferenceCooldown = Math.max(0, this.interferenceCooldown - deltaTime);
       if (this.scoreItemRetryCooldown === 0) this.scoreItemIgnoredId = null;
+      if (this.isJumping || this.isRespawning || this.isDead || this.stunTimer > 0) return;
       if (this.decisionTimer < this.decisionInterval) return;
-      this.decisionTimer = 0;
-      this.decisionInterval = Math.max(CONFIG.BOT.DECISION_MIN, Math.min(CONFIG.BOT.DECISION_MAX, this.decisionInterval + (Math.random() - 0.5) * CONFIG.BOT.DECISION_JITTER));
+      this.decisionTimer -= this.decisionInterval;
+      this.decisionInterval = this.getDecisionInterval(this.decisionInterval * this.getDecisionRate() + (Math.random() - 0.5) * CONFIG.BOT.DECISION_JITTER);
       const dodgeDirection = this.findSpringPunchDodgeDirection(springPunches, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
       const itemDirection = dodgeDirection || this.findLeaderStrikeItemDirection(leaderStrikeItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findSpringPunchItemDirection(springPunchItems, actors, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe) || this.findScoreItemDirection(scoreItems, activeRows, physics, canMove, canEnterCell, isDynamicHoleUnsafe);
       const interfereDirection = !dodgeDirection && this.findInterferenceDirection(actors, activeRows, physics, canMove, isDynamicHoleUnsafe, isActiveHazard);
@@ -23398,9 +23412,7 @@
         return;
       }
       this.waitedForPath = false;
-      const actionRate = Math.min(0.995, CONFIG.BOT.ACTION_RATE_BASE + this.baseAggression * CONFIG.BOT.AGGRESSION_SCALE * CONFIG.BOT.ACTION_RATE_AGGRESSION);
-      if (Math.random() >= actionRate) return;
-      const moved = tryMove ? tryMove(this, direction) : this.move(direction);
+      const moved = tryMove ? tryMove(this, direction) : this.move(direction, 1, this.requiresStaminaForActiveMove());
       if (!moved) {
         if (itemDirection && ++this.scoreItemBlockedAttempts >= 3) {
           this.scoreItemIgnoredId = this.scoreItemTarget;
@@ -23604,7 +23616,7 @@
       if (targetPos.z < lowestReachableZ || Math.abs(targetPos.x) > CONFIG.MAP_BOUNDS_X) return false;
       if (!this.isCellSafe(targetPos, activeRows, physics, CONFIG.JUMP_DURATION || 0.16, isDynamicHoleUnsafe)) return false;
       if (canMove && !canMove(this, "DOWN")) return false;
-      const moved = tryMove ? tryMove(this, "DOWN") : this.move("DOWN");
+      const moved = tryMove ? tryMove(this, "DOWN") : this.move("DOWN", 1, this.requiresStaminaForActiveMove());
       if (moved) {
         this.lastDirection = "DOWN";
         this.retreatCooldown = 0.7;
@@ -26790,7 +26802,7 @@
     }
     planActorMove(actor, direction, distance = 1) {
       if (actor.isJumping || actor.isDead || actor.isRespawning || actor.stunTimer > 0) return { canMove: false };
-      if (!actor.canSpendStamina()) return { canMove: false, staminaBlocked: true };
+      if (actor.requiresStaminaForActiveMove() && !actor.canSpendStamina()) return { canMove: false, staminaBlocked: true };
       const chain = [actor];
       let target = actor.getTargetGridPosition(direction, distance);
       while (true) {
@@ -26810,11 +26822,11 @@
     }
     startActorMovePlan(plan) {
       const [actor] = plan.chain;
-      if (plan.chain.some((chainActor) => chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0) || !actor.canSpendStamina()) return false;
+      if (plan.chain.some((chainActor) => chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0) || actor.requiresStaminaForActiveMove() && !actor.canSpendStamina()) return false;
       for (let index = plan.chain.length - 1; index >= 0; index--) {
         const chainActor = plan.chain[index];
         const stepDistance = index === 0 ? plan.distance : 1;
-        if (!chainActor.move(plan.direction, stepDistance, index === 0)) return false;
+        if (!chainActor.move(plan.direction, stepDistance, index === 0 && actor.requiresStaminaForActiveMove())) return false;
       }
       return true;
     }
@@ -26856,8 +26868,8 @@
     refreshLeaderboard() {
       if (this.currentMode !== "casual") return;
       const entries = [
-        { name: "\u73A9\u5BB6", score: this.player.gridZ, isPlayer: true, order: 0 },
-        ...this.bots.map((bot, index) => ({ name: bot.botName, score: bot.gridZ, isPlayer: false, order: index + 1 }))
+        { name: "\u73A9\u5BB6", score: Math.max(0, this.player.gridZ), isPlayer: true, order: 0 },
+        ...this.bots.map((bot, index) => ({ name: bot.botName, score: Math.max(0, bot.gridZ), isPlayer: false, order: index + 1 }))
       ];
       this.uiManager.updateLeaderboard(entries);
     }

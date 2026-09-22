@@ -53,6 +53,18 @@ assert.ok(visibleBarPlayer.staminaBarVisual < visibleBarPlayer.maxStamina, 'low 
 const botMesh = new THREE.Group();
 const bot = new AIBot(botMesh, '無條BOT');
 assert.equal(bot.staminaBar, null, 'bots do not create overhead stamina bars');
+assert.equal(bot.requiresStaminaForActiveMove(), false, 'BOT autonomous moves explicitly opt out of player stamina spending');
+
+const botMoveGame = Object.create(Game.prototype);
+botMoveGame.getActiveActors = () => [bot];
+botMoveGame.canActorEnter = () => true;
+bot.stamina = 0;
+for (let index = 0; index < 55; index++) {
+  assert.equal(botMoveGame.tryMoveActor(bot, 'UP'), true, `BOT move ${index + 1} remains legal without player stamina`);
+  bot.isJumping = false;
+  bot.position.copy(bot.targetPosition);
+}
+assert.equal(bot.stamina, 0, 'more than 50 autonomous BOT moves do not consume or require stamina');
 
 const setGridPosition = (actor, z) => {
   actor.gridZ = z;
@@ -148,18 +160,20 @@ assert.match(gameSource, /this\.player\.update\(deltaTime\);\s*this\.uiManager\.
 assert.match(uiSource, /player-stamina-marker/, 'only the UI manager creates the projected player stamina marker');
 assert.match(uiSource, /existingMarker\.querySelector\('\.player-stamina-fill'\)/, 'a surviving marker is rebound after a UI reload instead of being silently ignored');
 assert.match(uiSource, /translate3d\(\$\{x\}px, \$\{y\}px, 0\) translate\(-50%, -100%\)/, 'the marker centers its screen-space bar directly above the projected head point');
-for (const method of ['beginCasualMatching()', 'launchGame(mode = \'casual\', startImmediately = true)']) {
-  const methodStart = gameSource.indexOf(method);
+const getGameMethodBody = (method) => {
+  const methodStart = gameSource.indexOf(`\n  ${method}`);
+  assert.notEqual(methodStart, -1, `${method} class method must exist`);
   const methodEnd = gameSource.indexOf('\n  }\n', methodStart);
-  const body = gameSource.slice(methodStart, methodEnd);
+  return gameSource.slice(methodStart, methodEnd);
+};
+for (const method of ['beginCasualMatching()', 'launchGame(mode = \'casual\', startImmediately = true)']) {
+  const body = getGameMethodBody(method);
   assert.match(body, /this\.player\.reset\(\);\s*this\.uiManager\.updateStamina\(this\.player\.stamina, this\.player\.maxStamina\);/, `${method} resets the HUD stamina with the player`);
 }
 for (const method of ['beginCasualMatching()', 'cancelCasualMatching()', 'launchGame(mode = \'casual\', startImmediately = true)', 'returnLobby()', 'openGameSettings()', 'leaveGame()', "gameOver(reason = '被車撞飛了！')"]) {
-  const methodStart = gameSource.indexOf(method);
-  const methodEnd = gameSource.indexOf('\n  }\n', methodStart);
-  const body = gameSource.slice(methodStart, methodEnd);
+  const body = getGameMethodBody(method);
   assert.match(body, /this\.clearHeldKeys\?\.\(\);/, `${method} clears held movement at its lifecycle boundary`);
 }
-assert.match(gameSource, /const \[actor\] = plan\.chain;[\s\S]*?!actor\.canSpendStamina\(\)/, 'only the push initiator must have stamina when starting a chain');
-assert.match(gameSource, /chainActor\.move\(plan\.direction, stepDistance, index === 0\)/, 'only the chain initiator pays stamina; pushed actors move passively');
+assert.match(gameSource, /const \[actor\] = plan\.chain;[\s\S]*?actor\.requiresStaminaForActiveMove\(\) && !actor\.canSpendStamina\(\)/, 'only stamina-requiring initiators must pass the active-move stamina gate');
+assert.match(gameSource, /chainActor\.move\(plan\.direction, stepDistance, index === 0 && actor\.requiresStaminaForActiveMove\(\)\)/, 'only stamina-requiring initiators pay stamina while pushed actors move passively');
 console.log('stamina mechanics: passed');

@@ -214,7 +214,7 @@ export class Game {
 
   planActorMove(actor, direction, distance = 1) {
     if (actor.isJumping || actor.isDead || actor.isRespawning || actor.stunTimer > 0) return { canMove: false };
-    if (!actor.canSpendStamina()) return { canMove: false, staminaBlocked: true };
+    if (actor.requiresStaminaForActiveMove() && !actor.canSpendStamina()) return { canMove: false, staminaBlocked: true };
 
     const chain = [actor];
     let target = actor.getTargetGridPosition(direction, distance);
@@ -253,11 +253,11 @@ export class Game {
     const [actor] = plan.chain;
     if (plan.chain.some((chainActor) => (
       chainActor.isJumping || chainActor.isDead || chainActor.isRespawning || chainActor.stunTimer > 0
-    )) || !actor.canSpendStamina()) return false;
+    )) || (actor.requiresStaminaForActiveMove() && !actor.canSpendStamina())) return false;
     for (let index = plan.chain.length - 1; index >= 0; index--) {
       const chainActor = plan.chain[index];
       const stepDistance = index === 0 ? plan.distance : 1;
-      if (!chainActor.move(plan.direction, stepDistance, index === 0)) return false;
+      if (!chainActor.move(plan.direction, stepDistance, index === 0 && actor.requiresStaminaForActiveMove())) return false;
     }
     return true;
   }
@@ -305,8 +305,8 @@ export class Game {
   refreshLeaderboard() {
     if (this.currentMode !== 'casual') return;
     const entries = [
-      { name: '玩家', score: this.player.gridZ, isPlayer: true, order: 0 },
-      ...this.bots.map((bot, index) => ({ name: bot.botName, score: bot.gridZ, isPlayer: false, order: index + 1 }))
+      { name: '玩家', score: Math.max(0, this.player.gridZ), isPlayer: true, order: 0 },
+      ...this.bots.map((bot, index) => ({ name: bot.botName, score: Math.max(0, bot.gridZ), isPlayer: false, order: index + 1 }))
     ];
     this.uiManager.updateLeaderboard(entries);
   }
